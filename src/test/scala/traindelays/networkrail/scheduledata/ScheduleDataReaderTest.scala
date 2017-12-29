@@ -1,11 +1,11 @@
 package traindelays.networkrail.scheduledata
 
 import java.nio.file.Paths
-import java.time.LocalDate
+import java.time.{LocalDate, LocalTime}
 
-import org.scalatest.Matchers._
 import org.scalatest.FlatSpec
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
+import org.scalatest.Matchers._
+import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
 class ScheduleDataReaderTest extends FlatSpec {
 
@@ -21,11 +21,19 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe ScheduleRecord(
       "G76481",
       "24745000",
-      "1111100",
+      DaysRun(monday = true,
+              tuesday = true,
+              wednesday = true,
+              thursday = true,
+              friday = true,
+              saturday = false,
+              sunday = false),
       LocalDate.parse("2017-12-11"),
       LocalDate.parse("2017-12-29"),
-      List(ScheduleLocationRecord("LO", "REIGATE", None, Some("0649")),
-           ScheduleLocationRecord("LT", "REDHILL", Some("0653"), None))
+      List(
+        ScheduleLocationRecord("LO", "REIGATE", None, Some(LocalTime.parse("0649", timeFormatter))),
+        ScheduleLocationRecord("LT", "REDHILL", Some(LocalTime.parse("0653", timeFormatter)), None)
+      )
     )
   }
 
@@ -35,7 +43,6 @@ class ScheduleDataReaderTest extends FlatSpec {
     val reader = ScheduleDataReader(source)
 
     val result = reader.readData[TipLocRecord].runLog.unsafeRunSync().toList
-    println(result.size)
     result should have size 14
     result.head shouldBe TipLocRecord("REDH316", "REDHILL SIGNAL T1316")
 

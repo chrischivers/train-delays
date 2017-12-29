@@ -1,20 +1,24 @@
 package traindelays.networkrail
 
-import java.time.LocalDate
+import java.text.SimpleDateFormat
+import java.time.format.DateTimeFormatter
+import java.time.{LocalDate, LocalTime}
 
 import io.circe.Decoder.Result
 import io.circe.{Decoder, HCursor, Json}
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
+import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
 package object scheduledata {
+
+  val timeFormatter = DateTimeFormatter.ofPattern("HHmm")
 
   sealed trait JsonFilter[A] {
     implicit val filter: (Json => Boolean)
   }
 
-  case class ScheduleRecord(CIFTrainUid: String,
+  case class ScheduleRecord(trainUid: String,
                             trainServiceCode: String,
-                            daysRun: String,
+                            daysRun: DaysRun,
                             scheduleStartDate: LocalDate,
                             scheduleEndDate: LocalDate,
                             locationRecords: List[ScheduleLocationRecord])
@@ -24,6 +28,13 @@ package object scheduledata {
     implicit case object JsonFilter extends JsonFilter[ScheduleRecord] {
       override implicit val filter
         : Json => Boolean = _.hcursor.downField("JsonScheduleV1").downField("train_status").as[String] == Right("P")
+    }
+
+    private def daysRunFrom(daysRun: String): DaysRun = {
+      //TODO handle error
+      assert(daysRun.length == 7 && daysRun.forall(char => char == '1' || char == '0'))
+      val boolVec = daysRun.foldLeft(Vector[Boolean]())((vec, char) => vec :+ (if (char == '1') true else false))
+      DaysRun(boolVec(0), boolVec(1), boolVec(2), boolVec(3), boolVec(4), boolVec(5), boolVec(6))
     }
 
     implicit val localDateDecoder: Decoder[LocalDate] {
@@ -47,17 +58,27 @@ package object scheduledata {
           serviceCode         <- scheduleSegment.downField("CIF_train_service_code").as[String]
           locationRecordArray <- scheduleSegment.downField("schedule_location").as[List[ScheduleLocationRecord]]
         } yield {
-          ScheduleRecord(trainUid, serviceCode, daysRun, scheduleStartDate, scheduleEndDate, locationRecordArray)
+          ScheduleRecord(trainUid,
+                         serviceCode,
+                         daysRunFrom(daysRun),
+                         scheduleStartDate,
+                         scheduleEndDate,
+                         locationRecordArray)
         }
       }
     }
 
     case class ScheduleLocationRecord(locationType: String,
                                       tiplocCode: String,
-                                      arrivalTime: Option[String],
-                                      departureTime: Option[String])
+                                      arrivalTime: Option[LocalTime],
+                                      departureTime: Option[LocalTime])
 
     object ScheduleLocationRecord {
+
+      import io.circe.java8.time.decodeLocalTime
+
+      implicit final val localTimeDecoder: Decoder[LocalTime] =
+        decodeLocalTime(timeFormatter)
 
       implicit val scheduleLocationRecordDecoder: Decoder[ScheduleLocationRecord] {
         def apply(c: HCursor): Result[ScheduleLocationRecord]
@@ -66,13 +87,21 @@ package object scheduledata {
           for {
             locationType  <- c.downField("location_type").as[String]
             tiplocCode    <- c.downField("tiploc_code").as[String]
-            departureTime <- c.downField("departure").as[Option[String]]
-            arrivalTime   <- c.downField("arrival").as[Option[String]]
+            departureTime <- c.downField("public_departure").as[Option[LocalTime]]
+            arrivalTime   <- c.downField("public_arrival").as[Option[LocalTime]]
           } yield {
             ScheduleLocationRecord(locationType, tiplocCode, arrivalTime, departureTime)
           }
       }
     }
+
+    case class DaysRun(monday: Boolean,
+                       tuesday: Boolean,
+                       wednesday: Boolean,
+                       thursday: Boolean,
+                       friday: Boolean,
+                       saturday: Boolean,
+                       sunday: Boolean)
 
   }
 
