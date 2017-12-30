@@ -1,10 +1,15 @@
 package traindelays.networkrail
 
 import java.nio.file.Paths
+import java.util
 
 import cats.effect.IO
+import com.typesafe.scalalogging.StrictLogging
 import org.http4s.client.blaze.PooledHttp1Client
+import traindelays.stomp.StompHandler
 import traindelays.{ConfigLoader, TrainDelaysConfig}
+
+import scala.collection.mutable.ListBuffer
 
 trait IntegrationTest {
 
@@ -13,10 +18,21 @@ trait IntegrationTest {
   private val defaultConfig: TrainDelaysConfig = ConfigLoader.defaultConfig
   val testconfig: TrainDelaysConfig = defaultConfig.copy(
     networkRailConfig = defaultConfig.networkRailConfig.copy(
-      scheduleDataConf = defaultConfig.networkRailConfig.scheduleDataConf
+      scheduleData = defaultConfig.networkRailConfig.scheduleData
         .copy(
           tmpDownloadLocation = Paths.get(getClass.getResource("/southern-toc-schedule-test.gz").getPath),
           tmpUnzipLocation = Paths.get("/tmp/southern-toc-schedule-test.dat")
         )))
+
+  class MovementsHandlerWatcher extends StompHandler with StrictLogging {
+
+    var messagesReceived = ListBuffer[String]()
+
+    override def message(headers: util.Map[_, _], body: String): Unit = {
+      println(s"Received message with headers [$headers] and body [$body]")
+      messagesReceived += body
+
+    }
+  }
 
 }

@@ -19,26 +19,26 @@ class NetworkRailClientIntegrationTest
   ignore should "download schedule data from server to tmp directory" in {
 
     val configWithTmpDownloadLocation = testconfig.networkRailConfig.copy(
-      scheduleDataConf = testconfig.networkRailConfig.scheduleDataConf
+      scheduleData = testconfig.networkRailConfig.scheduleData
         .copy(tmpDownloadLocation = Paths.get("/tmp/network-rail-test-download.gz")))
 
     val networkRailClient = NetworkRailClient(configWithTmpDownloadLocation, client)
     networkRailClient.downloadScheduleData.unsafeRunSync()
 
-    val path = testconfig.networkRailConfig.scheduleDataConf.tmpDownloadLocation
+    val path = testconfig.networkRailConfig.scheduleData.tmpDownloadLocation
     Files.exists(path) should ===(true)
     Files.size(path) should be > 0L
 
-    cleanUpFile(configWithTmpDownloadLocation.scheduleDataConf.tmpDownloadLocation.toString)
+    cleanUpFile(configWithTmpDownloadLocation.scheduleData.tmpDownloadLocation.toString)
   }
 
   it should "unpack downloaded schedule/tiploc data and parse json correctly" in {
 
     val networkRailClient = NetworkRailClient(testconfig.networkRailConfig, client)
     networkRailClient.unpackScheduleData.unsafeRunSync()
-    Files.exists(testconfig.networkRailConfig.scheduleDataConf.tmpUnzipLocation) shouldBe true
+    Files.exists(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation) shouldBe true
 
-    val scheduleDataReader = ScheduleDataReader(testconfig.networkRailConfig.scheduleDataConf.tmpUnzipLocation)
+    val scheduleDataReader = ScheduleDataReader(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation)
 
     val scheduleResults = scheduleDataReader.readData[ScheduleRecord].runLog.unsafeRunSync().toList
     scheduleResults.size should ===(19990)
@@ -51,9 +51,9 @@ class NetworkRailClientIntegrationTest
 
     val networkRailClient = NetworkRailClient(testconfig.networkRailConfig, client)
     networkRailClient.unpackScheduleData.unsafeRunSync()
-    Files.exists(testconfig.networkRailConfig.scheduleDataConf.tmpUnzipLocation) shouldBe true
+    Files.exists(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation) shouldBe true
 
-    val scheduleDataReader = ScheduleDataReader(testconfig.networkRailConfig.scheduleDataConf.tmpUnzipLocation)
+    val scheduleDataReader = ScheduleDataReader(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation)
     val scheduleResults    = scheduleDataReader.readData[ScheduleRecord].runLog.unsafeRunSync().toList.take(10)
 
     val tipLocResults = scheduleDataReader.readData[TipLocRecord].runLog.unsafeRunSync().toList.take(10)
@@ -73,7 +73,7 @@ class NetworkRailClientIntegrationTest
   }
 
   override protected def afterEach(): Unit =
-    cleanUpFile(testconfig.networkRailConfig.scheduleDataConf.tmpUnzipLocation.toString)
+    cleanUpFile(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation.toString)
 
   private def cleanUpFile(location: String) =
     Paths.get(location).toFile.delete()

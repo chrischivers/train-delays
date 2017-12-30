@@ -11,9 +11,12 @@ case class NetworkRailConfig(host: String,
                              username: String,
                              password: String,
                              maxRedirects: Int,
-                             scheduleDataConf: ScheduleDataConfig)
+                             scheduleData: ScheduleDataConfig,
+                             movements: MovementsConfig)
 
 case class ScheduleDataConfig(downloadUrl: Uri, tmpDownloadLocation: Path, tmpUnzipLocation: Path)
+
+case class MovementsConfig(topic: String)
 
 case class TrainDelaysConfig(networkRailConfig: NetworkRailConfig, databaseConfig: DatabaseConfig)
 
@@ -38,9 +41,12 @@ object ConfigLoader {
         defaultConfigFactory.getString("networkRail.password"),
         defaultConfigFactory.getInt("networkRail.maxRedirects"),
         ScheduleDataConfig(
-          Uri.unsafeFromString(defaultConfigFactory.getString("networkRail.scheduleDataConfig.uri")),
-          Paths.get(defaultConfigFactory.getString("networkRail.scheduleDataConfig.tmpDownloadLocation")),
-          Paths.get(defaultConfigFactory.getString("networkRail.scheduleDataConfig.tmpUnzipLocation"))
+          Uri.unsafeFromString(defaultConfigFactory.getString("networkRail.scheduleData.uri")),
+          Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpDownloadLocation")),
+          Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpUnzipLocation"))
+        ),
+        MovementsConfig(
+          defaultConfigFactory.getString("networkRail.movements.topic"),
         )
       ),
       DatabaseConfig(

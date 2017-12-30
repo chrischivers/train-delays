@@ -1,21 +1,23 @@
 package traindelays.stomp
 
-import java.util
-
+import cats.effect.IO
+import com.typesafe.scalalogging.StrictLogging
 import net.ser1.stomp.Client
 import traindelays.NetworkRailConfig
 
 trait StompClient {
 
-  def subscribe(topic: String, listener: StompListener): Unit
+  def subscribe(topic: String, handler: StompHandler): IO[Unit]
 
 }
 
-object StompClient {
+object StompClient extends StrictLogging {
 
   def apply(config: NetworkRailConfig) = new StompClient {
-    override def subscribe(topic: String, listener: StompListener): Unit =
+    override def subscribe(topic: String, handler: StompHandler): IO[Unit] = IO {
+      println(s"Subscribing to topic $topic")
       new Client(config.host, config.port, config.username, config.password)
-        .subscribe(topic, listener)
+        .subscribe(topic, handler)
+    }
   }
 }

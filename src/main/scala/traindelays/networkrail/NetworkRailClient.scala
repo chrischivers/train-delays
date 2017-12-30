@@ -9,7 +9,7 @@ import org.http4s.client.Client
 import org.http4s.headers.Authorization
 import org.http4s.{BasicCredentials, EntityBody, Headers, Request}
 import traindelays.NetworkRailConfig
-import traindelays.stomp.StompClient
+import traindelays.stomp.{StompClient, StompHandler}
 
 trait NetworkRailClient {
 
@@ -17,7 +17,7 @@ trait NetworkRailClient {
 
   def unpackScheduleData: IO[Unit]
 
-  def subscribeToTopic(topic: String, listener: StompClient)
+  def subscribeToTopic(topic: String, listener: StompHandler)
 }
 
 object NetworkRailClient extends StrictLogging {
@@ -27,26 +27,26 @@ object NetworkRailClient extends StrictLogging {
 
     override def downloadScheduleData: IO[Unit] = {
       val request =
-        Request[IO](uri = config.scheduleDataConf.downloadUrl).withHeaders(Headers(Authorization(credentials)))
+        Request[IO](uri = config.scheduleData.downloadUrl).withHeaders(Headers(Authorization(credentials)))
 
       followRedirects(client, config.maxRedirects).fetch(request) { resp =>
         if (resp.status.isSuccess) {
-          writeToFile(config.scheduleDataConf.tmpDownloadLocation, resp.body).map(_ => ())
+          writeToFile(config.scheduleData.tmpDownloadLocation, resp.body).map(_ => ())
         } else throw new IllegalStateException(s"Call to download schedule unsuccessful. Status code [${resp.status}")
       }
     }
 
     override def unpackScheduleData: IO[Unit] =
       fs2.io.file
-        .readAll[IO](config.scheduleDataConf.tmpDownloadLocation, 4096)
+        .readAll[IO](config.scheduleData.tmpDownloadLocation, 4096)
         .drop(10) //drop gzip header
         .through(inflate(nowrap = true))
-        .to(fs2.io.file.writeAll[IO](config.scheduleDataConf.tmpUnzipLocation))
+        .to(fs2.io.file.writeAll[IO](config.scheduleData.tmpUnzipLocation))
         .run
 
-    override def subscribeToTopic(topic: String, listener: StompClient): Unit = {
+    override def subscribeToTopic(topic: String, listener: StompHandler): Unit = {
       logger.info(s"Subscribing to $topic")
-      new StompClient(config.host, config.port, config.username, config.password)
+      StompClient(config)
         .subscribe(topic, listener)
     }
   }
