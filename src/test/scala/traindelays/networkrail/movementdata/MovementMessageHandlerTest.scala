@@ -8,7 +8,7 @@ import org.scalatest.Matchers._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class MovementHandlerTest extends FlatSpec {
+class MovementMessageHandlerTest extends FlatSpec {
 
   it should "receive movements message and parse/decode" in {
 

@@ -8,7 +8,7 @@ import fs2.async.mutable.Queue
 import io.circe.parser._
 import traindelays.stomp.StompHandler
 
-object MovementHandler extends StrictLogging {
+object MovementMessageHandler extends StrictLogging {
 
   import cats.instances.list._
   import cats.syntax.traverse._

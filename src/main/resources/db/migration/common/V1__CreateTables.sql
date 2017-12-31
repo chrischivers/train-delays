@@ -23,3 +23,14 @@ CREATE TABLE IF NOT EXISTS tiploc (
   description VARCHAR(50) NULL,
   PRIMARY KEY (tiploc_code)
 );
+
+CREATE TABLE IF NOT EXISTS movement_log (
+  id SERIAL PRIMARY KEY,
+  train_id     VARCHAR(10)    NOT NULL,
+  service_code    VARCHAR(10)   NOT NULL,
+  event_type VARCHAR(15) NOT NULL,
+  stanox VARCHAR(10) NOT NULL,
+  planned_passenger_timestamp BIGINT NOT NULL,
+  actual_timestamp BIGINT NOT NULL,
+  difference BIGINT NOT NULL
+);

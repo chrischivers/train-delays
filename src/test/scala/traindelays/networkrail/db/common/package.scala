@@ -6,6 +6,7 @@ import fs2.Stream
 import org.scalatest.Matchers.fail
 import traindelays.DatabaseConfig
 import traindelays.networkrail.db
+import traindelays.networkrail.movementdata.MovementLog
 import traindelays.networkrail.scheduledata.{ScheduleRecord, TipLocRecord}
 
 import scala.concurrent.ExecutionContext
@@ -75,6 +76,23 @@ package object common {
           })
           .sequence[IO, Int]
         result <- f(TipLocTable(db))
+      } yield result
+    }
+
+  def withMovementLogTable[A](config: DatabaseConfig)(initState: MovementLog*)(f: MovementLogTable => IO[A])(
+      implicit executionContext: ExecutionContext): A =
+    withDatabase(config) { db =>
+      for {
+        _ <- db.clean
+        _ <- initState.toList
+          .map(record => {
+            MovementLogTable
+              .addMovementLogRecord(record)
+              .run
+              .transact(db)
+          })
+          .sequence[IO, Int]
+        result <- f(MovementLogTable(db))
       } yield result
     }
 }

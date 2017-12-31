@@ -13,7 +13,25 @@ package object movementdata {
                             plannedTimestamp: Option[Long],
                             plannedPassengerTimestamp: Option[Long],
                             stanox: Option[String],
-                            variationStatus: Option[String])
+                            variationStatus: Option[String]) {
+
+    def toMovementLog: Option[MovementLog] =
+      for {
+        eventType                 <- eventType
+        stanox                    <- stanox
+        plannedPassengerTimestamp <- plannedPassengerTimestamp
+        actualTimestamp           <- actualTimestamp
+      } yield
+        MovementLog(id = None,
+                    trainId,
+                    trainServiceCode,
+                    eventType,
+                    stanox,
+                    plannedPassengerTimestamp,
+                    actualTimestamp,
+                    actualTimestamp - plannedPassengerTimestamp)
+
+  }
 
   object MovementRecord {
 
@@ -62,7 +80,30 @@ package object movementdata {
     private def emptyStringOptionToNone[A](in: Option[String])(f: String => A): Option[A] =
       if (in.contains("")) None else in.map(f)
   }
+
+  case class MovementLog(id: Option[Int],
+                         trainId: String,
+                         serviceCode: String,
+                         eventType: String,
+                         stanox: String,
+                         plannedPassengerTimestamp: Long,
+                         actualTimestamp: Long,
+                         difference: Long)
 }
+/*
+
+CREATE TABLE IF NOT EXISTS movement_log (
+  id SERIAL PRIMARY KEY,
+  train_id     VARCHAR(10)    NOT NULL,
+  service_code    VARCHAR(10)   NOT NULL,
+  event_type VARCHAR(15) NOT NULL,
+  stanox VARCHAR(10) NOT NULL,
+  planned_passenger_timestamp TIMESTAMP NOT NULL,
+  actual_timestamp TIMESTAMP NOT NULL,
+  difference LONG NOT NULL
+);
+
+ */
 
 /*
 "body":{
