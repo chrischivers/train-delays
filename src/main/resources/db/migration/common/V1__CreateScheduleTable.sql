@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS schedule (
 
 CREATE TABLE IF NOT EXISTS tiploc (
   tiploc_code VARCHAR(10) NOT NULL,
+  stanox VARCHAR(10) NOT NULL,
   description VARCHAR(50) NULL,
   PRIMARY KEY (tiploc_code)
 );

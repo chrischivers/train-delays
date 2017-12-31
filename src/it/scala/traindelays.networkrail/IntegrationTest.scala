@@ -6,6 +6,7 @@ import java.util
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import org.http4s.client.blaze.PooledHttp1Client
+import traindelays.networkrail.movementdata.MovementHandler
 import traindelays.stomp.StompHandler
 import traindelays.{ConfigLoader, TrainDelaysConfig}
 
@@ -23,16 +24,5 @@ trait IntegrationTest {
           tmpDownloadLocation = Paths.get(getClass.getResource("/southern-toc-schedule-test.gz").getPath),
           tmpUnzipLocation = Paths.get("/tmp/southern-toc-schedule-test.dat")
         )))
-
-  class MovementsHandlerWatcher extends StompHandler with StrictLogging {
-
-    var messagesReceived = ListBuffer[String]()
-
-    override def message(headers: util.Map[_, _], body: String): Unit = {
-      println(s"Received message with headers [$headers] and body [$body]")
-      messagesReceived += body
-
-    }
-  }
 
 }

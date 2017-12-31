@@ -48,7 +48,7 @@ class TipLocTableTest extends FlatSpec {
     retrievedRecords(1) shouldBe tipLocRecord2
   }
 
-  def getTipLocRecord(tipLocCode: String = "REDHILL", description: String = "REDHILL") =
-    TipLocRecord(tipLocCode, description)
+  def getTipLocRecord(tipLocCode: String = "REDHILL", stanox: String = "87722", description: String = "REDHILL") =
+    TipLocRecord(tipLocCode, stanox, description)
 
 }

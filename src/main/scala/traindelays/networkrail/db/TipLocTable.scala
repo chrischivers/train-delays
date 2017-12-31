@@ -23,7 +23,7 @@ object TipLocTable {
 
   def allTiplocRecords(): Query0[TipLocRecord] =
     sql"""
-      SELECT tiploc_code, description
+      SELECT tiploc_code, description, stanox_code
       from tiploc
       """.query[TipLocRecord]
 

@@ -43,7 +43,8 @@ libraryDependencies ++= Seq(
   "org.scalatest" %% "scalatest" % "3.0.1" % "test, it",
   "com.typesafe.scala-logging" %% "scala-logging" % "3.7.2",
   "io.circe" %% "circe-fs2" % "0.9.0-M3",
-  "org.flywaydb" % "flyway-core" % "4.2.0")
+  "org.flywaydb" % "flyway-core" % "4.2.0",
+  "ch.qos.logback" % "logback-classic" % "1.1.9")
 
 
 

@@ -105,7 +105,7 @@ package object scheduledata {
 
   }
 
-  case class TipLocRecord(tipLocCode: String, description: String)
+  case class TipLocRecord(tipLocCode: String, stanox: String, description: String)
 
   object TipLocRecord {
 
@@ -121,9 +121,10 @@ package object scheduledata {
         val tipLocObject = c.downField("TiplocV1")
         for {
           tipLocCode  <- tipLocObject.downField("tiploc_code").as[String]
+          stanox      <- tipLocObject.downField("stanox").as[String]
           description <- tipLocObject.downField("tps_description").as[String]
         } yield {
-          TipLocRecord(tipLocCode, description)
+          TipLocRecord(tipLocCode, stanox, description)
         }
       }
     }

@@ -44,7 +44,7 @@ class ScheduleDataReaderTest extends FlatSpec {
 
     val result = reader.readData[TipLocRecord].runLog.unsafeRunSync().toList
     result should have size 14
-    result.head shouldBe TipLocRecord("REDH316", "REDHILL SIGNAL T1316")
+    result.head shouldBe TipLocRecord("REDH316", "87720", "REDHILL SIGNAL T1316")
 
   }
 }
