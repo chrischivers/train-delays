@@ -34,3 +34,10 @@ CREATE TABLE IF NOT EXISTS movement_log (
   actual_timestamp BIGINT NOT NULL,
   difference BIGINT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS watching (
+  id SERIAL PRIMARY KEY,
+  user_id VARCHAR NOT NULL,
+  train_id     VARCHAR(10)    NOT NULL,
+  service_code   VARCHAR(10)   NOT NULL
+);

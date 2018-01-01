@@ -9,7 +9,7 @@ import traindelays.stomp.StompHandler
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.ExecutionContext
 
-class MovementsHandlerWatcher(queue: Queue[IO, MovementRecord])(implicit executionContext: ExecutionContext)
+class MovementHandlerWatcher(queue: Queue[IO, MovementRecord])(implicit executionContext: ExecutionContext)
     extends StompHandler {
 
   var rawMessagesReceived      = ListBuffer[String]()

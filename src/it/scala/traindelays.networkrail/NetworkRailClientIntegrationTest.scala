@@ -5,6 +5,7 @@ import java.nio.file.{Files, Paths}
 import org.scalactic.TripleEqualsSupport
 import org.scalatest.Matchers._
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
+import traindelays.networkrail.db.common.AppInitialState
 import traindelays.networkrail.scheduledata.{ScheduleDataReader, ScheduleRecord, TipLocRecord}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -54,17 +55,29 @@ class NetworkRailClientIntegrationTest
     Files.exists(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation) shouldBe true
 
     val scheduleDataReader = ScheduleDataReader(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation)
-    val scheduleResults    = scheduleDataReader.readData[ScheduleRecord].runLog.unsafeRunSync().toList.take(10)
+    val scheduleResults = scheduleDataReader
+      .readData[ScheduleRecord]
+      .runLog
+      .unsafeRunSync()
+      .toList
+      .take(10)
 
-    val tipLocResults = scheduleDataReader.readData[TipLocRecord].runLog.unsafeRunSync().toList.take(10)
+    val tipLocResults = scheduleDataReader
+      .readData[TipLocRecord]
+      .runLog
+      .unsafeRunSync()
+      .toList
+      .take(10)
 
-    val retrievedScheduleRecords = db.common.withScheduleTable(testconfig.databaseConfig)(scheduleResults: _*) {
-      _.retrieveAllRecords()
-    }
+    val retrievedScheduleRecords =
+      db.common.withInitialState(testconfig.databaseConfig)(AppInitialState(scheduleRecords = scheduleResults)) {
+        _.scheduleTable.retrieveAllRecords()
+      }
 
-    val retrievedTiplocRecords = db.common.withTiplocTable(testconfig.databaseConfig)(tipLocResults: _*) {
-      _.retrieveAllRecords()
-    }
+    val retrievedTiplocRecords =
+      db.common.withInitialState(testconfig.databaseConfig)(AppInitialState(tiplocRecords = tipLocResults)) {
+        _.tipLocTable.retrieveAllRecords()
+      }
     retrievedScheduleRecords.size should ===(scheduleResults.size)
     retrievedScheduleRecords should contain theSameElementsAs scheduleResults
 

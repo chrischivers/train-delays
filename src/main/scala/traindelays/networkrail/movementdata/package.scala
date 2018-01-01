@@ -22,7 +22,7 @@ package object movementdata {
         plannedPassengerTimestamp <- plannedPassengerTimestamp
         actualTimestamp           <- actualTimestamp
       } yield
-        MovementLog(id = None,
+        MovementLog(None,
                     trainId,
                     trainServiceCode,
                     eventType,

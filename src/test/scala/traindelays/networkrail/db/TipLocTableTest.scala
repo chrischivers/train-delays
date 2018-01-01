@@ -1,13 +1,10 @@
 package traindelays.networkrail.db
 
-import java.time.{LocalDate, LocalTime}
-
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.DatabaseConfig
 import traindelays.networkrail.db.common._
-import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.scheduledata.{ScheduleRecord, _}
+import traindelays.networkrail.scheduledata._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -17,8 +14,8 @@ class TipLocTableTest extends FlatSpec {
 
   it should "insert a tiploc record into the database" in {
 
-    withTiplocTable(config)(List.empty: _*) { tipLocTable =>
-      tipLocTable.addRecord(getTipLocRecord())
+    withInitialState(config)() { fixture =>
+      fixture.tipLocTable.addRecord(getTipLocRecord())
     }
   }
 
@@ -26,8 +23,8 @@ class TipLocTableTest extends FlatSpec {
 
     val tipLocRecord = getTipLocRecord()
 
-    val retrievedRecords = withTiplocTable(config)(tipLocRecord) { tipLocTable =>
-      tipLocTable.retrieveAllRecords()
+    val retrievedRecords = withInitialState(config)(AppInitialState(tiplocRecords = List(tipLocRecord))) { fixture =>
+      fixture.tipLocTable.retrieveAllRecords()
     }
 
     retrievedRecords should have size 1
@@ -37,18 +34,21 @@ class TipLocTableTest extends FlatSpec {
   it should "retrieve multiple inserted tiploc records from the database" in {
 
     val tipLocRecord1 = getTipLocRecord()
-    val tipLocRecord2 = getTipLocRecord().copy(tipLocCode = "REIGATE", description = "REIGATE_DESC")
+    val tipLocRecord2 = getTipLocRecord().copy(tipLocCode = "REIGATE", description = Some("REIGATE_DESC"))
 
-    val retrievedRecords = withTiplocTable(config)(tipLocRecord1, tipLocRecord2) { tipLocTable =>
-      tipLocTable.retrieveAllRecords()
-    }
+    val retrievedRecords =
+      withInitialState(config)(AppInitialState(tiplocRecords = List(tipLocRecord1, tipLocRecord2))) { fixture =>
+        fixture.tipLocTable.retrieveAllRecords()
+      }
 
     retrievedRecords should have size 2
     retrievedRecords.head shouldBe tipLocRecord1
     retrievedRecords(1) shouldBe tipLocRecord2
   }
 
-  def getTipLocRecord(tipLocCode: String = "REDHILL", stanox: String = "87722", description: String = "REDHILL") =
+  def getTipLocRecord(tipLocCode: String = "REDHILL",
+                      stanox: String = "87722",
+                      description: Option[String] = Some("REDHILL")) =
     TipLocRecord(tipLocCode, stanox, description)
 
 }

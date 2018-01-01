@@ -3,14 +3,15 @@ package traindelays.networkrail
 import java.nio.file.Paths
 
 import cats.effect.IO
-import fs2.async.mutable.Queue
+import fs2.async
+import io.circe.parser._
 import org.scalactic.TripleEqualsSupport
 import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
-import traindelays.networkrail.movementdata.{MovementRecord, MovementsHandlerWatcher}
+import traindelays.networkrail.db.common.{AppInitialState, withInitialState}
+import traindelays.networkrail.movementdata.{MovementHandlerWatcher, MovementProcessor, MovementRecord}
 import traindelays.stomp.StompClient
-import io.circe.parser._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -30,20 +31,44 @@ class MovementsListenerIntegrationTest
     fs2.async
       .unboundedQueue[IO, MovementRecord]
       .map { queue =>
-        val movementsWatcher = new MovementsHandlerWatcher(queue)
-        val stompClient      = StompClient(testconfig.networkRailConfig)
+        val movementWatcher = new MovementHandlerWatcher(queue)
+        val stompClient     = StompClient(testconfig.networkRailConfig)
         stompClient
-          .subscribe(testconfig.networkRailConfig.movements.topic, movementsWatcher)
+          .subscribe(testconfig.networkRailConfig.movements.topic, movementWatcher)
           .unsafeRunSync()
 
         eventually {
-          movementsWatcher.rawMessagesReceived.size shouldBe >(0)
-          parse(movementsWatcher.rawMessagesReceived.head).right.get.as[List[MovementRecord]].right.get.size shouldBe >(
+          movementWatcher.rawMessagesReceived.size shouldBe >(0)
+          parse(movementWatcher.rawMessagesReceived.head).right.get.as[List[MovementRecord]].right.get.size shouldBe >(
             0)
           queue.dequeueBatch1(3).unsafeRunSync().toList should have size 3
         }
       }
       .unsafeRunSync()
+  }
+
+  it should "persist movement records where all details exist to DB" in {
+
+    withInitialState(testconfig.databaseConfig)(AppInitialState.empty) { fixture =>
+      async
+        .unboundedQueue[IO, MovementRecord]
+        .map { queue =>
+          val movementWatcher = new MovementHandlerWatcher(queue)
+          val stompClient     = StompClient(testconfig.networkRailConfig)
+          stompClient
+            .subscribe(testconfig.networkRailConfig.movements.topic, movementWatcher)
+            .unsafeRunSync()
+
+          MovementProcessor(queue, fixture.movementLogTable).stream.run.unsafeRunTimed(10 seconds)
+
+          fixture.movementLogTable
+            .retrieveAllRecords()
+            .map { retrievedRecords =>
+              retrievedRecords.size shouldBe >(0)
+            }
+            .unsafeRunSync()
+        }
+    }
   }
 
   override protected def afterEach(): Unit =

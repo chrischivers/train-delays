@@ -17,8 +17,8 @@ class ScheduleTableTest extends FlatSpec {
 
   it should "insert a schedule record into the database" in {
 
-    withScheduleTable(config)(List.empty: _*) { scheduleTable =>
-      scheduleTable.addRecord(getTestScheduleRecord())
+    withInitialState(config)() { fixture =>
+      fixture.scheduleTable.addRecord(getTestScheduleRecord())
     }
   }
 
@@ -26,8 +26,9 @@ class ScheduleTableTest extends FlatSpec {
 
     val scheduleRecord = getTestScheduleRecord()
 
-    val retrievedRecords = withScheduleTable(config)(scheduleRecord) { scheduleTable =>
-      scheduleTable.retrieveAllRecords()
+    val retrievedRecords = withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord))) {
+      fixture =>
+        fixture.scheduleTable.retrieveAllRecords()
     }
 
     retrievedRecords should have size 1
@@ -39,9 +40,10 @@ class ScheduleTableTest extends FlatSpec {
     val scheduleRecord1 = getTestScheduleRecord()
     val scheduleRecord2 = getTestScheduleRecord().copy(trainUid = "123456")
 
-    val retrievedRecords = withScheduleTable(config)(scheduleRecord1, scheduleRecord2) { scheduleTable =>
-      scheduleTable.retrieveAllRecords()
-    }
+    val retrievedRecords =
+      withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord1, scheduleRecord2))) { fixture =>
+        fixture.scheduleTable.retrieveAllRecords()
+      }
 
     retrievedRecords should have size 2
     retrievedRecords.head shouldBe scheduleRecord1

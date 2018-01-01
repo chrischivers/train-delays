@@ -105,12 +105,12 @@ package object scheduledata {
 
   }
 
-  case class TipLocRecord(tipLocCode: String, stanox: String, description: String)
+  case class TipLocRecord(tipLocCode: String, stanox: String, description: Option[String])
 
   object TipLocRecord {
 
     implicit case object JsonFilter extends JsonFilter[TipLocRecord] {
-      override implicit val filter: Json => Boolean = _.hcursor.downField("TiplocV1").succeeded
+      override implicit val filter: Json => Boolean = _.hcursor.downField("TiplocV1").downField("stanox").succeeded
     }
 
     implicit val tipLocDecoder: Decoder[TipLocRecord] {
@@ -122,7 +122,7 @@ package object scheduledata {
         for {
           tipLocCode  <- tipLocObject.downField("tiploc_code").as[String]
           stanox      <- tipLocObject.downField("stanox").as[String]
-          description <- tipLocObject.downField("tps_description").as[String]
+          description <- tipLocObject.downField("tps_description").as[Option[String]]
         } yield {
           TipLocRecord(tipLocCode, stanox, description)
         }

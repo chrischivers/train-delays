@@ -3,13 +3,13 @@ package traindelays.networkrail.db
 import cats.effect.IO
 import traindelays.networkrail.scheduledata.TipLocRecord
 
-trait TipLocTable {
+trait WatchingTable {
 
   def addRecord(record: TipLocRecord): IO[Unit]
   def retrieveAllRecords(): IO[List[TipLocRecord]]
 }
 
-object TipLocTable {
+object WatchingTable {
 
   import doobie._
   import doobie.implicits._

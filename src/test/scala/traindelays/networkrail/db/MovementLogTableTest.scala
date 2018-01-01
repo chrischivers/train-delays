@@ -1,5 +1,7 @@
 package traindelays.networkrail.db
 
+import java.time.LocalDate
+
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.DatabaseConfig
@@ -15,8 +17,8 @@ class MovementLogTableTest extends FlatSpec {
 
   it should "insert a movement log record into the database" in {
 
-    withMovementLogTable(config)(List.empty: _*) { movementLogTable =>
-      movementLogTable.addRecord(getMovementLog())
+    withInitialState(config)() { fixture =>
+      fixture.movementLogTable.addRecord(getMovementLog())
     }
   }
 
@@ -24,8 +26,8 @@ class MovementLogTableTest extends FlatSpec {
 
     val movementLog = getMovementLog()
 
-    val retrievedRecords = withMovementLogTable(config)(movementLog) { movementLogTable =>
-      movementLogTable.retrieveAllRecords()
+    val retrievedRecords = withInitialState(config)(AppInitialState(movementLogs = List(movementLog))) { fixture =>
+      fixture.movementLogTable.retrieveAllRecords()
     }
 
     retrievedRecords should have size 1
@@ -37,9 +39,11 @@ class MovementLogTableTest extends FlatSpec {
     val movementLogRecord1 = getMovementLog()
     val movementLogRecord2 = getMovementLog().copy(trainId = "862F60MY31")
 
-    val retrievedRecords = withMovementLogTable(config)(movementLogRecord1, movementLogRecord2) { movementLogTable =>
-      movementLogTable.retrieveAllRecords()
-    }
+    val retrievedRecords =
+      withInitialState(config)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
+        fixture =>
+          fixture.movementLogTable.retrieveAllRecords()
+      }
 
     retrievedRecords should have size 2
     retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
@@ -52,13 +56,15 @@ class MovementLogTableTest extends FlatSpec {
                      stanox: String = "87214",
                      plannedPassengerTimestamp: Long = 1514663220000L,
                      actualTimestamp: Long = 1514663160000L) =
-    MovementLog(None,
-                trainId,
-                serviceCode,
-                eventType,
-                stanox,
-                plannedPassengerTimestamp,
-                actualTimestamp,
-                actualTimestamp - plannedPassengerTimestamp)
+    MovementLog(
+      None,
+      trainId,
+      serviceCode,
+      eventType,
+      stanox,
+      plannedPassengerTimestamp,
+      actualTimestamp,
+      actualTimestamp - plannedPassengerTimestamp
+    )
 
 }

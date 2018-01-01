@@ -18,11 +18,24 @@ package object common {
   import doobie.implicits._
 
   implicit class DBExt(db: Transactor[IO]) {
-    val scheduleTable = ScheduleTable(db)
 
     def clean: IO[Int] =
       sql"DELETE FROM schedule".update.run.transact(db)
+    sql"DELETE FROM tiploc".update.run.transact(db)
+    sql"DELETE FROM movement_log".update.run.transact(db)
   }
+
+  case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
+                             tiplocRecords: List[TipLocRecord] = List.empty,
+                             movementLogs: List[MovementLog] = List.empty)
+
+  object AppInitialState {
+    def empty = AppInitialState()
+  }
+
+  case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
+                                    tipLocTable: TipLocTable,
+                                    movementLogTable: MovementLogTable)
 
   def testDatabaseConfig() = {
     val databaseName = s"test-${System.currentTimeMillis()}-${Random.nextInt(99)}-${Random.nextInt(99)}"
@@ -46,28 +59,19 @@ package object common {
   import cats.instances.list._
   import cats.syntax.traverse._
 
-  def withScheduleTable[A](config: DatabaseConfig)(initState: ScheduleRecord*)(f: ScheduleTable => IO[A])(
-      implicit executionContext: ExecutionContext): A =
+  def withInitialState[A](config: DatabaseConfig)(initState: AppInitialState = AppInitialState.empty)(
+      f: TrainDelaysTestFixture => IO[A])(implicit executionContext: ExecutionContext): A =
     withDatabase(config) { db =>
       for {
         _ <- db.clean
-        _ <- initState.toList
+        _ <- initState.scheduleRecords
           .flatMap(record => {
             ScheduleTable
               .addScheduleRecords(record)
               .map(_.run.transact(db))
           })
           .sequence[IO, Int]
-        result <- f(ScheduleTable(db))
-      } yield result
-    }
-
-  def withTiplocTable[A](config: DatabaseConfig)(initState: TipLocRecord*)(f: TipLocTable => IO[A])(
-      implicit executionContext: ExecutionContext): A =
-    withDatabase(config) { db =>
-      for {
-        _ <- db.clean
-        _ <- initState.toList
+        _ <- initState.tiplocRecords
           .map(record => {
             TipLocTable
               .addTiplocRecord(record)
@@ -75,16 +79,8 @@ package object common {
               .transact(db)
           })
           .sequence[IO, Int]
-        result <- f(TipLocTable(db))
-      } yield result
-    }
 
-  def withMovementLogTable[A](config: DatabaseConfig)(initState: MovementLog*)(f: MovementLogTable => IO[A])(
-      implicit executionContext: ExecutionContext): A =
-    withDatabase(config) { db =>
-      for {
-        _ <- db.clean
-        _ <- initState.toList
+        _ <- initState.movementLogs
           .map(record => {
             MovementLogTable
               .addMovementLogRecord(record)
@@ -92,7 +88,7 @@ package object common {
               .transact(db)
           })
           .sequence[IO, Int]
-        result <- f(MovementLogTable(db))
+        result <- f(TrainDelaysTestFixture(ScheduleTable(db), TipLocTable(db), MovementLogTable(db)))
       } yield result
     }
 }
