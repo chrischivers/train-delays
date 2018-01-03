@@ -5,16 +5,16 @@ import java.nio.file.{Files, Paths}
 import org.scalactic.TripleEqualsSupport
 import org.scalatest.Matchers._
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
-import traindelays.networkrail.db.common.AppInitialState
+import traindelays.TestFeatures
 import traindelays.networkrail.scheduledata.{ScheduleDataReader, ScheduleRecord, TipLocRecord}
-
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class NetworkRailClientIntegrationTest
     extends FlatSpec
     with IntegrationTest
     with TripleEqualsSupport
-    with BeforeAndAfterEach {
+    with BeforeAndAfterEach
+    with TestFeatures {
 
   //TODO mock this out
   ignore should "download schedule data from server to tmp directory" in {
@@ -70,12 +70,12 @@ class NetworkRailClientIntegrationTest
       .take(10)
 
     val retrievedScheduleRecords =
-      db.common.withInitialState(testconfig.databaseConfig)(AppInitialState(scheduleRecords = scheduleResults)) {
+      withInitialState(testconfig.databaseConfig)(AppInitialState(scheduleRecords = scheduleResults)) {
         _.scheduleTable.retrieveAllRecords()
       }
 
     val retrievedTiplocRecords =
-      db.common.withInitialState(testconfig.databaseConfig)(AppInitialState(tiplocRecords = tipLocResults)) {
+      withInitialState(testconfig.databaseConfig)(AppInitialState(tiplocRecords = tipLocResults)) {
         _.tipLocTable.retrieveAllRecords()
       }
     retrievedScheduleRecords.size should ===(scheduleResults.size)

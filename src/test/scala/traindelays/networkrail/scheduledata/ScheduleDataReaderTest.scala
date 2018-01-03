@@ -43,8 +43,35 @@ class ScheduleDataReaderTest extends FlatSpec {
     val reader = ScheduleDataReader(source)
 
     val result = reader.readData[TipLocRecord].runLog.unsafeRunSync().toList
-    result should have size 14
+    result should have size 13
     result.head shouldBe TipLocRecord("REDH316", "87720", Some("REDHILL SIGNAL T1316"))
 
+  }
+
+  it should "read remove location records where departure time and arrival time are both None" in {
+
+    val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid-with-interim-stop.json").getPath)
+    val reader = ScheduleDataReader(source)
+
+    val result = reader.readData[ScheduleRecord].runLog.unsafeRunSync().toList
+
+    result should have size 1
+    result.head shouldBe ScheduleRecord(
+      "G76481",
+      "24745000",
+      DaysRun(monday = true,
+              tuesday = true,
+              wednesday = true,
+              thursday = true,
+              friday = true,
+              saturday = false,
+              sunday = false),
+      LocalDate.parse("2018-01-01"),
+      LocalDate.parse("2018-01-26"),
+      List(
+        ScheduleLocationRecord("LO", "REIGATE", None, Some(LocalTime.parse("0649", timeFormatter))),
+        ScheduleLocationRecord("LT", "REDHILL", Some(LocalTime.parse("0653", timeFormatter)), None)
+      )
+    )
   }
 }

@@ -3,11 +3,7 @@ package traindelays.networkrail.db
 import cats.effect.IO
 import traindelays.networkrail.scheduledata.TipLocRecord
 
-trait TipLocTable {
-
-  def addRecord(record: TipLocRecord): IO[Unit]
-  def retrieveAllRecords(): IO[List[TipLocRecord]]
-}
+trait TipLocTable extends Table[TipLocRecord]
 
 object TipLocTable {
 

@@ -1,44 +1,40 @@
 package traindelays.networkrail.db
 
 import cats.effect.IO
-import traindelays.networkrail.scheduledata.TipLocRecord
+import traindelays.networkrail.watching.WatchingRecord
 
-trait WatchingTable {
-
-  def addRecord(record: TipLocRecord): IO[Unit]
-  def retrieveAllRecords(): IO[List[TipLocRecord]]
-}
+trait WatchingTable extends Table[WatchingRecord]
 
 object WatchingTable {
 
   import doobie._
   import doobie.implicits._
 
-  def addTiplocRecord(record: TipLocRecord): Update0 =
+  def addWatchingRecord(record: WatchingRecord): Update0 =
     sql"""
-      INSERT INTO tiploc
-      (tiploc_code, stanox, description)
-      VALUES(${record.tipLocCode}, ${record.stanox}, ${record.description})
+      INSERT INTO watching
+      (user_id, train_id, service_code, stanox)
+      VALUES(${record.userId}, ${record.trainId}, ${record.serviceCode}, ${record.stanox})
      """.update
 
-  def allTiplocRecords(): Query0[TipLocRecord] =
+  def allWatchingRecords(): Query0[WatchingRecord] =
     sql"""
-      SELECT tiploc_code, stanox, description
-      from tiploc
-      """.query[TipLocRecord]
+      SELECT id, user_id, train_id, service_code, stanox
+      from watching
+      """.query[WatchingRecord]
 
-  def apply(db: Transactor[IO]): TipLocTable =
-    new TipLocTable {
-      override def addRecord(record: TipLocRecord): IO[Unit] =
-        TipLocTable
-          .addTiplocRecord(record)
+  def apply(db: Transactor[IO]): WatchingTable =
+    new WatchingTable {
+      override def addRecord(record: WatchingRecord): IO[Unit] =
+        WatchingTable
+          .addWatchingRecord(record)
           .run
           .transact(db)
           .map(_ => ())
 
-      override def retrieveAllRecords(): IO[List[TipLocRecord]] =
-        TipLocTable
-          .allTiplocRecords()
+      override def retrieveAllRecords(): IO[List[WatchingRecord]] =
+        WatchingTable
+          .allWatchingRecords()
           .list
           .transact(db)
     }

@@ -4,31 +4,8 @@ import cats.effect.IO
 import traindelays.networkrail.movementdata.{MovementLog, MovementRecord}
 import traindelays.networkrail.scheduledata.TipLocRecord
 
-trait MovementLogTable {
+trait MovementLogTable extends Table[MovementLog]
 
-  def addRecord(record: MovementLog): IO[Unit]
-  def retrieveAllRecords(): IO[List[MovementLog]]
-}
-
-/*
- id SERIAL PRIMARY KEY,
-  train_id     VARCHAR(10)    NOT NULL,
-  service_code    VARCHAR(10)   NOT NULL,
-  event_type VARCHAR(15) NOT NULL,
-  stanox VARCHAR(10) NOT NULL,
-  planned_passenger_timestamp TIMESTAMP NOT NULL,
-  actual_timestamp TIMESTAMP NOT NULL,
-  difference LONG NOT NULL
-
-  case class MovementLog(id: Option[String],
-                         trainId: String,
-                         serviceCode: String,
-                         eventType: String,
-                         stanox: String,
-                         plannedPassengerTimestamp: Long,
-                         actualTimestamp: Long,
-                         difference: Long)
- */
 object MovementLogTable {
 
   import doobie._

@@ -1,18 +1,19 @@
-package traindelays.networkrail.db
+package traindelays
 
 import cats.effect.IO
 import doobie.hikari.HikariTransactor
 import fs2.Stream
 import org.scalatest.Matchers.fail
-import traindelays.DatabaseConfig
-import traindelays.networkrail.db
-import traindelays.networkrail.movementdata.MovementLog
+import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, TipLocTable, WatchingTable}
+import traindelays.networkrail.movementdata.{MovementLog, MovementRecord}
 import traindelays.networkrail.scheduledata.{ScheduleRecord, TipLocRecord}
+import traindelays.networkrail.watching.WatchingRecord
+import traindelays.networkrail.db._
 
 import scala.concurrent.ExecutionContext
 import scala.util.Random
 
-package object common {
+trait TestFeatures {
 
   import doobie._
   import doobie.implicits._
@@ -23,11 +24,13 @@ package object common {
       sql"DELETE FROM schedule".update.run.transact(db)
     sql"DELETE FROM tiploc".update.run.transact(db)
     sql"DELETE FROM movement_log".update.run.transact(db)
+    sql"DELETE FROM watching".update.run.transact(db)
   }
 
   case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
                              tiplocRecords: List[TipLocRecord] = List.empty,
-                             movementLogs: List[MovementLog] = List.empty)
+                             movementLogs: List[MovementLog] = List.empty,
+                             watchingRecords: List[WatchingRecord] = List.empty)
 
   object AppInitialState {
     def empty = AppInitialState()
@@ -35,7 +38,8 @@ package object common {
 
   case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
                                     tipLocTable: TipLocTable,
-                                    movementLogTable: MovementLogTable)
+                                    movementLogTable: MovementLogTable,
+                                    watchingTable: WatchingTable)
 
   def testDatabaseConfig() = {
     val databaseName = s"test-${System.currentTimeMillis()}-${Random.nextInt(99)}-${Random.nextInt(99)}"
@@ -48,11 +52,10 @@ package object common {
     )
   }
 
-  val testTransactor = db.transactor(testDatabaseConfig())(_.clean())
+  val testTransactor = transactor(testDatabaseConfig())(_.clean())
 
   def withDatabase[A](databaseConfig: DatabaseConfig)(f: HikariTransactor[IO] => IO[A]): A =
-    db.usingTransactor(databaseConfig)(_.clean)(x => Stream.eval(f(x)))
-      .runLast
+    usingTransactor(databaseConfig)(_.clean)(x => Stream.eval(f(x))).runLast
       .unsafeRunSync()
       .getOrElse(fail(s"Unable to perform the operation"))
 
@@ -88,7 +91,36 @@ package object common {
               .transact(db)
           })
           .sequence[IO, Int]
-        result <- f(TrainDelaysTestFixture(ScheduleTable(db), TipLocTable(db), MovementLogTable(db)))
+        _ <- initState.watchingRecords
+          .map(record => {
+            WatchingTable
+              .addWatchingRecord(record)
+              .run
+              .transact(db)
+          })
+          .sequence[IO, Int]
+        result <- f(TrainDelaysTestFixture(ScheduleTable(db), TipLocTable(db), MovementLogTable(db), WatchingTable(db)))
       } yield result
     }
+
+  def createMovementRecord(trainId: String = "12345",
+                           trainServiceCode: String = "23456",
+                           eventType: Option[String] = Some("ARRIVAL"),
+                           plannedEventType: Option[String] = Some("ARRIVAL"),
+                           actualTimestamp: Option[Long] = Some(System.currentTimeMillis()),
+                           plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
+                           plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
+                           stanox: Option[String] = Some("REDHILL"),
+                           variationStatus: Option[String] = Some("LATE")) =
+    MovementRecord(
+      trainId,
+      trainServiceCode,
+      eventType,
+      plannedEventType,
+      actualTimestamp,
+      plannedTimestamp,
+      plannedPassengerTimestamp,
+      stanox,
+      variationStatus
+    )
 }

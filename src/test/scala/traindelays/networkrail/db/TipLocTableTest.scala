@@ -2,13 +2,11 @@ package traindelays.networkrail.db
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.DatabaseConfig
-import traindelays.networkrail.db.common._
+import traindelays.{DatabaseConfig, TestFeatures}
 import traindelays.networkrail.scheduledata._
-
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class TipLocTableTest extends FlatSpec {
+class TipLocTableTest extends FlatSpec with TestFeatures {
 
   protected def config: DatabaseConfig = testDatabaseConfig()
 

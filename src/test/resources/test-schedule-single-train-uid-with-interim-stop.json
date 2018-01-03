@@ -1,0 +1,212 @@
+{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDH316",
+    "nalco": "547813",
+    "stanox": "87720",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL SIGNAL T1316"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDH322",
+    "nalco": "547816",
+    "stanox": "87719",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL SIGNAL T1322"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDH483",
+    "nalco": "547811",
+    "stanox": "87727",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL SIG. T483"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDH487",
+    "nalco": "547814",
+    "stanox": "87722",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL SIGNAL T487"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDH502",
+    "nalco": "547807",
+    "stanox": "87726",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL SIGNAL T502"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDHDS",
+    "nalco": "547808",
+    "stanox": "87718",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL DOWN SIDING"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDHILL",
+    "nalco": "547800",
+    "stanox": "87722",
+    "crs_code": "RDH",
+    "description": "REDHILL",
+    "tps_description": "REDHILL"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDHLS",
+    "nalco": "547865",
+    "stanox": "87721",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL L.H.S."
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDHTBS",
+    "nalco": "547870",
+    "stanox": "87722",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL (TONBDG B. RECP.)"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REIG17",
+    "nalco": "548001",
+    "stanox": "87091",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REIGATE SHUNT SIGNAL 17"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REIGATE",
+    "nalco": "548000",
+    "stanox": "87089",
+    "crs_code": "REI",
+    "description": "REIGATE",
+    "tps_description": "REIGATE"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "TONBRBC",
+    "nalco": "522911",
+    "stanox": null,
+    "crs_code": "XTN",
+    "description": null,
+    "tps_description": "UP REDHILL BRANCH C.H.S."
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REDHUGL",
+    "nalco": "547802",
+    "stanox": "87728",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REDHILL UP TONBRIDGE SIDIN"
+  }
+}{
+  "TiplocV1": {
+    "transaction_type": "Create",
+    "tiploc_code": "REIGCHS",
+    "nalco": "548013",
+    "stanox": "87058",
+    "crs_code": null,
+    "description": null,
+    "tps_description": "REIGATE C.H.S."
+  }
+}
+{
+  "JsonScheduleV1": {
+    "CIF_bank_holiday_running": null,
+    "CIF_stp_indicator": "P",
+    "CIF_train_uid": "G76481",
+    "applicable_timetable": "Y",
+    "atoc_code": "SN",
+    "new_schedule_segment": {
+      "traction_class": "",
+      "uic_code": ""
+    },
+    "schedule_days_runs": "1111100",
+    "schedule_end_date": "2018-01-26",
+    "schedule_segment": {
+      "signalling_id": "2I02",
+      "CIF_train_category": "OO",
+      "CIF_headcode": "",
+      "CIF_course_indicator": 1,
+      "CIF_train_service_code": "24745000",
+      "CIF_business_sector": "??",
+      "CIF_power_type": "EMU",
+      "CIF_timing_load": null,
+      "CIF_speed": "100",
+      "CIF_operating_characteristics": "D",
+      "CIF_train_class": "B",
+      "CIF_sleepers": null,
+      "CIF_reservations": null,
+      "CIF_connection_indicator": null,
+      "CIF_catering_code": null,
+      "CIF_service_branding": "",
+      "schedule_location": [
+        {
+          "location_type": "LO",
+          "record_identity": "LO",
+          "tiploc_code": "REIGATE",
+          "tiploc_instance": null,
+          "departure": "0649",
+          "public_departure": "0649",
+          "platform": "DPL",
+          "line": null,
+          "engineering_allowance": null,
+          "pathing_allowance": null,
+          "performance_allowance": null
+        },
+        {
+          "location_type": "LT",
+          "record_identity": "LT",
+          "tiploc_code": "INTERIM",
+          "tiploc_instance": null,
+          "arrival": null,
+          "public_arrival": null,
+          "platform": null,
+          "path": null
+        },
+        {
+          "location_type": "LT",
+          "record_identity": "LT",
+          "tiploc_code": "REDHILL",
+          "tiploc_instance": null,
+          "arrival": "0653",
+          "public_arrival": "0653",
+          "platform": null,
+          "path": null
+        }
+      ]
+    },
+    "schedule_start_date": "2018-01-01",
+    "train_status": "P",
+    "transaction_type": "Create"
+  }
+}

@@ -31,4 +31,15 @@ package object db {
       f,
       (t: HikariTransactor[IO]) => t.shutdown
     )
+
+  trait Table[A] {
+
+    def addRecord(record: A): IO[Unit]
+
+    def retrieveAllRecords(): IO[List[A]]
+
+    val dbWriter: fs2.Sink[IO, A] = fs2.Sink { record =>
+      addRecord(record)
+    }
+  }
 }

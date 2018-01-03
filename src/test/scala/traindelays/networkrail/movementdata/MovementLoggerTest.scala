@@ -5,13 +5,12 @@ import fs2.async
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
-import traindelays.DatabaseConfig
-import traindelays.networkrail.db.common.{testDatabaseConfig, withInitialState}
+import traindelays.{DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class MovementLoggerTest extends FlatSpec with Eventually {
+class MovementLoggerTest extends FlatSpec with Eventually with TestFeatures {
 
   protected def config: DatabaseConfig = testDatabaseConfig()
 
@@ -62,24 +61,4 @@ class MovementLoggerTest extends FlatSpec with Eventually {
     }
   }
 
-  def createMovementRecord(trainId: String = "12345",
-                           trainServiceCode: String = "23456",
-                           eventType: Option[String] = Some("ARRIVAL"),
-                           plannedEventType: Option[String] = Some("ARRIVAL"),
-                           actualTimestamp: Option[Long] = Some(System.currentTimeMillis()),
-                           plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           stanox: Option[String] = Some("REDHILL"),
-                           variationStatus: Option[String] = Some("LATE")) =
-    MovementRecord(
-      trainId,
-      trainServiceCode,
-      eventType,
-      plannedEventType,
-      actualTimestamp,
-      plannedTimestamp,
-      plannedPassengerTimestamp,
-      stanox,
-      variationStatus
-    )
 }

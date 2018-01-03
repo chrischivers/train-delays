@@ -1,17 +1,12 @@
 package traindelays.networkrail.db
 
-import java.time.LocalDate
-
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.DatabaseConfig
-import traindelays.networkrail.db.common._
+import traindelays.{DatabaseConfig, TestFeatures}
 import traindelays.networkrail.movementdata.MovementLog
-import traindelays.networkrail.scheduledata._
-
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class MovementLogTableTest extends FlatSpec {
+class MovementLogTableTest extends FlatSpec with TestFeatures {
 
   protected def config: DatabaseConfig = testDatabaseConfig()
 

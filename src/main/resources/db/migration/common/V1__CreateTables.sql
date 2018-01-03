@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS schedule (
   train_id     VARCHAR(10)    NOT NULL,
   service_code    VARCHAR(10)   NOT NULL,
+  stop_sequence SMALLINT NOT NULL,
+  tiploc_code VARCHAR(10) NOT NULL,
   monday   BOOLEAN NOT NULL,
   tuesday   BOOLEAN NOT NULL,
   wednesday   BOOLEAN NOT NULL,
@@ -11,10 +13,9 @@ CREATE TABLE IF NOT EXISTS schedule (
   schedule_start DATE NOT NULL,
   schedule_end DATE NOT NULL,
   location_type VARCHAR(5) NOT NULL,
-  tiploc_code VARCHAR(10) NOT NULL,
   arrival_time TIME NULL,
   departure_time TIME NULL,
-  PRIMARY KEY (train_id, service_code, tiploc_code)
+  PRIMARY KEY (train_id, service_code, tiploc_code, stop_sequence, schedule_start, schedule_end)
 );
 
 CREATE TABLE IF NOT EXISTS tiploc (
@@ -39,5 +40,6 @@ CREATE TABLE IF NOT EXISTS watching (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR NOT NULL,
   train_id     VARCHAR(10)    NOT NULL,
-  service_code   VARCHAR(10)   NOT NULL
+  service_code   VARCHAR(10)   NOT NULL,
+  stanox VARCHAR(10) NOT NULL
 );

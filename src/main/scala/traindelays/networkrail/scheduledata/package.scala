@@ -4,6 +4,8 @@ import java.text.SimpleDateFormat
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalTime}
 
+import cats.effect.IO
+import fs2.Pipe
 import io.circe.Decoder.Result
 import io.circe.{Decoder, HCursor, Json}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
@@ -13,7 +15,11 @@ package object scheduledata {
   val timeFormatter = DateTimeFormatter.ofPattern("HHmm")
 
   sealed trait JsonFilter[A] {
-    implicit val filter: (Json => Boolean)
+    implicit val jsonFilter: (Json => Boolean)
+  }
+
+  sealed trait Transformer[A] {
+    implicit val transform: fs2.Pipe[IO, A, A]
   }
 
   case class ScheduleRecord(trainUid: String,
@@ -26,8 +32,16 @@ package object scheduledata {
   object ScheduleRecord {
 
     implicit case object JsonFilter extends JsonFilter[ScheduleRecord] {
-      override implicit val filter
+      override implicit val jsonFilter
         : Json => Boolean = _.hcursor.downField("JsonScheduleV1").downField("train_status").as[String] == Right("P")
+    }
+
+    implicit case object ScheduleRecordTransformer extends Transformer[ScheduleRecord] {
+      override implicit val transform: Pipe[IO, ScheduleRecord, ScheduleRecord] =
+        (in: fs2.Stream[IO, ScheduleRecord]) =>
+          in.map(rec =>
+            rec.copy(locationRecords = rec.locationRecords.filterNot(locRec =>
+              locRec.departureTime.isEmpty && locRec.arrivalTime.isEmpty)))
     }
 
     private def daysRunFrom(daysRun: String): DaysRun = {
@@ -110,7 +124,12 @@ package object scheduledata {
   object TipLocRecord {
 
     implicit case object JsonFilter extends JsonFilter[TipLocRecord] {
-      override implicit val filter: Json => Boolean = _.hcursor.downField("TiplocV1").downField("stanox").succeeded
+      override implicit val jsonFilter: Json => Boolean =
+        _.hcursor.downField("TiplocV1").downField("stanox").as[String].isRight
+    }
+
+    implicit case object TipLocTransformer extends Transformer[TipLocRecord] {
+      override implicit val transform: Pipe[IO, TipLocRecord, TipLocRecord] = identity
     }
 
     implicit val tipLocDecoder: Decoder[TipLocRecord] {
