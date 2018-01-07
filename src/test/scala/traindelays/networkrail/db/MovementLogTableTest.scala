@@ -48,18 +48,22 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
   def getMovementLog(trainId: String = "862F60MY30",
                      serviceCode: String = "24673605",
                      eventType: String = "ARRIVAL",
+                     toc: String = "SN",
                      stanox: String = "87214",
                      plannedPassengerTimestamp: Long = 1514663220000L,
-                     actualTimestamp: Long = 1514663160000L) =
+                     actualTimestamp: Long = 1514663160000L,
+                     variationStatus: String = "EARLY") =
     MovementLog(
       None,
       trainId,
       serviceCode,
       eventType,
+      toc,
       stanox,
       plannedPassengerTimestamp,
       actualTimestamp,
-      actualTimestamp - plannedPassengerTimestamp
+      actualTimestamp - plannedPassengerTimestamp,
+      variationStatus
     )
 
 }

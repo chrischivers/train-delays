@@ -45,7 +45,7 @@ class NetworkRailClientIntegrationTest
     scheduleResults.size should ===(19990)
 
     val tipLocResult = scheduleDataReader.readData[TipLocRecord].runLog.unsafeRunSync().toList
-    tipLocResult.size should ===(11042)
+    tipLocResult.size should ===(10088)
   }
 
   it should "unpack downloaded schedule/tiploc data and persist to DB" in {

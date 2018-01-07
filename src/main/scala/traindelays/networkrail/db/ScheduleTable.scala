@@ -7,7 +7,10 @@ import fs2.Sink
 import traindelays.networkrail.scheduledata.ScheduleRecord
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
-trait ScheduleTable extends Table[ScheduleRecord]
+trait ScheduleTable extends Table[ScheduleRecord] {
+
+  def deleteAllRecords(): IO[Unit]
+}
 
 object ScheduleTable {
 
@@ -22,6 +25,7 @@ object ScheduleTable {
 
   case class RetrievedScheduleRecord(trainId: String,
                                      serviceCode: String,
+                                     atocCode: String,
                                      stopSequence: Int,
                                      tiplocCode: String,
                                      monday: Boolean,
@@ -42,9 +46,9 @@ object ScheduleTable {
       case (locationRecord, index) =>
         sql"""
       INSERT INTO schedule
-      (train_id, service_code, stop_sequence, tiploc_code, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+      (train_id, service_code, atoc_code, stop_sequence, tiploc_code, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
       schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${record.trainUid}, ${record.trainServiceCode}, ${index + 1}, ${locationRecord.tiplocCode}, ${record.daysRun.monday},
+      VALUES(${record.trainUid}, ${record.trainServiceCode}, ${record.atocCode}, ${index + 1}, ${locationRecord.tiplocCode}, ${record.daysRun.monday},
         ${record.daysRun.tuesday}, ${record.daysRun.wednesday}, ${record.daysRun.thursday}, ${record.daysRun.friday}, ${record.daysRun.saturday},
         ${record.daysRun.sunday}, ${record.scheduleStartDate}, ${record.scheduleEndDate}, ${locationRecord.locationType},
         ${locationRecord.arrivalTime}, ${locationRecord.departureTime})
@@ -53,10 +57,13 @@ object ScheduleTable {
 
   def allScheduleRecords(): Query0[RetrievedScheduleRecord] =
     sql"""
-      SELECT train_id, service_code, stop_sequence, tiploc_code, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+      SELECT train_id, service_code, atoc_code, stop_sequence, tiploc_code, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
       from schedule
       """.query[RetrievedScheduleRecord]
+
+  def deleteAllScheduleRecords(): Update0 =
+    sql"""DELETE FROM schedule""".update
 
   private def toScheduleRecords(retrieved: List[RetrievedScheduleRecord]): List[ScheduleRecord] =
     retrieved
@@ -64,6 +71,7 @@ object ScheduleTable {
         r =>
           (r.trainId,
            r.serviceCode,
+           r.atocCode,
            r.scheduleStart,
            r.scheduleEnd,
            r.monday,
@@ -74,10 +82,11 @@ object ScheduleTable {
            r.saturday,
            r.sunday))
       .map {
-        case ((trainId, serviceCode, scheduleStart, scheduleEnd, mon, tue, wed, thu, fri, sat, sun), recs) =>
+        case ((trainId, serviceCode, atocCode, scheduleStart, scheduleEnd, mon, tue, wed, thu, fri, sat, sun), recs) =>
           ScheduleRecord(
             trainId,
             serviceCode,
+            atocCode,
             DaysRun(mon, tue, wed, thu, fri, sat, sun),
             scheduleStart,
             scheduleEnd,
@@ -104,6 +113,7 @@ object ScheduleTable {
           .transact(db)
           .map(retrieved => toScheduleRecords(retrieved))
 
+      override def deleteAllRecords(): IO[Unit] = ScheduleTable.deleteAllScheduleRecords().run.transact(db).map(_ => ())
     }
 
 }

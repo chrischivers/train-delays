@@ -4,10 +4,10 @@ import cats.effect.IO
 import doobie.hikari.HikariTransactor
 import fs2.Stream
 import org.scalatest.Matchers.fail
-import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, TipLocTable, WatchingTable}
+import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, TipLocTable, SubscriberTable}
 import traindelays.networkrail.movementdata.{MovementLog, MovementRecord}
 import traindelays.networkrail.scheduledata.{ScheduleRecord, TipLocRecord}
-import traindelays.networkrail.watching.WatchingRecord
+import traindelays.networkrail.subscribers.SubscriberRecord
 import traindelays.networkrail.db._
 
 import scala.concurrent.ExecutionContext
@@ -30,7 +30,7 @@ trait TestFeatures {
   case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
                              tiplocRecords: List[TipLocRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
-                             watchingRecords: List[WatchingRecord] = List.empty)
+                             subscriberRecords: List[SubscriberRecord] = List.empty)
 
   object AppInitialState {
     def empty = AppInitialState()
@@ -39,7 +39,7 @@ trait TestFeatures {
   case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
                                     tipLocTable: TipLocTable,
                                     movementLogTable: MovementLogTable,
-                                    watchingTable: WatchingTable)
+                                    subscriberTable: SubscriberTable)
 
   def testDatabaseConfig() = {
     val databaseName = s"test-${System.currentTimeMillis()}-${Random.nextInt(99)}-${Random.nextInt(99)}"
@@ -91,21 +91,23 @@ trait TestFeatures {
               .transact(db)
           })
           .sequence[IO, Int]
-        _ <- initState.watchingRecords
+        _ <- initState.subscriberRecords
           .map(record => {
-            WatchingTable
-              .addWatchingRecord(record)
+            SubscriberTable
+              .addSubscriberRecord(record)
               .run
               .transact(db)
           })
           .sequence[IO, Int]
-        result <- f(TrainDelaysTestFixture(ScheduleTable(db), TipLocTable(db), MovementLogTable(db), WatchingTable(db)))
+        result <- f(
+          TrainDelaysTestFixture(ScheduleTable(db), TipLocTable(db), MovementLogTable(db), SubscriberTable(db)))
       } yield result
     }
 
   def createMovementRecord(trainId: String = "12345",
                            trainServiceCode: String = "23456",
                            eventType: Option[String] = Some("ARRIVAL"),
+                           toc: Option[String] = Some("SN"),
                            plannedEventType: Option[String] = Some("ARRIVAL"),
                            actualTimestamp: Option[Long] = Some(System.currentTimeMillis()),
                            plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
@@ -116,6 +118,7 @@ trait TestFeatures {
       trainId,
       trainServiceCode,
       eventType,
+      toc,
       plannedEventType,
       actualTimestamp,
       plannedTimestamp,

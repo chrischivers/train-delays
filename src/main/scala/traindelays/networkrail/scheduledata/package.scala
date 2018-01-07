@@ -7,7 +7,7 @@ import java.time.{LocalDate, LocalTime}
 import cats.effect.IO
 import fs2.Pipe
 import io.circe.Decoder.Result
-import io.circe.{Decoder, HCursor, Json}
+import io.circe.{Decoder, DecodingFailure, HCursor, Json}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
 package object scheduledata {
@@ -24,6 +24,7 @@ package object scheduledata {
 
   case class ScheduleRecord(trainUid: String,
                             trainServiceCode: String,
+                            atocCode: String,
                             daysRun: DaysRun,
                             scheduleStartDate: LocalDate,
                             scheduleEndDate: LocalDate,
@@ -44,12 +45,11 @@ package object scheduledata {
               locRec.departureTime.isEmpty && locRec.arrivalTime.isEmpty)))
     }
 
-    private def daysRunFrom(daysRun: String): DaysRun = {
-      //TODO handle error
-      assert(daysRun.length == 7 && daysRun.forall(char => char == '1' || char == '0'))
-      val boolVec = daysRun.foldLeft(Vector[Boolean]())((vec, char) => vec :+ (if (char == '1') true else false))
-      DaysRun(boolVec(0), boolVec(1), boolVec(2), boolVec(3), boolVec(4), boolVec(5), boolVec(6))
-    }
+    private def daysRunFrom(daysRun: String): Either[DecodingFailure, DaysRun] =
+      if (daysRun.length == 7 && daysRun.forall(char => char == '1' || char == '0')) {
+        val boolVec = daysRun.foldLeft(Vector[Boolean]())((vec, char) => vec :+ (if (char == '1') true else false))
+        Right(DaysRun(boolVec(0), boolVec(1), boolVec(2), boolVec(3), boolVec(4), boolVec(5), boolVec(6)))
+      } else Left(DecodingFailure.apply(s"Unable to decode DaysRun string $daysRun", List.empty))
 
     implicit val localDateDecoder: Decoder[LocalDate] {
       def apply(c: HCursor): Result[LocalDate]
@@ -65,6 +65,8 @@ package object scheduledata {
         val scheduleObject = c.downField("JsonScheduleV1")
         for {
           daysRun           <- scheduleObject.downField("schedule_days_runs").as[String]
+          daysRunDecoded    <- daysRunFrom(daysRun)
+          atocCode          <- scheduleObject.downField("atoc_code").as[String]
           scheduleStartDate <- scheduleObject.downField("schedule_start_date").as[LocalDate]
           scheduleEndDate   <- scheduleObject.downField("schedule_end_date").as[LocalDate]
           trainUid          <- scheduleObject.downField("CIF_train_uid").as[String]
@@ -74,7 +76,8 @@ package object scheduledata {
         } yield {
           ScheduleRecord(trainUid,
                          serviceCode,
-                         daysRunFrom(daysRun),
+                         atocCode,
+                         daysRunDecoded,
                          scheduleStartDate,
                          scheduleEndDate,
                          locationRecordArray)

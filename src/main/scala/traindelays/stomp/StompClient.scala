@@ -15,7 +15,7 @@ object StompClient extends StrictLogging {
 
   def apply(config: NetworkRailConfig) = new StompClient {
     override def subscribe(topic: String, handler: StompHandler): IO[Unit] = IO {
-      println(s"Subscribing to topic $topic")
+      logger.info(s"Subscribing to topic $topic")
       new Client(config.host, config.port, config.username, config.password)
         .subscribe(topic, handler)
     }

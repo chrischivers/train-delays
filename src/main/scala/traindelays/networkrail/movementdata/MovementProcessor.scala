@@ -3,35 +3,33 @@ package traindelays.networkrail.movementdata
 import cats.effect.IO
 import fs2.async.mutable.Queue
 import fs2.{Pipe, Sink}
-import traindelays.networkrail.db.MovementLogTable
+import traindelays.networkrail.db.{MovementLogTable, SubscriberTable}
+import traindelays.networkrail.subscribers.SubscriberHandler
+
+import scala.concurrent.ExecutionContext
 
 trait MovementProcessor {
 
   def stream: fs2.Stream[IO, Unit]
-//  def runAsync(f: (Either[Throwable, Unit] => IO[Unit])): IO[Unit]
-//  def run: IO[Unit]
 }
 
 object MovementProcessor {
-  def apply(movementMessageQueue: Queue[IO, MovementRecord], movementLogTable: MovementLogTable) =
+  def apply(movementMessageQueue: Queue[IO, MovementRecord],
+            movementLogTable: MovementLogTable,
+            subscriberFetcher: SubscriberHandler)(implicit executionContext: ExecutionContext) =
     new MovementProcessor {
 
       private val recordsToLogPipe: Pipe[IO, MovementRecord, Option[MovementLog]] =
         (in: fs2.Stream[IO, MovementRecord]) => in.map(_.toMovementLog)
 
-      private val dbWriter: Sink[IO, MovementLog] =
-        fs2.Sink { movementLog: MovementLog =>
-          movementLogTable.addRecord(movementLog)
-        }
-
       override def stream: fs2.Stream[IO, Unit] =
         movementMessageQueue.dequeue
           .through(recordsToLogPipe)
           .collect[MovementLog] { case Some(ml) => ml }
-          .to(dbWriter)
-//
-//      override def runAsync(f: (Either[Throwable, Unit] => IO[Unit])) = stream.run.runAsync(f)
-//
-//      override def run: IO[Unit] = stream.run
+//          .filter(x => x.toc == "88")
+          .observe1(x => IO(println("RECEIVED: " + x)))
+          .observe(subscriberFetcher.notifySubscribersSink)
+          .to(movementLogTable.dbWriter)
+
     }
 }

@@ -5,7 +5,8 @@ import fs2.async
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
-import traindelays.{DatabaseConfig, TestFeatures}
+import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
+import traindelays.{ConfigLoader, DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -25,7 +26,9 @@ class MovementLoggerTest extends FlatSpec with Eventually with TestFeatures {
         .unboundedQueue[IO, MovementRecord]
         .map { queue =>
           queue.enqueue1(movementRecord).unsafeRunSync()
-          MovementProcessor(queue, fixture.movementLogTable).stream.run.unsafeRunTimed(3 seconds)
+          val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+          val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+          MovementProcessor(queue, fixture.movementLogTable, subscriberHandler).stream.run.unsafeRunTimed(3 seconds)
 
           fixture.movementLogTable
             .retrieveAllRecords()
@@ -48,7 +51,9 @@ class MovementLoggerTest extends FlatSpec with Eventually with TestFeatures {
         .map { queue =>
           queue.enqueue1(movementRecord1).unsafeRunSync()
           queue.enqueue1(movementRecord2).unsafeRunSync()
-          MovementProcessor(queue, fixture.movementLogTable).stream.run.unsafeRunTimed(3 seconds)
+          val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+          val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+          MovementProcessor(queue, fixture.movementLogTable, subscriberHandler).stream.run.unsafeRunTimed(3 seconds)
 
           fixture.movementLogTable
             .retrieveAllRecords()

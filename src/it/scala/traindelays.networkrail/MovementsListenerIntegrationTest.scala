@@ -12,7 +12,7 @@ import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
 import traindelays.TestFeatures
 import traindelays.networkrail.movementdata.{MovementHandlerWatcher, MovementProcessor, MovementRecord}
-import traindelays.networkrail.watching.{WatchingChecker, WatchingRecord}
+import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler, SubscriberRecord}
 import traindelays.stomp.{StompClient, StompHandler}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -55,11 +55,13 @@ class MovementsListenerIntegrationTest
       async
         .unboundedQueue[IO, MovementRecord]
         .map { queue =>
-          val movementWatcher = new MovementHandlerWatcher(queue)
-          val stompClient     = StompClient(testconfig.networkRailConfig)
+          val movementWatcher   = new MovementHandlerWatcher(queue)
+          val emailer           = Emailer(testconfig.emailerConfig)
+          val subscriberFetcher = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+          val stompClient       = StompClient(testconfig.networkRailConfig)
           subscribeToMovementsTopic(movementWatcher)
 
-          MovementProcessor(queue, fixture.movementLogTable).stream.run.unsafeRunTimed(10 seconds)
+          MovementProcessor(queue, fixture.movementLogTable, subscriberFetcher).stream.run.unsafeRunTimed(10 seconds)
 
           fixture.movementLogTable
             .retrieveAllRecords()
@@ -77,10 +79,12 @@ class MovementsListenerIntegrationTest
       async
         .unboundedQueue[IO, MovementRecord]
         .map { queue =>
-          val movementWatcher = new MovementHandlerWatcher(queue)
+          val movementWatcher   = new MovementHandlerWatcher(queue)
+          val emailer           = Emailer(testconfig.emailerConfig)
+          val subscriberFetcher = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
           subscribeToMovementsTopic(movementWatcher)
 
-          MovementProcessor(queue, fixture.movementLogTable).stream.run.unsafeRunTimed(20 seconds)
+          MovementProcessor(queue, fixture.movementLogTable, subscriberFetcher).stream.run.unsafeRunTimed(20 seconds)
 
           val movementRecords =
             parse(movementWatcher.rawMessagesReceived.head).right.get.as[List[MovementRecord]].right.get
@@ -88,15 +92,15 @@ class MovementsListenerIntegrationTest
           val movementLog = Random.shuffle(movementRecords).head.toMovementLog.get
 
           val userId = UUID.randomUUID().toString
+          val email  = "test@test.com"
           val watchingRecord =
-            WatchingRecord(None, userId, movementLog.trainId, movementLog.serviceCode, movementLog.stanox)
-          fixture.watchingTable.addRecord(watchingRecord).unsafeRunSync()
+            SubscriberRecord(None, userId, email, movementLog.trainId, movementLog.serviceCode, movementLog.stanox)
+          fixture.subscriberTable.addRecord(watchingRecord).unsafeRunSync()
 
-          val watchingChecker  = WatchingChecker(fixture.movementLogTable, fixture.watchingTable)
-          val reportsRetrieved = watchingChecker.generateWatchingReports.unsafeRunSync()
-          val reportsForUsers  = reportsRetrieved.filter(_.watchingRecord.userId == userId)
+          val reportsRetrieved = subscriberFetcher.generateSubscriberReports.unsafeRunSync()
+          val reportsForUsers  = reportsRetrieved.filter(_.subscriberRecord.userId == userId)
           reportsForUsers should have size 1
-          reportsForUsers.head.watchingRecord.copy(id = None) shouldBe watchingRecord
+          reportsForUsers.head.subscriberRecord.copy(id = None) shouldBe watchingRecord
           reportsForUsers.head.movementLogs.size shouldBe >(0)
           reportsForUsers.head.movementLogs.map(_.copy(id = None)) should contain(movementLog)
         }

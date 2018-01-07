@@ -4,6 +4,7 @@ import java.nio.file.{Path, Paths}
 
 import com.typesafe.config.ConfigFactory
 import org.http4s.Uri
+
 import scala.collection.JavaConverters._
 
 case class NetworkRailConfig(host: String,
@@ -18,7 +19,17 @@ case class ScheduleDataConfig(downloadUrl: Uri, tmpDownloadLocation: Path, tmpUn
 
 case class MovementsConfig(topic: String)
 
-case class TrainDelaysConfig(networkRailConfig: NetworkRailConfig, databaseConfig: DatabaseConfig)
+case class EmailerConfig(fromAddress: String,
+                         smtpHost: String,
+                         smtpPort: Int,
+                         smtpUsername: String,
+                         smtpPassword: String,
+                         numberAttempts: Int,
+                         secondsBetweenAttempts: Int)
+
+case class TrainDelaysConfig(networkRailConfig: NetworkRailConfig,
+                             databaseConfig: DatabaseConfig,
+                             emailerConfig: EmailerConfig)
 
 case class DatabaseConfig(driverClassName: String,
                           url: String,
@@ -56,6 +67,15 @@ object ConfigLoader {
         defaultConfigFactory.getString("db.password"),
         defaultConfigFactory.getStringList("db.migrationScripts").asScala.toList,
         defaultConfigFactory.getInt("db.maximumPoolSize")
+      ),
+      EmailerConfig(
+        defaultConfigFactory.getString("email.fromAddress"),
+        defaultConfigFactory.getString("email.smtpHost"),
+        defaultConfigFactory.getInt("email.smtpPort"),
+        defaultConfigFactory.getString("email.smtpUsername"),
+        defaultConfigFactory.getString("email.smtpPassword"),
+        defaultConfigFactory.getInt("email.numberAttempts"),
+        defaultConfigFactory.getInt("email.secondsBetweenAttempts")
       )
     )
   }

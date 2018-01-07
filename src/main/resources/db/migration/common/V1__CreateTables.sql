@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS schedule (
   train_id     VARCHAR(10)    NOT NULL,
   service_code    VARCHAR(10)   NOT NULL,
+  atoc_code VARCHAR(10) NOT NULL,
   stop_sequence SMALLINT NOT NULL,
   tiploc_code VARCHAR(10) NOT NULL,
   monday   BOOLEAN NOT NULL,
@@ -30,15 +31,18 @@ CREATE TABLE IF NOT EXISTS movement_log (
   train_id     VARCHAR(10)    NOT NULL,
   service_code    VARCHAR(10)   NOT NULL,
   event_type VARCHAR(15) NOT NULL,
+  toc VARCHAR(10) NOT NULL,
   stanox VARCHAR(10) NOT NULL,
   planned_passenger_timestamp BIGINT NOT NULL,
   actual_timestamp BIGINT NOT NULL,
-  difference BIGINT NOT NULL
+  difference BIGINT NOT NULL,
+  variation_status VARCHAR(10) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS watching (
+CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR NOT NULL,
+  email VARCHAR NOT NULL,
   train_id     VARCHAR(10)    NOT NULL,
   service_code   VARCHAR(10)   NOT NULL,
   stanox VARCHAR(10) NOT NULL

@@ -8,6 +8,7 @@ package object movementdata {
   case class MovementRecord(trainId: String,
                             trainServiceCode: String,
                             eventType: Option[String],
+                            toc: Option[String],
                             plannedEventType: Option[String],
                             actualTimestamp: Option[Long],
                             plannedTimestamp: Option[Long],
@@ -18,18 +19,24 @@ package object movementdata {
     def toMovementLog: Option[MovementLog] =
       for {
         eventType                 <- eventType
+        toc                       <- toc
         stanox                    <- stanox
         plannedPassengerTimestamp <- plannedPassengerTimestamp
         actualTimestamp           <- actualTimestamp
+        variationStatus           <- variationStatus
       } yield
-        MovementLog(None,
-                    trainId,
-                    trainServiceCode,
-                    eventType,
-                    stanox,
-                    plannedPassengerTimestamp,
-                    actualTimestamp,
-                    actualTimestamp - plannedPassengerTimestamp)
+        MovementLog(
+          None,
+          trainId,
+          trainServiceCode,
+          eventType,
+          toc,
+          stanox,
+          plannedPassengerTimestamp,
+          actualTimestamp,
+          actualTimestamp - plannedPassengerTimestamp,
+          variationStatus
+        )
 
   }
 
@@ -45,6 +52,7 @@ package object movementdata {
           trainId          <- bodyObject.downField("train_id").as[String]
           trainServiceCode <- bodyObject.downField("train_service_code").as[String]
           eventType        <- bodyObject.downField("event_type").as[Option[String]]
+          toc              <- bodyObject.downField("toc_id").as[Option[String]]
           plannedEventType <- bodyObject.downField("planned_event_type").as[Option[String]]
           actualTimestamp <- bodyObject
             .downField("actual_timestamp")
@@ -65,6 +73,7 @@ package object movementdata {
           MovementRecord(trainId,
                          trainServiceCode,
                          eventType,
+                         toc,
                          plannedEventType,
                          actualTimestamp,
                          plannedTimestamp,
@@ -85,56 +94,10 @@ package object movementdata {
                          trainId: String,
                          serviceCode: String,
                          eventType: String,
+                         toc: String,
                          stanox: String,
                          plannedPassengerTimestamp: Long,
                          actualTimestamp: Long,
-                         difference: Long)
+                         difference: Long,
+                         variationStatus: String)
 }
-/*
-
-CREATE TABLE IF NOT EXISTS movement_log (
-  id SERIAL PRIMARY KEY,
-  train_id     VARCHAR(10)    NOT NULL,
-  service_code    VARCHAR(10)   NOT NULL,
-  event_type VARCHAR(15) NOT NULL,
-  stanox VARCHAR(10) NOT NULL,
-  planned_passenger_timestamp TIMESTAMP NOT NULL,
-  actual_timestamp TIMESTAMP NOT NULL,
-  difference LONG NOT NULL
-);
-
- */
-
-/*
-"body":{
-            "event_type":"ARRIVAL",
-            "gbtt_timestamp":"1514650800000",
-            "original_loc_stanox":"",
-            "planned_timestamp":"1514650830000",
-            "timetable_variation":"2",
-            "original_loc_timestamp":"",
-            "current_train_id":"",
-            "delay_monitoring_point":"true",
-            "next_report_run_time":"2",
-            "reporting_stanox":"72238",
-            "actual_timestamp":"1514650680000",
-            "correction_ind":"false",
-            "event_source":"AUTOMATIC",
-            "train_file_address":null,
-            "platform":"",
-            "division_code":"30",
-            "train_terminated":"false",
-            "train_id":"722Y81MR30",
-            "offroute_ind":"false",
-            "variation_status":"EARLY",
-            "train_service_code":"22214000",
-            "toc_id":"30",
-            "loc_stanox":"72238",
-            "auto_expected":"true",
-            "direction_ind":"UP",
-            "route":"0",
-            "planned_event_type":"ARRIVAL",
-            "next_report_stanox":"72242",
-            "line_ind":""
-         }
- */

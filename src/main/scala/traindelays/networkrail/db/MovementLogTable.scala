@@ -14,14 +14,14 @@ object MovementLogTable {
   def addMovementLogRecord(record: MovementLog): Update0 =
     sql"""
       INSERT INTO movement_log
-      (train_id, service_code, event_type, stanox, planned_passenger_timestamp, actual_timestamp, difference)
-      VALUES(${record.trainId}, ${record.serviceCode}, ${record.eventType}, ${record.stanox},
-      ${record.plannedPassengerTimestamp}, ${record.actualTimestamp}, ${record.difference})
+      (train_id, service_code, event_type, toc, stanox, planned_passenger_timestamp, actual_timestamp, difference, variation_status)
+      VALUES(${record.trainId}, ${record.serviceCode}, ${record.eventType}, ${record.toc}, ${record.stanox},
+      ${record.plannedPassengerTimestamp}, ${record.actualTimestamp}, ${record.difference}, ${record.variationStatus})
      """.update
 
   def allMovementLogRecords(): Query0[MovementLog] =
     sql"""
-      SELECT id, train_id, service_code, event_type, stanox, planned_passenger_timestamp, actual_timestamp, difference
+      SELECT id, train_id, service_code, event_type, toc, stanox, planned_passenger_timestamp, actual_timestamp, difference, variation_status
       from movement_log
       """.query[MovementLog]
 

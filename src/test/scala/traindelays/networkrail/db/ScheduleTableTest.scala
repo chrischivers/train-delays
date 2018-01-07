@@ -33,6 +33,21 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     retrievedRecords.head shouldBe scheduleRecord
   }
 
+  it should "delete all records from the database" in {
+
+    val scheduleRecord = getTestScheduleRecord()
+
+    val retrievedRecords = withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord))) {
+      fixture =>
+        for {
+          _         <- fixture.scheduleTable.deleteAllRecords()
+          retrieved <- fixture.scheduleTable.retrieveAllRecords()
+        } yield retrieved
+    }
+
+    retrievedRecords should have size 0
+  }
+
   it should "retrieve multiple inserted records from the database" in {
 
     val scheduleRecord1 = getTestScheduleRecord()
@@ -68,6 +83,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   def getTestScheduleRecord(trainUid: String = "G76481",
                             trainServiceCode: String = "24745000",
+                            atocCode: String = "SN",
                             daysRun: DaysRun = DaysRun(monday = true,
                                                        tuesday = true,
                                                        wednesday = true,
@@ -90,6 +106,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     ScheduleRecord(
       trainUid,
       trainServiceCode,
+      atocCode,
       daysRun,
       scheduleStartDate,
       scheduleEndDate,

@@ -21,6 +21,7 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe ScheduleRecord(
       "G76481",
       "24745000",
+      "SN",
       DaysRun(monday = true,
               tuesday = true,
               wednesday = true,
@@ -59,6 +60,7 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe ScheduleRecord(
       "G76481",
       "24745000",
+      "SN",
       DaysRun(monday = true,
               tuesday = true,
               wednesday = true,
