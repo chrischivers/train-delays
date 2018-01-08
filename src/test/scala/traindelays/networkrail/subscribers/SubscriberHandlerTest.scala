@@ -74,19 +74,28 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
 
   it should "email relevant subscribers when movement log received for which they are subscribed" in {
 
-    val movementRecord1  = createMovementRecord()
-    val userID           = UUID.randomUUID().toString
-    val email            = "test@test.com"
-    val trainID          = movementRecord1.trainId
-    val serviceCode      = movementRecord1.trainServiceCode
-    val stanox           = movementRecord1.stanox.get
-    val subscriberRecord = SubscriberRecord(None, userID, email, trainID, serviceCode, stanox)
+    val movementRecord1 = createMovementRecord()
+
+    val userID1      = UUID.randomUUID().toString
+    val email1       = "test1@test.com"
+    val trainID1     = movementRecord1.trainId
+    val serviceCode1 = movementRecord1.trainServiceCode
+    val stanox1      = movementRecord1.stanox.get
+
+    val userID2      = UUID.randomUUID().toString
+    val email2       = "test2@test.com"
+    val trainID2     = "ID123"
+    val serviceCode2 = movementRecord1.trainServiceCode
+    val stanox2      = movementRecord1.stanox.get
+
+    val subscriberRecord1 = SubscriberRecord(None, userID1, email1, trainID1, serviceCode1, stanox1)
+    val subscriberRecord2 = SubscriberRecord(None, userID2, email2, trainID2, serviceCode2, stanox2)
 
     val emailer = StubEmailer()
 
     withInitialState(config)(
       AppInitialState(
-        subscriberRecords = List(subscriberRecord)
+        subscriberRecords = List(subscriberRecord1, subscriberRecord2)
       )) { fixture =>
       val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
 
@@ -99,7 +108,8 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     }
 
     emailer.emailsSent should have size 1
-    emailer.emailsSent.head.to shouldBe email
+    emailer.emailsSent.head.to shouldBe email1
 
   }
+
 }

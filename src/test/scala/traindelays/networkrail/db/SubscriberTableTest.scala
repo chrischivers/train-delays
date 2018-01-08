@@ -1,8 +1,9 @@
 package traindelays.networkrail.db
 
+import cats.effect.IO
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.{DatabaseConfig, TestFeatures}
+import traindelays.{DatabaseConfig, SubscribersConfig, TestFeatures}
 import traindelays.networkrail.subscribers.SubscriberRecord
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -18,7 +19,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
     }
   }
 
-  it should "retrieve an inserted watching record from the database" in {
+  it should "retrieve inserted watching records from the database" in {
 
     val subscriberRecord = getSubscriberRecord()
 
@@ -59,6 +60,34 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     retrievedRecords should have size 1
     retrievedRecords.head shouldBe watchingRecord1.copy(id = Some(1))
+  }
+
+  it should "memoize retreival of records to minimize database calls" in {
+
+    import scala.concurrent.duration._
+
+    val subscriberRecord = getSubscriberRecord()
+
+    withInitialState(config, SubscribersConfig(3 seconds))(AppInitialState(subscriberRecords = List(subscriberRecord))) {
+      fixture =>
+        IO {
+          val retrievedRecords1 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+          retrievedRecords1 should have size 1
+          retrievedRecords1.head shouldBe subscriberRecord.copy(id = Some(1))
+
+          fixture.subscriberTable.deleteAllRecords().unsafeRunSync()
+
+          val retrievedRecords2 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+          retrievedRecords2 should have size 1
+          retrievedRecords2.head shouldBe subscriberRecord.copy(id = Some(1))
+
+          Thread.sleep(3000)
+
+          val retrievedRecords3 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+          retrievedRecords3 should have size 0
+        }
+    }
+
   }
 
   def getSubscriberRecord(userId: String = "ABCDEFG",

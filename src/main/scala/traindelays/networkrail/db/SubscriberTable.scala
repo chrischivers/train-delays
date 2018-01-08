@@ -1,11 +1,14 @@
 package traindelays.networkrail.db
 
 import cats.effect.IO
-import doobie.Transactor
+import traindelays.SubscribersConfig
 import traindelays.networkrail.subscribers.SubscriberRecord
+
+import scalacache.memoization._
 
 trait SubscriberTable extends Table[SubscriberRecord] {
   def subscriberRecordsFor(trainId: String, serviceCode: String, stanox: String): IO[List[SubscriberRecord]]
+  def deleteAllRecords(): IO[Unit]
 }
 
 object SubscriberTable {
@@ -20,7 +23,7 @@ object SubscriberTable {
       VALUES(${record.userId}, ${record.email}, ${record.trainId}, ${record.serviceCode}, ${record.stanox})
      """.update
 
-  def allSubscriberRecords(): Query0[SubscriberRecord] =
+  protected def allSubscriberRecords(): Query0[SubscriberRecord] =
     sql"""
       SELECT id, user_id, email, train_id, service_code, stanox
       FROM subscribers
@@ -49,20 +52,38 @@ object SubscriberTable {
           FROM subscribers
           WHERE train_id = ${trainId} AND service_code = ${serviceCode} AND stanox = ${stanox}
       """.query[SubscriberRecord].list.transact(db)
+
+      override def deleteAllRecords(): IO[Unit] =
+        SubscriberTable.deleteAllSubscriberRecords().run.transact(db).map(_ => ())
     }
+
+  def deleteAllSubscriberRecords(): Update0 =
+    sql"""DELETE FROM subscribers""".update
 }
 
 object MemoizedSubscriberTable {
-  def apply(db: Transactor[IO]) = new SubscriberTable {
+  import doobie._
+  import scalacache.CatsEffect.modes._
+  import scalacache._
+  import scalacache.guava._
 
-    val subscriberTable = SubscriberTable(db)
+  def apply(db: Transactor[IO], subscribersConfig: SubscribersConfig) = new SubscriberTable {
+
+    val subscriberTable                                                = SubscriberTable(db)
+    implicit val subscriberRecordsCache: Cache[List[SubscriberRecord]] = GuavaCache[List[SubscriberRecord]]
 
     override def subscriberRecordsFor(trainId: String,
                                       serviceCode: String,
-                                      stanox: String): IO[List[SubscriberRecord]] = ???
+                                      stanox: String): IO[List[SubscriberRecord]] =
+      subscriberTable.subscriberRecordsFor(trainId, serviceCode, stanox)
 
-    override def addRecord(record: SubscriberRecord): IO[Unit] = ???
+    override def addRecord(record: SubscriberRecord): IO[Unit] = subscriberTable.addRecord(record)
 
-    override def retrieveAllRecords(): IO[List[SubscriberRecord]] = ???
+    override def retrieveAllRecords(): IO[List[SubscriberRecord]] =
+      memoizeF(Some(subscribersConfig.memoizeFor)) {
+        subscriberTable.retrieveAllRecords()
+      }
+
+    override def deleteAllRecords(): IO[Unit] = subscriberTable.deleteAllRecords()
   }
 }

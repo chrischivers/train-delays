@@ -11,7 +11,6 @@ trait SubscriberHandler {
 
   def generateSubscriberReports: IO[List[SubscriberReport]]
 
-  //TODO TEST THIS
   def notifySubscribersSink: fs2.Sink[IO, MovementLog]
 }
 

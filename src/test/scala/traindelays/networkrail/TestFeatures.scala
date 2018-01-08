@@ -61,10 +61,13 @@ trait TestFeatures {
 
   import cats.instances.list._
   import cats.syntax.traverse._
+  import scala.concurrent.duration._
 
-  def withInitialState[A](config: DatabaseConfig)(initState: AppInitialState = AppInitialState.empty)(
-      f: TrainDelaysTestFixture => IO[A])(implicit executionContext: ExecutionContext): A =
-    withDatabase(config) { db =>
+  def withInitialState[A](databaseConfig: DatabaseConfig,
+                          subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute))(
+      initState: AppInitialState = AppInitialState.empty)(f: TrainDelaysTestFixture => IO[A])(
+      implicit executionContext: ExecutionContext): A =
+    withDatabase(databaseConfig) { db =>
       for {
         _ <- db.clean
         _ <- initState.scheduleRecords
@@ -100,7 +103,10 @@ trait TestFeatures {
           })
           .sequence[IO, Int]
         result <- f(
-          TrainDelaysTestFixture(ScheduleTable(db), TipLocTable(db), MovementLogTable(db), SubscriberTable(db)))
+          TrainDelaysTestFixture(ScheduleTable(db),
+                                 TipLocTable(db),
+                                 MovementLogTable(db),
+                                 MemoizedSubscriberTable(db, subscribersConfig)))
       } yield result
     }
 

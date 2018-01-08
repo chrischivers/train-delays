@@ -11,6 +11,7 @@ val circeVersion = "0.9.0-M2"
 val fs2Version = "0.10.0-M8"
 val http4sVersion = "0.18.0-M5"
 val doobieVersion  = "0.5.0-M9"
+val scalacacheVersion  = "0.22.0"
 
 
 libraryDependencies ++= Seq(
@@ -36,6 +37,12 @@ libraryDependencies ++= Seq(
   "org.tpolecat"               %% "doobie-postgres"         % doobieVersion,
   "org.tpolecat"               %% "doobie-h2"               % doobieVersion % "test, it",
   "org.tpolecat"               %% "doobie-scalatest"        % doobieVersion % "test, it"
+)
+
+libraryDependencies ++= Seq(
+  "com.github.cb372" % "scalacache-core_2.12" % scalacacheVersion,
+  "com.github.cb372" %% "scalacache-guava" % scalacacheVersion,
+  "com.github.cb372" %% "scalacache-cats-effect" % scalacacheVersion
 )
 
 libraryDependencies ++= Seq(

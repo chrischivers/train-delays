@@ -1,9 +1,9 @@
 package traindelays.networkrail.movementdata
 
 import cats.effect.IO
+import fs2.Pipe
 import fs2.async.mutable.Queue
-import fs2.{Pipe, Sink}
-import traindelays.networkrail.db.{MovementLogTable, SubscriberTable}
+import traindelays.networkrail.db.MovementLogTable
 import traindelays.networkrail.subscribers.SubscriberHandler
 
 import scala.concurrent.ExecutionContext
@@ -27,7 +27,6 @@ object MovementProcessor {
           .through(recordsToLogPipe)
           .collect[MovementLog] { case Some(ml) => ml }
 //          .filter(x => x.toc == "88")
-          .observe1(x => IO(println("RECEIVED: " + x)))
           .observe(subscriberFetcher.notifySubscribersSink)
           .to(movementLogTable.dbWriter)
 

@@ -1,11 +1,14 @@
 package traindelays
 
 import java.nio.file.{Path, Paths}
+import java.util.concurrent.TimeUnit
 
+import com.sun.xml.internal.xsom.impl.WildcardImpl.Finite
 import com.typesafe.config.ConfigFactory
 import org.http4s.Uri
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration.FiniteDuration
 
 case class NetworkRailConfig(host: String,
                              port: Int,
@@ -13,11 +16,14 @@ case class NetworkRailConfig(host: String,
                              password: String,
                              maxRedirects: Int,
                              scheduleData: ScheduleDataConfig,
-                             movements: MovementsConfig)
+                             movements: MovementsConfig,
+                             subscribersConfig: SubscribersConfig)
 
 case class ScheduleDataConfig(downloadUrl: Uri, tmpDownloadLocation: Path, tmpUnzipLocation: Path)
 
 case class MovementsConfig(topic: String)
+
+case class SubscribersConfig(memoizeFor: FiniteDuration)
 
 case class EmailerConfig(fromAddress: String,
                          smtpHost: String,
@@ -57,7 +63,11 @@ object ConfigLoader {
           Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpUnzipLocation"))
         ),
         MovementsConfig(
-          defaultConfigFactory.getString("networkRail.movements.topic"),
+          defaultConfigFactory.getString("networkRail.movements.topic")
+        ),
+        SubscribersConfig(
+          FiniteDuration(defaultConfigFactory.getDuration("networkRail.subscribers.memoizeFor").toMillis,
+                         TimeUnit.MILLISECONDS)
         )
       ),
       DatabaseConfig(
