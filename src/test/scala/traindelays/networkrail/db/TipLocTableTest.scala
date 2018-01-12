@@ -2,8 +2,11 @@ package traindelays.networkrail.db
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.Stanox
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.{DatabaseConfig, TestFeatures}
 import traindelays.networkrail.scheduledata._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class TipLocTableTest extends FlatSpec with TestFeatures {
@@ -32,7 +35,7 @@ class TipLocTableTest extends FlatSpec with TestFeatures {
   it should "retrieve multiple inserted tiploc records from the database" in {
 
     val tipLocRecord1 = getTipLocRecord()
-    val tipLocRecord2 = getTipLocRecord().copy(tipLocCode = "REIGATE", description = Some("REIGATE_DESC"))
+    val tipLocRecord2 = getTipLocRecord().copy(tipLocCode = TipLocCode("REIGATE"), description = Some("REIGATE_DESC"))
 
     val retrievedRecords =
       withInitialState(config)(AppInitialState(tiplocRecords = List(tipLocRecord1, tipLocRecord2))) { fixture =>
@@ -44,8 +47,8 @@ class TipLocTableTest extends FlatSpec with TestFeatures {
     retrievedRecords(1) shouldBe tipLocRecord2
   }
 
-  def getTipLocRecord(tipLocCode: String = "REDHILL",
-                      stanox: String = "87722",
+  def getTipLocRecord(tipLocCode: TipLocCode = TipLocCode("REDHILL"),
+                      stanox: Stanox = Stanox("87722"),
                       description: Option[String] = Some("REDHILL")) =
     TipLocRecord(tipLocCode, stanox, description)
 

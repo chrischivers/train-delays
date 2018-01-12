@@ -4,9 +4,16 @@ import java.time.{LocalDate, LocalTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.{DatabaseConfig, TestFeatures}
+import traindelays.networkrail.ServiceCode
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{
+  OriginatingLocation,
+  TerminatingLocation,
+  TipLocCode
+}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.scheduledata.{ScheduleRecord, _}
+import traindelays.networkrail.scheduledata._
+import traindelays.{DatabaseConfig, TestFeatures}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ScheduleTableTest extends FlatSpec with TestFeatures {
@@ -51,7 +58,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
   it should "retrieve multiple inserted records from the database" in {
 
     val scheduleRecord1 = getTestScheduleRecord()
-    val scheduleRecord2 = getTestScheduleRecord().copy(trainUid = "123456")
+    val scheduleRecord2 = getTestScheduleRecord().copy(scheduleTrainId = ScheduleTrainId("123456"))
 
     val retrievedRecords =
       withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord1, scheduleRecord2))) { fixture =>
@@ -65,9 +72,18 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   it should "preserve order of location records when retrieved from DB" in {
 
-    val slr1 = ScheduleLocationRecord("LO", "REIGATE", None, Some(LocalTime.parse("0649", timeFormatter)))
-    val slr2 = ScheduleLocationRecord("LT", "REDHILL", Some(LocalTime.parse("0653", timeFormatter)), None)
-    val slr3 = ScheduleLocationRecord("LT", "MERSTHAM", Some(LocalTime.parse("0659", timeFormatter)), None)
+    val slr1 = ScheduleLocationRecord(OriginatingLocation,
+                                      TipLocCode("REIGATE"),
+                                      None,
+                                      Some(LocalTime.parse("0649", timeFormatter)))
+    val slr2 = ScheduleLocationRecord(TerminatingLocation,
+                                      TipLocCode("REDHILL"),
+                                      Some(LocalTime.parse("0653", timeFormatter)),
+                                      None)
+    val slr3 = ScheduleLocationRecord(TerminatingLocation,
+                                      TipLocCode("MERSTHAM"),
+                                      Some(LocalTime.parse("0659", timeFormatter)),
+                                      None)
 
     val scheduleRecord = getTestScheduleRecord(locationRecords = List(slr1, slr2, slr3))
 
@@ -81,9 +97,9 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   }
 
-  def getTestScheduleRecord(trainUid: String = "G76481",
-                            trainServiceCode: String = "24745000",
-                            atocCode: String = "SN",
+  def getTestScheduleRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+                            trainServiceCode: ServiceCode = ServiceCode("24745000"),
+                            atocCode: AtocCode = AtocCode("SN"),
                             daysRun: DaysRun = DaysRun(monday = true,
                                                        tuesday = true,
                                                        wednesday = true,
@@ -94,17 +110,17 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                             scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
                             scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
                             locationRecords: List[ScheduleLocationRecord] = List(
-                              ScheduleLocationRecord("LO",
-                                                     "REIGATE",
+                              ScheduleLocationRecord(OriginatingLocation,
+                                                     TipLocCode("REIGATE"),
                                                      None,
                                                      Some(LocalTime.parse("0649", timeFormatter))),
-                              ScheduleLocationRecord("LT",
-                                                     "REDHILL",
+                              ScheduleLocationRecord(TerminatingLocation,
+                                                     TipLocCode("REDHILL"),
                                                      Some(LocalTime.parse("0653", timeFormatter)),
                                                      None)
                             )) =
     ScheduleRecord(
-      trainUid,
+      scheduleTrainId,
       trainServiceCode,
       atocCode,
       daysRun,

@@ -1,8 +1,7 @@
 package traindelays.networkrail.db
 
 import cats.effect.IO
-import traindelays.networkrail.movementdata.{MovementLog, MovementRecord}
-import traindelays.networkrail.scheduledata.TipLocRecord
+import traindelays.networkrail.movementdata.MovementLog
 
 trait MovementLogTable extends Table[MovementLog]
 

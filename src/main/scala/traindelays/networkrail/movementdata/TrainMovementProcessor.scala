@@ -8,26 +8,27 @@ import traindelays.networkrail.subscribers.SubscriberHandler
 
 import scala.concurrent.ExecutionContext
 
-trait MovementProcessor {
+trait TrainMovementProcessor {
 
   def stream: fs2.Stream[IO, Unit]
 }
 
-object MovementProcessor {
-  def apply(movementMessageQueue: Queue[IO, MovementRecord],
+object TrainMovementProcessor {
+  def apply(movementMessageQueue: Queue[IO, TrainMovementRecord],
             movementLogTable: MovementLogTable,
             subscriberFetcher: SubscriberHandler)(implicit executionContext: ExecutionContext) =
-    new MovementProcessor {
+    new TrainMovementProcessor {
 
-      private val recordsToLogPipe: Pipe[IO, MovementRecord, Option[MovementLog]] =
-        (in: fs2.Stream[IO, MovementRecord]) => in.map(_.toMovementLog)
+      private val recordsToLogPipe: Pipe[IO, TrainMovementRecord, Option[MovementLog]] =
+        (in: fs2.Stream[IO, TrainMovementRecord]) => in.map(_.toMovementLog)
 
       override def stream: fs2.Stream[IO, Unit] =
         movementMessageQueue.dequeue
           .through(recordsToLogPipe)
           .collect[MovementLog] { case Some(ml) => ml }
-//          .filter(x => x.toc == "88")
-          .observe(subscriberFetcher.notifySubscribersSink)
+//          .filter(x => x.trainId.value == "G74349")
+//          .observe(subscriberFetcher.notifySubscribersSink)
+          .observe1(x => IO(println(x)))
           .to(movementLogTable.dbWriter)
 
     }

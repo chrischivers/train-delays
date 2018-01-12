@@ -3,7 +3,6 @@ package traindelays
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 
-import com.sun.xml.internal.xsom.impl.WildcardImpl.Finite
 import com.typesafe.config.ConfigFactory
 import org.http4s.Uri
 

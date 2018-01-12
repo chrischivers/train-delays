@@ -5,9 +5,11 @@ import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
+import doobie.util.meta.Meta
 import fs2.Pipe
 import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, HCursor, Json}
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
 package object scheduledata {
@@ -22,9 +24,25 @@ package object scheduledata {
     implicit val transform: fs2.Pipe[IO, A, A]
   }
 
-  case class ScheduleRecord(trainUid: String,
-                            trainServiceCode: String,
-                            atocCode: String,
+  case class ScheduleTrainId(value: String)
+  object ScheduleTrainId {
+    implicit val decoder: Decoder[ScheduleTrainId] = Decoder.decodeString.map(ScheduleTrainId(_))
+
+    implicit val meta: Meta[ScheduleTrainId] =
+      Meta[String].xmap(ScheduleTrainId(_), _.value)
+  }
+
+  case class AtocCode(value: String)
+  object AtocCode {
+    implicit val decoder: Decoder[AtocCode] = Decoder.decodeString.map(AtocCode(_))
+
+    implicit val meta: Meta[AtocCode] =
+      Meta[String].xmap(AtocCode(_), _.value)
+  }
+
+  case class ScheduleRecord(scheduleTrainId: ScheduleTrainId,
+                            trainServiceCode: ServiceCode,
+                            atocCode: AtocCode,
                             daysRun: DaysRun,
                             scheduleStartDate: LocalDate,
                             scheduleEndDate: LocalDate,
@@ -66,15 +84,15 @@ package object scheduledata {
         for {
           daysRun           <- scheduleObject.downField("schedule_days_runs").as[String]
           daysRunDecoded    <- daysRunFrom(daysRun)
-          atocCode          <- scheduleObject.downField("atoc_code").as[String]
+          atocCode          <- scheduleObject.downField("atoc_code").as[AtocCode]
           scheduleStartDate <- scheduleObject.downField("schedule_start_date").as[LocalDate]
           scheduleEndDate   <- scheduleObject.downField("schedule_end_date").as[LocalDate]
-          trainUid          <- scheduleObject.downField("CIF_train_uid").as[String]
+          scheduleTrainUid  <- scheduleObject.downField("CIF_train_uid").as[ScheduleTrainId]
           scheduleSegment = scheduleObject.downField("schedule_segment")
-          serviceCode         <- scheduleSegment.downField("CIF_train_service_code").as[String]
+          serviceCode         <- scheduleSegment.downField("CIF_train_service_code").as[ServiceCode]
           locationRecordArray <- scheduleSegment.downField("schedule_location").as[List[ScheduleLocationRecord]]
         } yield {
-          ScheduleRecord(trainUid,
+          ScheduleRecord(scheduleTrainUid,
                          serviceCode,
                          atocCode,
                          daysRunDecoded,
@@ -85,15 +103,48 @@ package object scheduledata {
       }
     }
 
-    case class ScheduleLocationRecord(locationType: String,
-                                      tiplocCode: String,
+    case class ScheduleLocationRecord(locationType: LocationType,
+                                      tiplocCode: TipLocCode,
                                       arrivalTime: Option[LocalTime],
                                       departureTime: Option[LocalTime])
 
     object ScheduleLocationRecord {
 
-      import io.circe.java8.time.decodeLocalTime
+      case class TipLocCode(value: String)
+      object TipLocCode {
+        implicit val decoder: Decoder[TipLocCode] = Decoder.decodeString.map(TipLocCode(_))
 
+        implicit val meta: Meta[TipLocCode] =
+          Meta[String].xmap(TipLocCode(_), _.value)
+      }
+
+      sealed trait LocationType {
+        val string: String
+      }
+      case object OriginatingLocation extends LocationType {
+        override val string: String = "LO"
+      }
+      case object TerminatingLocation extends LocationType {
+        override val string: String = "LT"
+      }
+      case object IntermediateLocation extends LocationType {
+        override val string: String = "LI"
+      }
+      object LocationType {
+
+        def fromString(str: String): LocationType =
+          str match {
+            case OriginatingLocation.string  => OriginatingLocation
+            case TerminatingLocation.string  => TerminatingLocation
+            case IntermediateLocation.string => IntermediateLocation
+          }
+        implicit val decoder: Decoder[LocationType] = Decoder.decodeString.map(fromString)
+
+        implicit val meta: Meta[LocationType] =
+          Meta[String].xmap(LocationType.fromString, _.string)
+      }
+
+      import io.circe.java8.time.decodeLocalTime
       implicit final val localTimeDecoder: Decoder[LocalTime] =
         decodeLocalTime(timeFormatter)
 
@@ -102,8 +153,8 @@ package object scheduledata {
       } = new Decoder[ScheduleLocationRecord] {
         override def apply(c: HCursor): Result[ScheduleLocationRecord] =
           for {
-            locationType  <- c.downField("location_type").as[String]
-            tiplocCode    <- c.downField("tiploc_code").as[String]
+            locationType  <- c.downField("location_type").as[LocationType]
+            tiplocCode    <- c.downField("tiploc_code").as[TipLocCode]
             departureTime <- c.downField("public_departure").as[Option[LocalTime]]
             arrivalTime   <- c.downField("public_arrival").as[Option[LocalTime]]
           } yield {
@@ -122,7 +173,7 @@ package object scheduledata {
 
   }
 
-  case class TipLocRecord(tipLocCode: String, stanox: String, description: Option[String])
+  case class TipLocRecord(tipLocCode: TipLocCode, stanox: Stanox, description: Option[String])
 
   object TipLocRecord {
 
@@ -142,8 +193,8 @@ package object scheduledata {
       override def apply(c: HCursor): Result[TipLocRecord] = {
         val tipLocObject = c.downField("TiplocV1")
         for {
-          tipLocCode  <- tipLocObject.downField("tiploc_code").as[String]
-          stanox      <- tipLocObject.downField("stanox").as[String]
+          tipLocCode  <- tipLocObject.downField("tiploc_code").as[TipLocCode]
+          stanox      <- tipLocObject.downField("stanox").as[Stanox]
           description <- tipLocObject.downField("tps_description").as[Option[String]]
         } yield {
           TipLocRecord(tipLocCode, stanox, description)

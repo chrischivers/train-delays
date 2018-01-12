@@ -3,8 +3,10 @@ package traindelays.networkrail.db
 import cats.effect.IO
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.scheduledata.ScheduleTrainId
+import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
+import traindelays.networkrail.{ServiceCode, Stanox}
 import traindelays.{DatabaseConfig, SubscribersConfig, TestFeatures}
-import traindelays.networkrail.subscribers.SubscriberRecord
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -35,7 +37,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
   it should "retrieve multiple inserted watching records from the database" in {
 
     val watchingRecord1 = getSubscriberRecord()
-    val watchingRecord2 = getSubscriberRecord().copy(userId = "BCDEFGH")
+    val watchingRecord2 = getSubscriberRecord().copy(userId = UserId("BCDEFGH"))
 
     val retrievedRecords =
       withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1, watchingRecord2))) { fixture =>
@@ -53,7 +55,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     val retrievedRecords =
       withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
-        fixture.subscriberTable.subscriberRecordsFor(watchingRecord1.trainId,
+        fixture.subscriberTable.subscriberRecordsFor(watchingRecord1.scheduleTrainId,
                                                      watchingRecord1.serviceCode,
                                                      watchingRecord1.stanox)
       }
@@ -90,11 +92,11 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
   }
 
-  def getSubscriberRecord(userId: String = "ABCDEFG",
+  def getSubscriberRecord(userId: UserId = UserId("ABCDEFG"),
                           email: String = "test@test.com",
-                          trainId: String = "G76481",
-                          serviceCode: String = "24745000",
-                          stanox: String = "REDHILL") =
-    SubscriberRecord(None, userId, email, trainId, serviceCode, stanox)
+                          scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+                          serviceCode: ServiceCode = ServiceCode("24745000"),
+                          stanox: Stanox = Stanox("REDHILL")) =
+    SubscriberRecord(None, userId, email, scheduleTrainId, serviceCode, stanox)
 
 }

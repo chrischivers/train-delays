@@ -2,8 +2,10 @@ package traindelays.networkrail.db
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.movementdata._
+import traindelays.networkrail.{ServiceCode, Stanox, TOC}
 import traindelays.{DatabaseConfig, TestFeatures}
-import traindelays.networkrail.movementdata.MovementLog
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class MovementLogTableTest extends FlatSpec with TestFeatures {
@@ -32,7 +34,7 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
   it should "retrieve multiple inserted movement log records from the database" in {
 
     val movementLogRecord1 = getMovementLog()
-    val movementLogRecord2 = getMovementLog().copy(trainId = "862F60MY31")
+    val movementLogRecord2 = getMovementLog().copy(trainId = TrainId("862F60MY31"))
 
     val retrievedRecords =
       withInitialState(config)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
@@ -45,14 +47,14 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
     retrievedRecords(1) shouldBe movementLogRecord2.copy(id = Some(2))
   }
 
-  def getMovementLog(trainId: String = "862F60MY30",
-                     serviceCode: String = "24673605",
-                     eventType: String = "ARRIVAL",
-                     toc: String = "SN",
-                     stanox: String = "87214",
+  def getMovementLog(trainId: TrainId = TrainId("862F60MY30"),
+                     serviceCode: ServiceCode = ServiceCode("24673605"),
+                     eventType: EventType = Arrival,
+                     toc: TOC = TOC("SN"),
+                     stanox: Stanox = Stanox("87214"),
                      plannedPassengerTimestamp: Long = 1514663220000L,
                      actualTimestamp: Long = 1514663160000L,
-                     variationStatus: String = "EARLY") =
+                     variationStatus: VariationStatus = Early) =
     MovementLog(
       None,
       trainId,

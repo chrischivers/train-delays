@@ -1,29 +1,111 @@
 package traindelays.networkrail
 
+import doobie.util.meta.Meta
 import io.circe.Decoder.Result
 import io.circe.{Decoder, HCursor}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 package object movementdata {
 
-  case class MovementRecord(trainId: String,
-                            trainServiceCode: String,
-                            eventType: Option[String],
-                            toc: Option[String],
-                            plannedEventType: Option[String],
-                            actualTimestamp: Option[Long],
-                            plannedTimestamp: Option[Long],
-                            plannedPassengerTimestamp: Option[Long],
-                            stanox: Option[String],
-                            variationStatus: Option[String]) {
+  sealed trait EventType {
+    val string: String
+  }
+  case object Departure extends EventType {
+    override val string: String = "DEPARTURE"
+  }
+  case object Arrival extends EventType {
+    override val string: String = "ARRIVAL"
+  }
+  object EventType {
+
+    def fromString(str: String): EventType =
+      str match {
+        case Departure.string => Departure
+        case Arrival.string   => Arrival
+      }
+    implicit val decoder: Decoder[EventType] = Decoder.decodeString.map(fromString)
+
+    implicit val meta: Meta[EventType] =
+      Meta[String].xmap(EventType.fromString, _.string)
+  }
+
+  sealed trait VariationStatus {
+    val string: String
+  }
+  case object OnTime extends VariationStatus {
+    override val string: String = "ON TIME"
+  }
+  case object Early extends VariationStatus {
+    override val string: String = "EARLY"
+  }
+  case object Late extends VariationStatus {
+    override val string: String = "LATE"
+  }
+
+  case object OffRoute extends VariationStatus {
+    override val string: String = "OFF ROUTE"
+  }
+  object VariationStatus {
+
+    def fromString(str: String): VariationStatus =
+      str match {
+        case OnTime.string   => OnTime
+        case Early.string    => Early
+        case Late.string     => Late
+        case OffRoute.string => OffRoute
+      }
+    implicit val decoder: Decoder[VariationStatus] = Decoder.decodeString.map(fromString)
+
+    implicit val meta: Meta[VariationStatus] =
+      Meta[String].xmap(VariationStatus.fromString, _.string)
+  }
+
+  case class TrainId(value: String)
+  object TrainId {
+    implicit val decoder: Decoder[TrainId] = Decoder.decodeString.map(TrainId(_))
+    implicit val meta: Meta[TrainId] =
+      Meta[String].xmap(TrainId(_), _.value)
+  }
+
+  sealed trait TrainMovements
+
+  case class TrainActivationRecord(scheduleTrainId: ScheduleTrainId, trainServiceCode: ServiceCode, trainId: TrainId)
+      extends TrainMovements
+
+  object TrainActivationRecord {
+    implicit val trainActivationDecoder: Decoder[TrainActivationRecord] {
+      def apply(c: HCursor): Result[TrainActivationRecord]
+    } = new Decoder[TrainActivationRecord] {
+
+      override def apply(c: HCursor): Result[TrainActivationRecord] = {
+        val bodyObject = c.downField("body")
+        for {
+          trainId          <- bodyObject.downField("train_id").as[TrainId]
+          trainServiceCode <- bodyObject.downField("train_service_code").as[ServiceCode]
+          scheduleTrainId  <- bodyObject.downField("train_uid").as[ScheduleTrainId]
+
+        } yield {
+          TrainActivationRecord(scheduleTrainId, trainServiceCode, trainId)
+        }
+      }
+    }
+  }
+
+  case class TrainMovementRecord(trainId: TrainId,
+                                 trainServiceCode: ServiceCode,
+                                 eventType: EventType,
+                                 toc: TOC,
+                                 actualTimestamp: Long,
+                                 plannedTimestamp: Long,
+                                 plannedPassengerTimestamp: Long,
+                                 stanox: Option[Stanox],
+                                 variationStatus: Option[VariationStatus])
+      extends TrainMovements {
 
     def toMovementLog: Option[MovementLog] =
       for {
-        eventType                 <- eventType
-        toc                       <- toc
-        stanox                    <- stanox
-        plannedPassengerTimestamp <- plannedPassengerTimestamp
-        actualTimestamp           <- actualTimestamp
-        variationStatus           <- variationStatus
+        stanox          <- stanox
+        variationStatus <- variationStatus
       } yield
         MovementLog(
           None,
@@ -40,46 +122,44 @@ package object movementdata {
 
   }
 
-  object MovementRecord {
+  object TrainMovementRecord {
 
-    implicit val movementRecordDecoder: Decoder[MovementRecord] {
-      def apply(c: HCursor): Result[MovementRecord]
-    } = new Decoder[MovementRecord] {
+    implicit val movementRecordDecoder: Decoder[TrainMovementRecord] {
+      def apply(c: HCursor): Result[TrainMovementRecord]
+    } = new Decoder[TrainMovementRecord] {
 
-      override def apply(c: HCursor): Result[MovementRecord] = {
+      override def apply(c: HCursor): Result[TrainMovementRecord] = {
         val bodyObject = c.downField("body")
         for {
-          trainId          <- bodyObject.downField("train_id").as[String]
-          trainServiceCode <- bodyObject.downField("train_service_code").as[String]
-          eventType        <- bodyObject.downField("event_type").as[Option[String]]
-          toc              <- bodyObject.downField("toc_id").as[Option[String]]
-          plannedEventType <- bodyObject.downField("planned_event_type").as[Option[String]]
+          trainId          <- bodyObject.downField("train_id").as[TrainId]
+          trainServiceCode <- bodyObject.downField("train_service_code").as[ServiceCode]
+          eventType        <- bodyObject.downField("event_type").as[EventType]
+          toc              <- bodyObject.downField("toc_id").as[TOC]
           actualTimestamp <- bodyObject
             .downField("actual_timestamp")
-            .as[Option[String]]
-            .map(emptyStringOptionToNone(_)(_.toLong))
+            .as[String]
+            .map(_.toLong)
           plannedTimestamp <- bodyObject
             .downField("planned_timestamp")
-            .as[Option[String]]
-            .map(emptyStringOptionToNone(_)(_.toLong))
+            .as[String]
+            .map(_.toLong)
           plannedPassengerTimestamp <- bodyObject
             .downField("gbtt_timestamp")
-            .as[Option[String]]
-            .map(emptyStringOptionToNone(_)(_.toLong))
-          stanox          <- bodyObject.downField("loc_stanox").as[Option[String]]
-          variationStatus <- bodyObject.downField("variation_status").as[Option[String]]
+            .as[String]
+            .map(_.toLong)
+          stanox          <- bodyObject.downField("loc_stanox").as[Option[Stanox]]
+          variationStatus <- bodyObject.downField("variation_status").as[Option[VariationStatus]]
 
         } yield {
-          MovementRecord(trainId,
-                         trainServiceCode,
-                         eventType,
-                         toc,
-                         plannedEventType,
-                         actualTimestamp,
-                         plannedTimestamp,
-                         plannedPassengerTimestamp,
-                         stanox,
-                         variationStatus)
+          TrainMovementRecord(trainId,
+                              trainServiceCode,
+                              eventType,
+                              toc,
+                              actualTimestamp,
+                              plannedTimestamp,
+                              plannedPassengerTimestamp,
+                              stanox,
+                              variationStatus)
         }
       }
     }
@@ -91,13 +171,13 @@ package object movementdata {
   }
 
   case class MovementLog(id: Option[Int],
-                         trainId: String,
-                         serviceCode: String,
-                         eventType: String,
-                         toc: String,
-                         stanox: String,
+                         trainId: TrainId,
+                         serviceCode: ServiceCode,
+                         eventType: EventType,
+                         toc: TOC,
+                         stanox: Stanox,
                          plannedPassengerTimestamp: Long,
                          actualTimestamp: Long,
                          difference: Long,
-                         variationStatus: String)
+                         variationStatus: VariationStatus)
 }

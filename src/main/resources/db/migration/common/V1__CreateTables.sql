@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS schedule (
-  train_id     VARCHAR(10)    NOT NULL,
+  schedule_train_id     VARCHAR(10)    NOT NULL,
   service_code    VARCHAR(10)   NOT NULL,
   atoc_code VARCHAR(10) NOT NULL,
   stop_sequence SMALLINT NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR NOT NULL,
   email VARCHAR NOT NULL,
-  train_id     VARCHAR(10)    NOT NULL,
+  schedule_train_id     VARCHAR(10)    NOT NULL,
   service_code   VARCHAR(10)   NOT NULL,
   stanox VARCHAR(10) NOT NULL
 );

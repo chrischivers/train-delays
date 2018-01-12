@@ -5,7 +5,13 @@ import java.time.{LocalDate, LocalTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{
+  OriginatingLocation,
+  TerminatingLocation,
+  TipLocCode
+}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
+import traindelays.networkrail.{ServiceCode, Stanox}
 
 class ScheduleDataReaderTest extends FlatSpec {
 
@@ -19,9 +25,9 @@ class ScheduleDataReaderTest extends FlatSpec {
     //TODO more here once test data has been trimmed
     result should have size 3
     result.head shouldBe ScheduleRecord(
-      "G76481",
-      "24745000",
-      "SN",
+      ScheduleTrainId("G76481"),
+      ServiceCode("24745000"),
+      AtocCode("SN"),
       DaysRun(monday = true,
               tuesday = true,
               wednesday = true,
@@ -32,8 +38,14 @@ class ScheduleDataReaderTest extends FlatSpec {
       LocalDate.parse("2017-12-11"),
       LocalDate.parse("2017-12-29"),
       List(
-        ScheduleLocationRecord("LO", "REIGATE", None, Some(LocalTime.parse("0649", timeFormatter))),
-        ScheduleLocationRecord("LT", "REDHILL", Some(LocalTime.parse("0653", timeFormatter)), None)
+        ScheduleLocationRecord(OriginatingLocation,
+                               TipLocCode("REIGATE"),
+                               None,
+                               Some(LocalTime.parse("0649", timeFormatter))),
+        ScheduleLocationRecord(TerminatingLocation,
+                               TipLocCode("REDHILL"),
+                               Some(LocalTime.parse("0653", timeFormatter)),
+                               None)
       )
     )
   }
@@ -45,7 +57,7 @@ class ScheduleDataReaderTest extends FlatSpec {
 
     val result = reader.readData[TipLocRecord].runLog.unsafeRunSync().toList
     result should have size 13
-    result.head shouldBe TipLocRecord("REDH316", "87720", Some("REDHILL SIGNAL T1316"))
+    result.head shouldBe TipLocRecord(TipLocCode("REDH316"), Stanox("87720"), Some("REDHILL SIGNAL T1316"))
 
   }
 
@@ -58,9 +70,9 @@ class ScheduleDataReaderTest extends FlatSpec {
 
     result should have size 1
     result.head shouldBe ScheduleRecord(
-      "G76481",
-      "24745000",
-      "SN",
+      ScheduleTrainId("G76481"),
+      ServiceCode("24745000"),
+      AtocCode("SN"),
       DaysRun(monday = true,
               tuesday = true,
               wednesday = true,
@@ -71,8 +83,14 @@ class ScheduleDataReaderTest extends FlatSpec {
       LocalDate.parse("2018-01-01"),
       LocalDate.parse("2018-01-26"),
       List(
-        ScheduleLocationRecord("LO", "REIGATE", None, Some(LocalTime.parse("0649", timeFormatter))),
-        ScheduleLocationRecord("LT", "REDHILL", Some(LocalTime.parse("0653", timeFormatter)), None)
+        ScheduleLocationRecord(OriginatingLocation,
+                               TipLocCode("REIGATE"),
+                               None,
+                               Some(LocalTime.parse("0649", timeFormatter))),
+        ScheduleLocationRecord(TerminatingLocation,
+                               TipLocCode("REDHILL"),
+                               Some(LocalTime.parse("0653", timeFormatter)),
+                               None)
       )
     )
   }

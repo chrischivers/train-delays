@@ -4,11 +4,11 @@ import cats.effect.IO
 import doobie.hikari.HikariTransactor
 import fs2.Stream
 import org.scalatest.Matchers.fail
-import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, TipLocTable, SubscriberTable}
-import traindelays.networkrail.movementdata.{MovementLog, MovementRecord}
+import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, TipLocTable, _}
+import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.{ScheduleRecord, TipLocRecord}
 import traindelays.networkrail.subscribers.SubscriberRecord
-import traindelays.networkrail.db._
+import traindelays.networkrail.{ServiceCode, Stanox, TOC}
 
 import scala.concurrent.ExecutionContext
 import scala.util.Random
@@ -61,6 +61,7 @@ trait TestFeatures {
 
   import cats.instances.list._
   import cats.syntax.traverse._
+
   import scala.concurrent.duration._
 
   def withInitialState[A](databaseConfig: DatabaseConfig,
@@ -110,22 +111,20 @@ trait TestFeatures {
       } yield result
     }
 
-  def createMovementRecord(trainId: String = "12345",
-                           trainServiceCode: String = "23456",
-                           eventType: Option[String] = Some("ARRIVAL"),
-                           toc: Option[String] = Some("SN"),
-                           plannedEventType: Option[String] = Some("ARRIVAL"),
-                           actualTimestamp: Option[Long] = Some(System.currentTimeMillis()),
-                           plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           stanox: Option[String] = Some("REDHILL"),
-                           variationStatus: Option[String] = Some("LATE")) =
-    MovementRecord(
+  def createMovementRecord(trainId: TrainId = TrainId("12345"),
+                           trainServiceCode: ServiceCode = ServiceCode("23456"),
+                           eventType: EventType = Arrival,
+                           toc: TOC = TOC("SN"),
+                           actualTimestamp: Long = System.currentTimeMillis(),
+                           plannedTimestamp: Long = System.currentTimeMillis() - 60000,
+                           plannedPassengerTimestamp: Long = System.currentTimeMillis() - 60000,
+                           stanox: Option[Stanox] = Some(Stanox("REDHILL")),
+                           variationStatus: Option[VariationStatus] = Some(Late)) =
+    TrainMovementRecord(
       trainId,
       trainServiceCode,
       eventType,
       toc,
-      plannedEventType,
       actualTimestamp,
       plannedTimestamp,
       plannedPassengerTimestamp,

@@ -1,7 +1,5 @@
 package traindelays.networkrail.scripts
 
-import java.time.LocalTime
-
 import cats.effect.IO
 import org.http4s.client.blaze.PooledHttp1Client
 import traindelays.ConfigLoader
@@ -18,7 +16,7 @@ object PopulateScheduleTable extends App {
   val scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
 
   val app = for {
-    _ <- networkRailClient.downloadScheduleData
+//    _ <- networkRailClient.downloadScheduleData
     _ <- networkRailClient.unpackScheduleData
     _ <- deleteAllRecords
     _ <- writeScheduleRecords
@@ -30,6 +28,7 @@ object PopulateScheduleTable extends App {
       val tipLocTable = TipLocTable(db)
       scheduleDataReader
         .readData[TipLocRecord]
+        .filter(x => x.tipLocCode.value.toUpperCase() == "REIGATE")
         .to(tipLocTable.dbWriter)
     }.run
 
@@ -38,13 +37,14 @@ object PopulateScheduleTable extends App {
       val scheduleTable = ScheduleTable(db)
       scheduleDataReader
         .readData[ScheduleRecord]
+        .filter(x => x.locationRecords.exists(y => y.tiplocCode.value.toUpperCase() == "REIGATE"))
         .to(scheduleTable.dbWriter)
     }.run
 
   private def deleteAllRecords =
     usingTransactor(config.databaseConfig)() { db =>
       val scheduleTable = ScheduleTable(db)
-      fs2.Stream.eval(scheduleTable.deleteAllRecords)
+      fs2.Stream.eval(scheduleTable.deleteAllRecords())
     }.run
 
   app.unsafeRunSync()

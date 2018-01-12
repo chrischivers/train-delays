@@ -23,12 +23,13 @@ class MovementLoggerTest extends FlatSpec with Eventually with TestFeatures {
     val movementRecord = createMovementRecord()
     withInitialState(config)() { fixture =>
       async
-        .unboundedQueue[IO, MovementRecord]
+        .unboundedQueue[IO, TrainMovementRecord]
         .map { queue =>
           queue.enqueue1(movementRecord).unsafeRunSync()
           val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
           val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
-          MovementProcessor(queue, fixture.movementLogTable, subscriberHandler).stream.run.unsafeRunTimed(3 seconds)
+          TrainMovementProcessor(queue, fixture.movementLogTable, subscriberHandler).stream.run
+            .unsafeRunTimed(3 seconds)
 
           fixture.movementLogTable
             .retrieveAllRecords()
@@ -43,17 +44,18 @@ class MovementLoggerTest extends FlatSpec with Eventually with TestFeatures {
 
   it should "not process Movement records where one or more relevant fields do not exist" in {
 
-    val movementRecord1 = createMovementRecord(actualTimestamp = None)
+    val movementRecord1 = createMovementRecord(stanox = None)
     val movementRecord2 = createMovementRecord()
     withInitialState(config)() { fixture =>
       async
-        .unboundedQueue[IO, MovementRecord]
+        .unboundedQueue[IO, TrainMovementRecord]
         .map { queue =>
           queue.enqueue1(movementRecord1).unsafeRunSync()
           queue.enqueue1(movementRecord2).unsafeRunSync()
           val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
           val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
-          MovementProcessor(queue, fixture.movementLogTable, subscriberHandler).stream.run.unsafeRunTimed(3 seconds)
+          TrainMovementProcessor(queue, fixture.movementLogTable, subscriberHandler).stream.run
+            .unsafeRunTimed(3 seconds)
 
           fixture.movementLogTable
             .retrieveAllRecords()

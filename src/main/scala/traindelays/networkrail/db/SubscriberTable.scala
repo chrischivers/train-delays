@@ -2,12 +2,16 @@ package traindelays.networkrail.db
 
 import cats.effect.IO
 import traindelays.SubscribersConfig
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.SubscriberRecord
+import traindelays.networkrail.{ServiceCode, Stanox}
 
 import scalacache.memoization._
 
 trait SubscriberTable extends Table[SubscriberRecord] {
-  def subscriberRecordsFor(trainId: String, serviceCode: String, stanox: String): IO[List[SubscriberRecord]]
+  def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
+                           serviceCode: ServiceCode,
+                           stanox: Stanox): IO[List[SubscriberRecord]]
   def deleteAllRecords(): IO[Unit]
 }
 
@@ -19,13 +23,13 @@ object SubscriberTable {
   def addSubscriberRecord(record: SubscriberRecord): Update0 =
     sql"""
       INSERT INTO subscribers
-      (user_id, email, train_id, service_code, stanox)
-      VALUES(${record.userId}, ${record.email}, ${record.trainId}, ${record.serviceCode}, ${record.stanox})
+      (user_id, email, schedule_train_id, service_code, stanox)
+      VALUES(${record.userId}, ${record.email}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanox})
      """.update
 
   protected def allSubscriberRecords(): Query0[SubscriberRecord] =
     sql"""
-      SELECT id, user_id, email, train_id, service_code, stanox
+      SELECT id, user_id, email, schedule_train_id, service_code, stanox
       FROM subscribers
       """.query[SubscriberRecord]
 
@@ -44,13 +48,13 @@ object SubscriberTable {
           .list
           .transact(db)
 
-      override def subscriberRecordsFor(trainId: String,
-                                        serviceCode: String,
-                                        stanox: String): IO[List[SubscriberRecord]] =
+      override def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
+                                        serviceCode: ServiceCode,
+                                        stanox: Stanox): IO[List[SubscriberRecord]] =
         sql"""
-          SELECT id, user_id, email, train_id, service_code, stanox
+          SELECT id, user_id, email, schedule_train_id, service_code, stanox
           FROM subscribers
-          WHERE train_id = ${trainId} AND service_code = ${serviceCode} AND stanox = ${stanox}
+          WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode} AND stanox = ${stanox}
       """.query[SubscriberRecord].list.transact(db)
 
       override def deleteAllRecords(): IO[Unit] =
@@ -63,6 +67,7 @@ object SubscriberTable {
 
 object MemoizedSubscriberTable {
   import doobie._
+
   import scalacache.CatsEffect.modes._
   import scalacache._
   import scalacache.guava._
@@ -72,10 +77,10 @@ object MemoizedSubscriberTable {
     val subscriberTable                                                = SubscriberTable(db)
     implicit val subscriberRecordsCache: Cache[List[SubscriberRecord]] = GuavaCache[List[SubscriberRecord]]
 
-    override def subscriberRecordsFor(trainId: String,
-                                      serviceCode: String,
-                                      stanox: String): IO[List[SubscriberRecord]] =
-      subscriberTable.subscriberRecordsFor(trainId, serviceCode, stanox)
+    override def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
+                                      serviceCode: ServiceCode,
+                                      stanox: Stanox): IO[List[SubscriberRecord]] =
+      subscriberTable.subscriberRecordsFor(scheduleTrainId, serviceCode, stanox)
 
     override def addRecord(record: SubscriberRecord): IO[Unit] = subscriberTable.addRecord(record)
 

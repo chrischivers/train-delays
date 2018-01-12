@@ -13,19 +13,25 @@ class MovementMessageHandlerTest extends FlatSpec {
 
   it should "receive movements message and parse/decode" in {
 
-    async
-      .unboundedQueue[IO, MovementRecord]
-      .map { queue =>
-        val mockStompClient = MockStompClient()
-        val listener        = new MovementHandlerWatcher(queue)
-        mockStompClient.client.subscribe("test/topic", listener).unsafeRunSync()
+    withQueues
+      .map {
+        case (trainMovementQueue, trainActivationQueue) =>
+          val mockStompClient = MockStompClient()
+          val listener        = new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue)
+          mockStompClient.client.subscribe("test/topic", listener).unsafeRunSync()
 
-        mockStompClient.sendMessage("test/topic", sampleRawMovementMessage)
-        listener.rawMessagesReceived should have size 1
-        queue.dequeueBatch1(100).unsafeRunSync().toList should have size 32
+          mockStompClient.sendMessage("test/topic", sampleRawMovementMessage)
+          listener.rawMessagesReceived should have size 1
+          trainMovementQueue.dequeueBatch1(100).unsafeRunSync().toList should have size 32
       }
       .unsafeRunSync()
   }
 
   def sampleRawMovementMessage = Source.fromResource("sample-movement-message.json").getLines().mkString
+
+  def withQueues =
+    for {
+      trainMovementQueue   <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
+      trainActivationQueue <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
+    } yield (trainMovementQueue, trainActivationQueue)
 }

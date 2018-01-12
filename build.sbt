@@ -4,14 +4,14 @@ version := "0.1"
 
 scalaVersion := "2.12.4"
 
-unmanagedJars in Compile += file(Path.userHome + "/Downloads/gozirra-client-0.4.1.jar")
+unmanagedJars in Compile += file(Path.userHome + "lib/gozirra-client-0.4.1.jar")
 
 
 val circeVersion = "0.9.0-M2"
 val fs2Version = "0.10.0-M8"
 val http4sVersion = "0.18.0-M5"
 val doobieVersion  = "0.5.0-M9"
-val scalacacheVersion  = "0.22.0"
+val scalacacheVersion  = "0.21.0"
 
 
 libraryDependencies ++= Seq(

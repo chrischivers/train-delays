@@ -19,15 +19,16 @@ object SubscriberHandler {
     new SubscriberHandler {
       override def generateSubscriberReports: IO[List[SubscriberReport]] =
         for {
-          watchingRecords <- subscriberTable.retrieveAllRecords()
-          movementLogs    <- movementLogTable.retrieveAllRecords() //TODO make scalable
+          subscriberRecords <- subscriberTable.retrieveAllRecords()
+          movementLogs      <- movementLogTable.retrieveAllRecords() //TODO make scalable
         } yield {
-          watchingRecords.map { watchingRecord =>
+          subscriberRecords.map { watchingRecord =>
             val filteredLogs =
               movementLogs.filter(
                 log =>
-                  log.trainId == watchingRecord.trainId
-                    && log.serviceCode == watchingRecord.serviceCode)
+//                  log.trainId == watchingRecord.trainId //TODO fix this
+//                    &&
+                  log.serviceCode == watchingRecord.serviceCode)
             SubscriberReport(watchingRecord, filteredLogs)
           }
         }
@@ -37,7 +38,7 @@ object SubscriberHandler {
 
         for {
           subscriberList <- subscriberTable
-            .subscriberRecordsFor(log.trainId, log.serviceCode, log.stanox) //todo memoize
+            .subscriberRecordsFor(???, log.serviceCode, log.stanox)
           affected = getSubscribersForLog(subscriberList, log)
           _ <- affected.traverse(subscriber => emailSubscriber(subscriber, log, emailer))
         } yield ()
@@ -49,7 +50,7 @@ object SubscriberHandler {
         allSubscribers.filter(
           subscriber =>
             subscriber.serviceCode == movementLog.serviceCode &&
-              subscriber.trainId == movementLog.trainId &&
+//              subscriber.trainId == movementLog.trainId && //TODO fix
               subscriber.stanox == movementLog.stanox)
 
       private def emailSubscriber(subscriberRecord: SubscriberRecord,
