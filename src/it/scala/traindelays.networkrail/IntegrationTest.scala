@@ -1,16 +1,10 @@
 package traindelays.networkrail
 
 import java.nio.file.Paths
-import java.util
 
 import cats.effect.IO
-import com.typesafe.scalalogging.StrictLogging
 import org.http4s.client.blaze.PooledHttp1Client
-import traindelays.networkrail.movementdata.MovementMessageHandler
-import traindelays.stomp.StompHandler
 import traindelays.{ConfigLoader, DatabaseConfig, TrainDelaysConfig}
-
-import scala.collection.mutable.ListBuffer
 
 trait IntegrationTest {
 

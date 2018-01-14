@@ -2,7 +2,7 @@ package traindelays.networkrail
 
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
-import io.circe.{Decoder, HCursor}
+import io.circe.{Decoder, DecodingFailure, HCursor}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 package object movementdata {
@@ -69,6 +69,19 @@ package object movementdata {
 
   sealed trait TrainMovements
 
+  object TrainMovements {
+
+    implicit val trainMovement: Decoder[TrainMovements] = (c: HCursor) =>
+      for {
+        messageType <- c.downField("header").downField("msg_type").as[String]
+        decoded <- messageType match {
+          case "0001"  => c.as[TrainActivationRecord]
+          case "0003"  => c.as[TrainMovementRecord]
+          case unknown => Left(DecodingFailure(s"Unknown message type: $unknown", List.empty))
+        }
+      } yield decoded
+  }
+
   case class TrainActivationRecord(scheduleTrainId: ScheduleTrainId, trainServiceCode: ServiceCode, trainId: TrainId)
       extends TrainMovements
 
@@ -97,15 +110,16 @@ package object movementdata {
                                  toc: TOC,
                                  actualTimestamp: Long,
                                  plannedTimestamp: Long,
-                                 plannedPassengerTimestamp: Long,
+                                 plannedPassengerTimestamp: Option[Long],
                                  stanox: Option[Stanox],
                                  variationStatus: Option[VariationStatus])
       extends TrainMovements {
 
     def toMovementLog: Option[MovementLog] =
       for {
-        stanox          <- stanox
-        variationStatus <- variationStatus
+        stanox                    <- stanox
+        plannedPassengerTimestamp <- plannedPassengerTimestamp
+        variationStatus           <- variationStatus
       } yield
         MovementLog(
           None,
@@ -145,9 +159,12 @@ package object movementdata {
             .map(_.toLong)
           plannedPassengerTimestamp <- bodyObject
             .downField("gbtt_timestamp")
-            .as[String]
-            .map(_.toLong)
-          stanox          <- bodyObject.downField("loc_stanox").as[Option[Stanox]]
+            .as[Option[String]]
+            .map(emptyStringOptionToNone(_)(_.toLong))
+          stanox <- bodyObject
+            .downField("loc_stanox")
+            .as[Option[String]]
+            .map(emptyStringOptionToNone(_)(Stanox(_)))
           variationStatus <- bodyObject.downField("variation_status").as[Option[VariationStatus]]
 
         } yield {

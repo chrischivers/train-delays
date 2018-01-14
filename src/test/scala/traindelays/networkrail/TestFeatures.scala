@@ -117,7 +117,7 @@ trait TestFeatures {
                            toc: TOC = TOC("SN"),
                            actualTimestamp: Long = System.currentTimeMillis(),
                            plannedTimestamp: Long = System.currentTimeMillis() - 60000,
-                           plannedPassengerTimestamp: Long = System.currentTimeMillis() - 60000,
+                           plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
                            stanox: Option[Stanox] = Some(Stanox("REDHILL")),
                            variationStatus: Option[VariationStatus] = Some(Late)) =
     TrainMovementRecord(

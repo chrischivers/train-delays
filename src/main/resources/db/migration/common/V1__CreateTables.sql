@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS schedule (
   location_type VARCHAR(5) NOT NULL,
   arrival_time TIME NULL,
   departure_time TIME NULL,
-  PRIMARY KEY (train_id, service_code, tiploc_code, stop_sequence, schedule_start, schedule_end)
+  PRIMARY KEY (schedule_train_id, service_code, tiploc_code, stop_sequence, schedule_start, schedule_end)
 );
 
 CREATE TABLE IF NOT EXISTS tiploc (
