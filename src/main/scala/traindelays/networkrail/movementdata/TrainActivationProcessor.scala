@@ -13,7 +13,8 @@ object TrainActivationProcessor {
   def apply(activationMessageQueue: Queue[IO, TrainActivationRecord], trainActivationCache: TrainActivationCache) =
     new TrainMovementProcessor {
 
-      val cacheWriter: fs2.Sink[IO, TrainActivationRecord] = fs2.Sink { record =>
+      private val cacheWriter: fs2.Sink[IO, TrainActivationRecord] = fs2.Sink { record =>
+        //TODo what do we do with service code. Is it redundant?
         trainActivationCache.addToCache(record.trainId, record.scheduleTrainId).map(_ => ())
       }
 

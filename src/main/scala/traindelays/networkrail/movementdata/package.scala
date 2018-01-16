@@ -1,8 +1,10 @@
 package traindelays.networkrail
 
+import cats.effect.IO
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, HCursor}
+import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 package object movementdata {
@@ -77,10 +79,12 @@ package object movementdata {
         decoded <- messageType match {
           case "0001"  => c.as[TrainActivationRecord]
           case "0003"  => c.as[TrainMovementRecord]
-          case unknown => Left(DecodingFailure(s"Unknown message type: $unknown", List.empty))
+          case unknown => Right(UnhandledTrainRecord(unknown))
         }
       } yield decoded
   }
+
+  case class UnhandledTrainRecord(unhandledType: String) extends TrainMovements
 
   case class TrainActivationRecord(scheduleTrainId: ScheduleTrainId, trainServiceCode: ServiceCode, trainId: TrainId)
       extends TrainMovements
@@ -115,25 +119,8 @@ package object movementdata {
                                  variationStatus: Option[VariationStatus])
       extends TrainMovements {
 
-    def toMovementLog: Option[MovementLog] =
-      for {
-        stanox                    <- stanox
-        plannedPassengerTimestamp <- plannedPassengerTimestamp
-        variationStatus           <- variationStatus
-      } yield
-        MovementLog(
-          None,
-          trainId,
-          trainServiceCode,
-          eventType,
-          toc,
-          stanox,
-          plannedPassengerTimestamp,
-          actualTimestamp,
-          actualTimestamp - plannedPassengerTimestamp,
-          variationStatus
-        )
-
+    def asMovementLog(trainActivationCache: TrainActivationCache): IO[Option[MovementLog]] =
+      TrainMovementRecord.movementRecordToMovementLog(this, trainActivationCache)
   }
 
   object TrainMovementRecord {
@@ -180,15 +167,42 @@ package object movementdata {
         }
       }
     }
+
     private def emptyStringToNone[A](in: String)(f: String => A): Option[A] =
       if (in == "") None else Some(f(in))
 
     private def emptyStringOptionToNone[A](in: Option[String])(f: String => A): Option[A] =
       if (in.contains("")) None else in.map(f)
+
+    private def movementRecordToMovementLog(movementRec: TrainMovementRecord,
+                                            cache: TrainActivationCache): IO[Option[MovementLog]] =
+      cache.getFromCache(movementRec.trainId).map { scheduleTrainIdOpt =>
+        for {
+          stanox                    <- movementRec.stanox
+          plannedPassengerTimestamp <- movementRec.plannedPassengerTimestamp
+          variationStatus           <- movementRec.variationStatus
+          scheduleTrainId           <- scheduleTrainIdOpt
+        } yield {
+          MovementLog(
+            None,
+            movementRec.trainId,
+            scheduleTrainId,
+            movementRec.trainServiceCode,
+            movementRec.eventType,
+            movementRec.toc,
+            stanox,
+            plannedPassengerTimestamp,
+            movementRec.actualTimestamp,
+            movementRec.actualTimestamp - plannedPassengerTimestamp,
+            variationStatus
+          )
+        }
+      }
   }
 
   case class MovementLog(id: Option[Int],
                          trainId: TrainId,
+                         scheduleTrainId: ScheduleTrainId,
                          serviceCode: ServiceCode,
                          eventType: EventType,
                          toc: TOC,

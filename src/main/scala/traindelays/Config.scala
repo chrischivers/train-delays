@@ -24,7 +24,8 @@ case class MovementsConfig(topic: String, activationExpiry: FiniteDuration)
 
 case class SubscribersConfig(memoizeFor: FiniteDuration)
 
-case class EmailerConfig(fromAddress: String,
+case class EmailerConfig(enabled: Boolean,
+                         fromAddress: String,
                          smtpHost: String,
                          smtpPort: Int,
                          smtpUsername: String,
@@ -88,6 +89,7 @@ object ConfigLoader {
         defaultConfigFactory.getInt("redis.dbIndex")
       ),
       EmailerConfig(
+        defaultConfigFactory.getBoolean("email.enabled"),
         defaultConfigFactory.getString("email.fromAddress"),
         defaultConfigFactory.getString("email.smtpHost"),
         defaultConfigFactory.getInt("email.smtpPort"),

@@ -26,9 +26,10 @@ object SubscriberHandler {
             val filteredLogs =
               movementLogs.filter(
                 log =>
-//                  log.trainId == watchingRecord.trainId //TODO fix this
-//                    &&
-                  log.serviceCode == watchingRecord.serviceCode)
+                  log.scheduleTrainId == watchingRecord.scheduleTrainId &&
+                    log.serviceCode == watchingRecord.serviceCode &&
+                    log.stanox == watchingRecord.stanox
+              ) //TODO do we care about all predicates?
             SubscriberReport(watchingRecord, filteredLogs)
           }
         }
@@ -38,7 +39,7 @@ object SubscriberHandler {
 
         for {
           subscriberList <- subscriberTable
-            .subscriberRecordsFor(???, log.serviceCode, log.stanox)
+            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
           affected = getSubscribersForLog(subscriberList, log)
           _ <- affected.traverse(subscriber => emailSubscriber(subscriber, log, emailer))
         } yield ()
@@ -50,8 +51,8 @@ object SubscriberHandler {
         allSubscribers.filter(
           subscriber =>
             subscriber.serviceCode == movementLog.serviceCode &&
-//              subscriber.trainId == movementLog.trainId && //TODO fix
-              subscriber.stanox == movementLog.stanox)
+              subscriber.scheduleTrainId == movementLog.scheduleTrainId &&
+              subscriber.stanox == movementLog.stanox) //TODO do we care about all predicates?
 
       private def emailSubscriber(subscriberRecord: SubscriberRecord,
                                   movementLog: MovementLog,

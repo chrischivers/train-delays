@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS tiploc (
 CREATE TABLE IF NOT EXISTS movement_log (
   id SERIAL PRIMARY KEY,
   train_id     VARCHAR(10)    NOT NULL,
+  schedule_train_id VARCHAR(10) NOT NULL,
   service_code    VARCHAR(10)   NOT NULL,
   event_type VARCHAR(15) NOT NULL,
   toc VARCHAR(10) NOT NULL,

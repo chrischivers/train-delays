@@ -3,6 +3,7 @@ package traindelays.networkrail.db
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.movementdata._
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.{ServiceCode, Stanox, TOC}
 import traindelays.{DatabaseConfig, TestFeatures}
 
@@ -48,6 +49,7 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
   }
 
   def getMovementLog(trainId: TrainId = TrainId("862F60MY30"),
+                     scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G12345"),
                      serviceCode: ServiceCode = ServiceCode("24673605"),
                      eventType: EventType = Arrival,
                      toc: TOC = TOC("SN"),
@@ -58,6 +60,7 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
     MovementLog(
       None,
       trainId,
+      scheduleTrainId,
       serviceCode,
       eventType,
       toc,

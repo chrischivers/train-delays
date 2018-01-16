@@ -36,20 +36,21 @@ object Emailer extends StrictLogging {
     )
     session.setDebug(true)
 
-    override def sendEmail(email: Email): IO[Unit] = {
+    override def sendEmail(email: Email): IO[Unit] =
+      if (emailerConfig.enabled) {
 
-      val message = new MimeMessage(session)
+        val message = new MimeMessage(session)
 
-      message.setFrom(new InternetAddress(emailerConfig.fromAddress))
-      message.setRecipient(javax.mail.Message.RecipientType.TO, new InternetAddress(email.to))
-      message.setSubject(email.subject)
-      message.setText(email.body, "utf-8", "html")
+        message.setFrom(new InternetAddress(emailerConfig.fromAddress))
+        message.setRecipient(javax.mail.Message.RecipientType.TO, new InternetAddress(email.to))
+        message.setSubject(email.subject)
+        message.setText(email.body, "utf-8", "html")
 
-      retry(emailerConfig.numberAttempts, emailerConfig.secondsBetweenAttempts) {
-        logger.info(s"Sending email to ${email.to}")
-        IO(Transport.send(message))
-      }
-    }
+        retry(emailerConfig.numberAttempts, emailerConfig.secondsBetweenAttempts) {
+          logger.info(s"Sending email to ${email.to}")
+          IO(Transport.send(message))
+        }
+      } else IO(logger.info("Emailing disabled"))
 
   }
 

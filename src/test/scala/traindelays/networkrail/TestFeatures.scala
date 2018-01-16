@@ -1,12 +1,14 @@
 package traindelays
 
+import akka.actor.ActorSystem
 import cats.effect.IO
 import doobie.hikari.HikariTransactor
 import fs2.Stream
 import org.scalatest.Matchers.fail
+import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, TipLocTable, _}
 import traindelays.networkrail.movementdata._
-import traindelays.networkrail.scheduledata.{ScheduleRecord, TipLocRecord}
+import traindelays.networkrail.scheduledata.{ScheduleRecord, ScheduleTrainId, TipLocRecord}
 import traindelays.networkrail.subscribers.SubscriberRecord
 import traindelays.networkrail.{ServiceCode, Stanox, TOC}
 
@@ -17,6 +19,8 @@ trait TestFeatures {
 
   import doobie._
   import doobie.implicits._
+
+  implicit val actorSystem: ActorSystem = ActorSystem()
 
   implicit class DBExt(db: Transactor[IO]) {
 
@@ -39,7 +43,8 @@ trait TestFeatures {
   case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
                                     tipLocTable: TipLocTable,
                                     movementLogTable: MovementLogTable,
-                                    subscriberTable: SubscriberTable)
+                                    subscriberTable: SubscriberTable,
+                                    trainActivationCache: TrainActivationCache)
 
   def testDatabaseConfig() = {
     val databaseName = s"test-${System.currentTimeMillis()}-${Random.nextInt(99)}-${Random.nextInt(99)}"
@@ -59,16 +64,28 @@ trait TestFeatures {
       .unsafeRunSync()
       .getOrElse(fail(s"Unable to perform the operation"))
 
+  def withQueues = {
+    import scala.concurrent.ExecutionContext.Implicits.global
+    for {
+      trainMovementQueue   <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
+      trainActivationQueue <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
+    } yield (trainMovementQueue, trainActivationQueue)
+  }
+
   import cats.instances.list._
   import cats.syntax.traverse._
 
   import scala.concurrent.duration._
 
-  def withInitialState[A](databaseConfig: DatabaseConfig,
-                          subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute))(
-      initState: AppInitialState = AppInitialState.empty)(f: TrainDelaysTestFixture => IO[A])(
-      implicit executionContext: ExecutionContext): A =
+  def withInitialState[A](
+      databaseConfig: DatabaseConfig,
+      subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute),
+      redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
+      f: TrainDelaysTestFixture => IO[A])(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
+      val redisClient          = MockRedisClient()
+      val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
+
       for {
         _ <- db.clean
         _ <- initState.scheduleRecords
@@ -107,7 +124,8 @@ trait TestFeatures {
           TrainDelaysTestFixture(ScheduleTable(db),
                                  TipLocTable(db),
                                  MovementLogTable(db),
-                                 MemoizedSubscriberTable(db, subscribersConfig)))
+                                 MemoizedSubscriberTable(db, subscribersConfig),
+                                 trainActivationCache))
       } yield result
     }
 
@@ -130,5 +148,32 @@ trait TestFeatures {
       plannedPassengerTimestamp,
       stanox,
       variationStatus
+    )
+
+  def createActivationRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G123456"),
+                             trainServiceCode: ServiceCode = ServiceCode("23456"),
+                             trainId: TrainId = TrainId("12345"),
+  ) =
+    TrainActivationRecord(
+      scheduleTrainId,
+      trainServiceCode,
+      trainId
+    )
+
+  def movementRecordToMovementLog(movementRecord: TrainMovementRecord,
+                                  id: Option[Int],
+                                  scheduleTrainId: ScheduleTrainId): MovementLog =
+    MovementLog(
+      id,
+      movementRecord.trainId,
+      scheduleTrainId,
+      movementRecord.trainServiceCode,
+      movementRecord.eventType,
+      movementRecord.toc,
+      movementRecord.stanox.get,
+      movementRecord.plannedPassengerTimestamp.get,
+      movementRecord.actualTimestamp,
+      movementRecord.actualTimestamp - movementRecord.plannedPassengerTimestamp.get,
+      movementRecord.variationStatus.get
     )
 }

@@ -1,28 +1,19 @@
 package traindelays.networkrail
 
 import java.nio.file.Paths
-import java.util.UUID
 
-import cats.effect.IO
-import fs2.async
 import io.circe.parser._
 import org.scalactic.TripleEqualsSupport
 import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
 import traindelays.TestFeatures
-import traindelays.networkrail.movementdata.{
-  MovementMessageHandlerWatcher,
-  TrainActivationRecord,
-  TrainMovementProcessor,
-  TrainMovementRecord
-}
-import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler, SubscriberRecord, UserId}
+import traindelays.networkrail.movementdata._
+import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
 import traindelays.stomp.{StompClient, StompHandler}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.util.Random
 
 class MovementsListenerIntegrationTest
     extends FlatSpec
@@ -66,7 +57,10 @@ class MovementsListenerIntegrationTest
           val subscriberFetcher = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
           subscribeToMovementsTopic(movementWatcher)
 
-          TrainMovementProcessor(trainMovementQueue, fixture.movementLogTable, subscriberFetcher).stream.run
+          TrainMovementProcessor(trainMovementQueue,
+                                 fixture.movementLogTable,
+                                 subscriberFetcher,
+                                 fixture.trainActivationCache).stream.run
             .unsafeRunTimed(10 seconds)
 
           fixture.movementLogTable
@@ -79,39 +73,43 @@ class MovementsListenerIntegrationTest
     }
   }
 
-  //  it should "persist movement to db and surface them in watching report" in {
-  //
-  //    withInitialState(testconfig.databaseConfig)(AppInitialState.empty) { fixture =>
-  //      async
-  //        .unboundedQueue[IO, MovementRecord]
-  //        .map { queue =>
-  //          val movementWatcher   = new MovementHandlerWatcher(queue)
-  //          val emailer           = Emailer(testconfig.emailerConfig)
-  //          val subscriberFetcher = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
-  //          subscribeToMovementsTopic(movementWatcher)
-  //
-  //          MovementProcessor(queue, fixture.movementLogTable, subscriberFetcher).stream.run.unsafeRunTimed(20 seconds)
-  //
-  //          val movementRecords =
-  //            parse(movementWatcher.rawMessagesReceived.head).right.get.as[List[MovementRecord]].right.get
-  //          //TODO this needs to be mocked
-  //          val movementLog = Random.shuffle(movementRecords).head.toMovementLog.get
-  //
-  //          val userId = UserId(UUID.randomUUID().toString)
-  //          val email  = "test@test.com"
-  //          val watchingRecord =
-  //            SubscriberRecord(None, userId, email, movementLog.trainId, movementLog.serviceCode, movementLog.stanox)
-  //          fixture.subscriberTable.addRecord(watchingRecord).unsafeRunSync()
-  //
-  //          val reportsRetrieved = subscriberFetcher.generateSubscriberReports.unsafeRunSync()
-  //          val reportsForUsers  = reportsRetrieved.filter(_.subscriberRecord.userId == userId)
-  //          reportsForUsers should have size 1
-  //          reportsForUsers.head.subscriberRecord.copy(id = None) shouldBe watchingRecord
-  //          reportsForUsers.head.movementLogs.size shouldBe >(0)
-  //          reportsForUsers.head.movementLogs.map(_.copy(id = None)) should contain(movementLog)
-  //        }
-  //    }
-  //  }
+//  it should "persist movement to db and surface them in watching report" in {
+//
+//    withInitialState(testconfig.databaseConfig)(AppInitialState.empty) { fixture =>
+//      withQueues
+//        .map {
+//          case (trainMovementQueue, trainActivationQueue) =>
+//            val movementWatcher   = new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue)
+//            val emailer           = Emailer(testconfig.emailerConfig)
+//            val subscriberFetcher = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+//            subscribeToMovementsTopic(movementWatcher)
+//
+//            TrainMovementProcessor(trainMovementQueue,
+//                                   fixture.movementLogTable,
+//                                   subscriberFetcher,
+//                                   fixture.trainActivationCache).stream.run.unsafeRunTimed(20 seconds)
+//
+//            val movementsRecords =
+//              parse(movementWatcher.rawMessagesReceived.head).right.get.as[List[TrainMovements]].right.get
+//            //TODO this needs to be mocked
+//            val (trainMovementRecords, _) = movementsRecords.partition(_.isInstanceOf[TrainMovementRecord])
+//            val movementLog = movementRecordToMovementLog(Random.shuffle(trainMovementRecords).head.asInstanceOf[TrainMovementRecord], None, )
+//
+//            val userId = UserId(UUID.randomUUID().toString)
+//            val email  = "test@test.com"
+//            val watchingRecord =
+//              SubscriberRecord(None, userId, email, movementLog.trainId, movementLog.serviceCode, movementLog.stanox)
+//            fixture.subscriberTable.addRecord(watchingRecord).unsafeRunSync()
+//
+//            val reportsRetrieved = subscriberFetcher.generateSubscriberReports.unsafeRunSync()
+//            val reportsForUsers  = reportsRetrieved.filter(_.subscriberRecord.userId == userId)
+//            reportsForUsers should have size 1
+//            reportsForUsers.head.subscriberRecord.copy(id = None) shouldBe watchingRecord
+//            reportsForUsers.head.movementLogs.size shouldBe >(0)
+//            reportsForUsers.head.movementLogs.map(_.copy(id = None)) should contain(movementLog)
+//        }
+//    }
+//  }
 
   override protected def afterEach(): Unit =
     cleanUpFile(testconfig.networkRailConfig.scheduleData.tmpUnzipLocation.toString)
@@ -126,10 +124,4 @@ class MovementsListenerIntegrationTest
       .unsafeRunSync()
 
   }
-
-  def withQueues =
-    for {
-      trainMovementQueue   <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
-      trainActivationQueue <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
-    } yield (trainMovementQueue, trainActivationQueue)
 }

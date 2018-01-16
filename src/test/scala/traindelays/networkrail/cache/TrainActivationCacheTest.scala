@@ -33,8 +33,7 @@ class TrainActivationCacheTest extends FlatSpec {
     val expiry               = 5 seconds
     val trainActivationCache = TrainActivationCache(redisClient, expiry)
 
-    val trainId         = TrainId("G12345678")
-    val scheduleTrainId = ScheduleTrainId("ABCDE")
+    val trainId = TrainId("G12345678")
 
     val recordFromCache = trainActivationCache.getFromCache(trainId).unsafeRunSync()
     recordFromCache shouldBe None
