@@ -11,11 +11,13 @@ import scala.concurrent.ExecutionContext
 
 class MovementMessageHandlerWatcher(
     trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
-    trainActivationMessageQueue: Queue[IO, TrainActivationRecord])(implicit executionContext: ExecutionContext)
+    trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
+    trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord])(implicit executionContext: ExecutionContext)
     extends StompHandler {
 
-  var rawMessagesReceived      = ListBuffer[String]()
-  private val movementsHandler = MovementMessageHandler(trainMovementMessageQueue, trainActivationMessageQueue)
+  var rawMessagesReceived = ListBuffer[String]()
+  private val movementsHandler =
+    MovementMessageHandler(trainMovementMessageQueue, trainActivationMessageQueue, trainCancellationMessageQueue)
 
   override def message(headers: java.util.Map[_, _], body: String): Unit = {
     println(s"Received message with headers [$headers] and body [$body]")

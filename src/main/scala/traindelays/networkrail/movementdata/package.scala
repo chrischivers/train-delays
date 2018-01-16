@@ -3,7 +3,7 @@ package traindelays.networkrail
 import cats.effect.IO
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
-import io.circe.{Decoder, DecodingFailure, HCursor}
+import io.circe.{Decoder, HCursor}
 import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
@@ -43,7 +43,6 @@ package object movementdata {
   case object Late extends VariationStatus {
     override val string: String = "LATE"
   }
-
   case object OffRoute extends VariationStatus {
     override val string: String = "OFF ROUTE"
   }
@@ -62,6 +61,38 @@ package object movementdata {
       Meta[String].xmap(VariationStatus.fromString, _.string)
   }
 
+  sealed trait CancellationType {
+    val string: String
+  }
+
+  case object OnCall extends CancellationType {
+    override val string: String = "ON CALL"
+  }
+  case object AtOrigin extends CancellationType {
+    override val string: String = "AT ORIGIN"
+  }
+  case object EnRoute extends CancellationType {
+    override val string: String = "EN ROUTE"
+  }
+  case object OutOfPlan extends CancellationType {
+    override val string: String = "OUT OF PLAN"
+  }
+
+  object CancellationType {
+
+    def fromString(str: String): CancellationType =
+      str match {
+        case OnCall.string    => OnCall
+        case AtOrigin.string  => AtOrigin
+        case EnRoute.string   => EnRoute
+        case OutOfPlan.string => OutOfPlan
+      }
+    implicit val decoder: Decoder[CancellationType] = Decoder.decodeString.map(fromString)
+
+    implicit val meta: Meta[CancellationType] =
+      Meta[String].xmap(CancellationType.fromString, _.string)
+  }
+
   case class TrainId(value: String)
   object TrainId {
     implicit val decoder: Decoder[TrainId] = Decoder.decodeString.map(TrainId(_))
@@ -78,6 +109,7 @@ package object movementdata {
         messageType <- c.downField("header").downField("msg_type").as[String]
         decoded <- messageType match {
           case "0001"  => c.as[TrainActivationRecord]
+          case "0002"  => c.as[TrainCancellationRecord]
           case "0003"  => c.as[TrainMovementRecord]
           case unknown => Right(UnhandledTrainRecord(unknown))
         }
@@ -106,6 +138,57 @@ package object movementdata {
         }
       }
     }
+  }
+
+  case class TrainCancellationRecord(trainId: TrainId,
+                                     trainServiceCode: ServiceCode,
+                                     toc: TOC,
+                                     stanox: Stanox,
+                                     cancellationType: CancellationType,
+                                     cancellationReasonCode: String)
+      extends TrainMovements {
+    def toCancellationLog(trainActivationCache: TrainActivationCache): IO[Option[CancellationLog]] =
+      TrainCancellationRecord.cancellationRecordToCancellationLog(this, trainActivationCache)
+  }
+
+  object TrainCancellationRecord {
+    implicit val trainCancellationDecoder: Decoder[TrainCancellationRecord] {
+      def apply(c: HCursor): Result[TrainCancellationRecord]
+    } = new Decoder[TrainCancellationRecord] {
+
+      override def apply(c: HCursor): Result[TrainCancellationRecord] = {
+        val bodyObject = c.downField("body")
+        for {
+          trainId                <- bodyObject.downField("train_id").as[TrainId]
+          trainServiceCode       <- bodyObject.downField("train_service_code").as[ServiceCode]
+          toc                    <- bodyObject.downField("toc_id").as[TOC]
+          stanox                 <- bodyObject.downField("loc_stanox").as[Stanox]
+          cancellationType       <- bodyObject.downField("canx_type").as[CancellationType]
+          cancellationReasonCode <- bodyObject.downField("canx_reason_code").as[String]
+
+        } yield {
+          TrainCancellationRecord(trainId, trainServiceCode, toc, stanox, cancellationType, cancellationReasonCode)
+        }
+      }
+    }
+    def cancellationRecordToCancellationLog(cancellationRec: TrainCancellationRecord, cache: TrainActivationCache) =
+      cache.getFromCache(cancellationRec.trainId).map { scheduleTrainIdOpt =>
+        for {
+          scheduleTrainId <- scheduleTrainIdOpt
+        } yield {
+          CancellationLog(
+            None,
+            cancellationRec.trainId,
+            scheduleTrainId,
+            cancellationRec.trainServiceCode,
+            cancellationRec.toc,
+            cancellationRec.stanox,
+            cancellationRec.cancellationType,
+            cancellationRec.cancellationReasonCode
+          )
+        }
+      }
+
   }
 
   case class TrainMovementRecord(trainId: TrainId,
@@ -211,4 +294,13 @@ package object movementdata {
                          actualTimestamp: Long,
                          difference: Long,
                          variationStatus: VariationStatus)
+
+  case class CancellationLog(id: Option[Int],
+                             trainId: TrainId,
+                             scheduleTrainId: ScheduleTrainId,
+                             serviceCode: ServiceCode,
+                             toc: TOC,
+                             stanox: Stanox,
+                             cancellationType: CancellationType,
+                             cancellationReasonCode: String)
 }

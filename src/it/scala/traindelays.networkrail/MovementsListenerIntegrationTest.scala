@@ -30,8 +30,9 @@ class MovementsListenerIntegrationTest
 
     withQueues
       .map {
-        case (trainMovementQueue, trainActivationQueue) =>
-          val movementWatcher = new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue)
+        case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
+          val movementWatcher =
+            new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
           subscribeToMovementsTopic(movementWatcher)
 
           eventually {
@@ -51,8 +52,9 @@ class MovementsListenerIntegrationTest
 
     withInitialState(testconfig.databaseConfig)(AppInitialState.empty) { fixture =>
       withQueues.map {
-        case (trainMovementQueue, trainActivationQueue) =>
-          val movementWatcher   = new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue)
+        case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
+          val movementWatcher =
+            new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
           val emailer           = Emailer(testconfig.emailerConfig)
           val subscriberFetcher = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
           subscribeToMovementsTopic(movementWatcher)

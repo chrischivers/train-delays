@@ -34,7 +34,8 @@ trait TestFeatures {
   case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
                              tiplocRecords: List[TipLocRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
-                             subscriberRecords: List[SubscriberRecord] = List.empty)
+                             subscriberRecords: List[SubscriberRecord] = List.empty,
+                             cancellationLogs: List[CancellationLog] = List.empty)
 
   object AppInitialState {
     def empty = AppInitialState()
@@ -43,6 +44,7 @@ trait TestFeatures {
   case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
                                     tipLocTable: TipLocTable,
                                     movementLogTable: MovementLogTable,
+                                    cancellationLogTable: CancellationLogTable,
                                     subscriberTable: SubscriberTable,
                                     trainActivationCache: TrainActivationCache)
 
@@ -67,9 +69,10 @@ trait TestFeatures {
   def withQueues = {
     import scala.concurrent.ExecutionContext.Implicits.global
     for {
-      trainMovementQueue   <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
-      trainActivationQueue <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
-    } yield (trainMovementQueue, trainActivationQueue)
+      trainMovementQueue     <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
+      trainActivationQueue   <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
+      trainCancellationQueue <- fs2.async.unboundedQueue[IO, TrainCancellationRecord]
+    } yield (trainMovementQueue, trainActivationQueue, trainCancellationQueue)
   }
 
   import cats.instances.list._
@@ -120,10 +123,19 @@ trait TestFeatures {
               .transact(db)
           })
           .sequence[IO, Int]
+        _ <- initState.cancellationLogs
+          .map(record => {
+            CancellationLogTable
+              .addCancellationLogRecord(record)
+              .run
+              .transact(db)
+          })
+          .sequence[IO, Int]
         result <- f(
           TrainDelaysTestFixture(ScheduleTable(db),
                                  TipLocTable(db),
                                  MovementLogTable(db),
+                                 CancellationLogTable(db),
                                  MemoizedSubscriberTable(db, subscribersConfig),
                                  trainActivationCache))
       } yield result
@@ -148,6 +160,21 @@ trait TestFeatures {
       plannedPassengerTimestamp,
       stanox,
       variationStatus
+    )
+
+  def createCancellationRecord(trainId: TrainId = TrainId("12345"),
+                               trainServiceCode: ServiceCode = ServiceCode("23456"),
+                               toc: TOC = TOC("SN"),
+                               stanox: Stanox = Stanox("REDHILL"),
+                               cancellationType: CancellationType = EnRoute,
+                               cancellationReasonCode: String = "YI") =
+    TrainCancellationRecord(
+      trainId,
+      trainServiceCode,
+      toc,
+      stanox,
+      cancellationType,
+      cancellationReasonCode
     )
 
   def createActivationRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G123456"),
@@ -175,5 +202,19 @@ trait TestFeatures {
       movementRecord.actualTimestamp,
       movementRecord.actualTimestamp - movementRecord.plannedPassengerTimestamp.get,
       movementRecord.variationStatus.get
+    )
+
+  def cancellationRecordToCancellationLog(cancellationRecord: TrainCancellationRecord,
+                                          id: Option[Int],
+                                          scheduleTrainId: ScheduleTrainId) =
+    CancellationLog(
+      id,
+      cancellationRecord.trainId,
+      scheduleTrainId,
+      cancellationRecord.trainServiceCode,
+      cancellationRecord.toc,
+      cancellationRecord.stanox,
+      cancellationRecord.cancellationType,
+      cancellationRecord.cancellationReasonCode
     )
 }

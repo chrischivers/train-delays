@@ -3,15 +3,19 @@ package traindelays.networkrail.subscribers
 import cats.effect.IO
 import cats.instances.list._
 import cats.syntax.traverse._
+import traindelays.networkrail.{ServiceCode, Stanox}
 import traindelays.networkrail.db.{MovementLogTable, SubscriberTable}
-import traindelays.networkrail.movementdata.MovementLog
+import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.Emailer.Email
 
 trait SubscriberHandler {
 
   def generateSubscriberReports: IO[List[SubscriberReport]]
 
-  def notifySubscribersSink: fs2.Sink[IO, MovementLog]
+  def movementNotifier: fs2.Sink[IO, MovementLog]
+
+  def cancellationNotifier: fs2.Sink[IO, CancellationLog]
 }
 
 object SubscriberHandler {
@@ -34,30 +38,47 @@ object SubscriberHandler {
           }
         }
 
-      override def notifySubscribersSink: fs2.Sink[IO, MovementLog] = fs2.Sink[IO, MovementLog] { log =>
+      override def movementNotifier: fs2.Sink[IO, MovementLog] = fs2.Sink[IO, MovementLog] { log =>
         //TODO only notify in particular circumstances (e.g. late)
 
         for {
           subscriberList <- subscriberTable
             .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
-          affected = getSubscribersForLog(subscriberList, log)
-          _ <- affected.traverse(subscriber => emailSubscriber(subscriber, log, emailer))
+          affected = filterSubscribersBy(subscriberList, log.serviceCode, log.scheduleTrainId, log.stanox)
+          _ <- affected.traverse(subscriber => emailSubscriberWithMovementUpdate(subscriber, log, emailer))
         } yield ()
-
       }
 
-      private def getSubscribersForLog(allSubscribers: List[SubscriberRecord],
-                                       movementLog: MovementLog): List[SubscriberRecord] =
+      override def cancellationNotifier: fs2.Sink[IO, CancellationLog] = fs2.Sink[IO, CancellationLog] { log =>
+        for {
+          subscriberList <- subscriberTable
+            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
+          affected = filterSubscribersBy(subscriberList, log.serviceCode, log.scheduleTrainId, log.stanox)
+          _ <- affected.traverse(subscriber => emailSubscriberWithCancellationUpdate(subscriber, log, emailer))
+        } yield ()
+      }
+
+      private def filterSubscribersBy(allSubscribers: List[SubscriberRecord],
+                                      serviceCode: ServiceCode,
+                                      scheduleTrainId: ScheduleTrainId,
+                                      stanox: Stanox): List[SubscriberRecord] =
         allSubscribers.filter(
           subscriber =>
-            subscriber.serviceCode == movementLog.serviceCode &&
-              subscriber.scheduleTrainId == movementLog.scheduleTrainId &&
-              subscriber.stanox == movementLog.stanox) //TODO do we care about all predicates?
+            subscriber.serviceCode == serviceCode &&
+              subscriber.scheduleTrainId == scheduleTrainId &&
+              subscriber.stanox == stanox) //TODO do we care about all predicates?
 
-      private def emailSubscriber(subscriberRecord: SubscriberRecord,
-                                  movementLog: MovementLog,
-                                  emailer: Emailer): IO[Unit] = {
+      private def emailSubscriberWithMovementUpdate(subscriberRecord: SubscriberRecord,
+                                                    movementLog: MovementLog,
+                                                    emailer: Emailer): IO[Unit] = {
         val email = Email("TRAIN DELAY UPDATE", movementLog.toString, subscriberRecord.email)
+        emailer.sendEmail(email)
+      }
+
+      private def emailSubscriberWithCancellationUpdate(subscriberRecord: SubscriberRecord,
+                                                        cancellationLog: CancellationLog,
+                                                        emailer: Emailer): IO[Unit] = {
+        val email = Email("TRAIN CANCELLATION UPDATE", cancellationLog.toString, subscriberRecord.email)
         emailer.sendEmail(email)
       }
 

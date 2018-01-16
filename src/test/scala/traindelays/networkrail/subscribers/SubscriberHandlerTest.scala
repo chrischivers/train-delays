@@ -115,7 +115,7 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
 
       withQueues
         .map {
-          case (trainMovementQueue, trainActivationQueue) =>
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
 
@@ -125,6 +125,62 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
                                    fixture.movementLogTable,
                                    subscriberHandler,
                                    fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
+        }
+    }
+
+    emailer.emailsSent should have size 2
+    emailer.emailsSent.head.to shouldBe email1
+    emailer.emailsSent(1).to shouldBe email3
+
+  }
+
+  it should "email relevant subscribers when cancellation log received for which they are subscribed" in {
+//TODO combine with above
+    val activationRecord   = createActivationRecord()
+    val cancellationRecord = createCancellationRecord()
+
+    val userID1          = UserId(UUID.randomUUID().toString)
+    val email1           = "test1@test.com"
+    val scheduleTrainId1 = activationRecord.scheduleTrainId
+    val serviceCode1     = activationRecord.trainServiceCode
+    val stanox1          = cancellationRecord.stanox
+
+    val userID2          = UserId(UUID.randomUUID().toString)
+    val email2           = "test2@test.com"
+    val scheduleTrainId2 = ScheduleTrainId("ID123")
+    val serviceCode2     = activationRecord.trainServiceCode
+    val stanox2          = cancellationRecord.stanox
+
+    val userID3          = UserId(UUID.randomUUID().toString)
+    val email3           = "test3@test.com"
+    val scheduleTrainId3 = activationRecord.scheduleTrainId
+    val serviceCode3     = activationRecord.trainServiceCode
+    val stanox3          = cancellationRecord.stanox
+
+    val subscriberRecord1 = SubscriberRecord(None, userID1, email1, scheduleTrainId1, serviceCode1, stanox1)
+    val subscriberRecord2 = SubscriberRecord(None, userID2, email2, scheduleTrainId2, serviceCode2, stanox2)
+    val subscriberRecord3 = SubscriberRecord(None, userID3, email3, scheduleTrainId3, serviceCode3, stanox3)
+
+    val emailer = StubEmailer()
+
+    withInitialState(config)(
+      AppInitialState(
+        subscriberRecords = List(subscriberRecord1, subscriberRecord2, subscriberRecord3)
+      )) { fixture =>
+      val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+
+      withQueues
+        .map {
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
+            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+            trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+
+            TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
+              .unsafeRunTimed(1 second)
+            TrainCancellationProcessor(trainCancellationQueue,
+                                       subscriberHandler,
+                                       fixture.cancellationLogTable,
+                                       fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
         }
     }
 

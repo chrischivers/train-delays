@@ -24,7 +24,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
     withInitialState(config)() { fixture =>
       withQueues
         .map {
-          case (trainMovementQueue, trainActivationQueue) =>
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
             val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
@@ -61,7 +61,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
     withInitialState(config)() { fixture =>
       withQueues
         .map {
-          case (trainMovementQueue, trainActivationQueue) =>
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord1).unsafeRunSync()
             trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
@@ -102,7 +102,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
     withInitialState(config, redisCacheExpiry = 3 seconds)() { fixture =>
       withQueues
         .map {
-          case (trainMovementQueue, trainActivationQueue) =>
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord1).unsafeRunSync()
             trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
@@ -155,7 +155,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
     withInitialState(config)() { fixture =>
       withQueues
         .map {
-          case (trainMovementQueue, trainActivationQueue) =>
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord1).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
@@ -179,6 +179,39 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                 retrievedRecords.head shouldBe movementRecordToMovementLog(movementRecord2,
                                                                            Some(1),
                                                                            activationRecord1.scheduleTrainId)
+              }
+              .unsafeRunSync()
+        }
+    }
+  }
+
+  "Train Cancellation Processor" should "persist Cancellation records in DB where all relevant fields exist" in {
+
+    val activationRecord   = createActivationRecord()
+    val cancellationRecord = createCancellationRecord()
+    withInitialState(config)() { fixture =>
+      withQueues
+        .map {
+          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
+            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+            trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+            val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+            val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+            TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
+              .unsafeRunTimed(1 second)
+            TrainCancellationProcessor(trainCancellationQueue,
+                                       subscriberHandler,
+                                       fixture.cancellationLogTable,
+                                       fixture.trainActivationCache).stream.run
+              .unsafeRunTimed(1 second)
+
+            fixture.cancellationLogTable
+              .retrieveAllRecords()
+              .map { retrievedRecords =>
+                retrievedRecords should have size 1
+                retrievedRecords.head shouldBe cancellationRecordToCancellationLog(cancellationRecord,
+                                                                                   Some(1),
+                                                                                   activationRecord.scheduleTrainId)
               }
               .unsafeRunSync()
         }

@@ -22,9 +22,10 @@ object StartMovementListener extends App {
   implicit val actorSystem = ActorSystem()
 
   val app = for {
-    trainMovementQueue   <- async.unboundedQueue[IO, TrainMovementRecord]
-    trainActivationQueue <- async.unboundedQueue[IO, TrainActivationRecord]
-    movementMessageHandler = MovementMessageHandler(trainMovementQueue, trainActivationQueue)
+    trainMovementQueue     <- async.unboundedQueue[IO, TrainMovementRecord]
+    trainActivationQueue   <- async.unboundedQueue[IO, TrainActivationRecord]
+    trainCancellationQueue <- async.unboundedQueue[IO, TrainCancellationRecord]
+    movementMessageHandler = MovementMessageHandler(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
     _ <- stompClient.subscribe(config.networkRailConfig.movements.topic, movementMessageHandler)
     _ <- createMovementMessageProcessor(trainMovementQueue, trainActivationQueue).run
   } yield ()

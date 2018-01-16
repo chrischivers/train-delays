@@ -14,9 +14,10 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
 
     withQueues
       .map {
-        case (trainMovementQueue, trainActivationQueue) =>
+        case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
           val mockStompClient = MockStompClient()
-          val listener        = new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue)
+          val listener =
+            new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
           mockStompClient.client.subscribe("test/topic", listener).unsafeRunSync()
 
           mockStompClient.sendMessage("test/topic", sampleRawMovementMessage)

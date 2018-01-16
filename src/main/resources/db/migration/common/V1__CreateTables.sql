@@ -40,6 +40,17 @@ CREATE TABLE IF NOT EXISTS movement_log (
   variation_status VARCHAR(10) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS cancellation_log (
+  id SERIAL PRIMARY KEY,
+  train_id     VARCHAR(10)    NOT NULL,
+  schedule_train_id VARCHAR(10) NOT NULL,
+  service_code    VARCHAR(10)   NOT NULL,
+  toc VARCHAR(10) NOT NULL,
+  stanox VARCHAR(10) NOT NULL,
+  cancellation_type VARCHAR(10) NOT NULL,
+  cancellation_reason_code VARCHAR(10) NULL
+);
+
 CREATE TABLE IF NOT EXISTS subscribers (
   id SERIAL PRIMARY KEY,
   user_id VARCHAR NOT NULL,

@@ -5,7 +5,6 @@ import java.util
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import fs2.async.mutable.Queue
-import io.circe.{DecodingFailure, Json}
 import io.circe.parser._
 import traindelays.stomp.StompHandler
 
@@ -15,7 +14,8 @@ object MovementMessageHandler extends StrictLogging {
   import cats.syntax.traverse._
 
   def apply(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
-            trainActivationMessageQueue: Queue[IO, TrainActivationRecord]) = new StompHandler {
+            trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
+            trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord]) = new StompHandler {
 
     override def message(headers: util.Map[_, _], body: String): Unit = {
       handleMessage(body).unsafeRunSync()
@@ -29,8 +29,9 @@ object MovementMessageHandler extends StrictLogging {
           .fold(
             err => IO(logger.error(s"Error parsing movement message [$msg]", err)),
             _.map {
-              case tar: TrainActivationRecord => trainActivationMessageQueue.enqueue1(tar)
-              case tmr: TrainMovementRecord   => trainMovementMessageQueue.enqueue1(tmr)
+              case tar: TrainActivationRecord   => trainActivationMessageQueue.enqueue1(tar)
+              case tmr: TrainMovementRecord     => trainMovementMessageQueue.enqueue1(tmr)
+              case tcr: TrainCancellationRecord => trainCancellationMessageQueue.enqueue1(tcr)
               case utr: UnhandledTrainRecord =>
                 IO(logger.info(s"Unhandled train message of type: ${utr.unhandledType}"))
             }.sequence
@@ -40,4 +41,8 @@ object MovementMessageHandler extends StrictLogging {
     }
 
   }
+}
+
+trait MovementProcessor {
+  def stream: fs2.Stream[IO, Unit]
 }
