@@ -23,12 +23,10 @@ object MockStompClient {
         listenerSubscribed.foreach(listener => listener.message(Map.empty.asJava, message))
       }
 
-    override val client: StompClient = new StompClient {
-      override def subscribe(topic: String, listener: StompHandler): IO[Unit] = IO {
+    override val client: StompClient = (topic: String, listener: StompHandler) =>
+      IO {
         subscribedTo = Some(topic)
         listenerSubscribed = Some(listener)
-      }
-
     }
   }
 }

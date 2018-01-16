@@ -16,7 +16,7 @@ object PopulateScheduleTable extends App {
   val scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
 
   val app = for {
-//    _ <- networkRailClient.downloadScheduleData
+    _ <- networkRailClient.downloadScheduleData
     _ <- networkRailClient.unpackScheduleData
     _ <- deleteAllRecords
     _ <- writeScheduleRecords
@@ -24,7 +24,7 @@ object PopulateScheduleTable extends App {
   } yield ()
 
   private def writeTiplocRecords =
-    usingTransactor(config.databaseConfig)() { db =>
+    withTransactor(config.databaseConfig)() { db =>
       val tipLocTable = TipLocTable(db)
       scheduleDataReader
         .readData[TipLocRecord]
@@ -33,7 +33,7 @@ object PopulateScheduleTable extends App {
     }.run
 
   private def writeScheduleRecords =
-    usingTransactor(config.databaseConfig)() { db =>
+    withTransactor(config.databaseConfig)() { db =>
       val scheduleTable = ScheduleTable(db)
       scheduleDataReader
         .readData[ScheduleRecord]
@@ -42,7 +42,7 @@ object PopulateScheduleTable extends App {
     }.run
 
   private def deleteAllRecords =
-    usingTransactor(config.databaseConfig)() { db =>
+    withTransactor(config.databaseConfig)() { db =>
       val scheduleTable = ScheduleTable(db)
       fs2.Stream.eval(scheduleTable.deleteAllRecords())
     }.run

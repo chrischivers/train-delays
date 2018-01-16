@@ -32,7 +32,7 @@ object StartMovementListener extends App {
 
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
                                              trainActivationMessageQueue: Queue[IO, TrainActivationRecord]) =
-    usingTransactor(config.databaseConfig)() { db =>
+    withTransactor(config.databaseConfig)() { db =>
       val movementLogTable  = MovementLogTable(db)
       val subscriberTable   = MemoizedSubscriberTable(db, config.networkRailConfig.subscribersConfig)
       val emailer           = Emailer(config.emailerConfig)

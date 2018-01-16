@@ -68,6 +68,7 @@ object SubscriberHandler {
               subscriber.scheduleTrainId == scheduleTrainId &&
               subscriber.stanox == stanox) //TODO do we care about all predicates?
 
+      //TODO set proper notifcations
       private def emailSubscriberWithMovementUpdate(subscriberRecord: SubscriberRecord,
                                                     movementLog: MovementLog,
                                                     emailer: Emailer): IO[Unit] = {

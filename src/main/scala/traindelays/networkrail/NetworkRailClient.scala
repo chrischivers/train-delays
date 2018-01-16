@@ -39,7 +39,7 @@ object NetworkRailClient extends StrictLogging {
     override def unpackScheduleData: IO[Unit] =
       fs2.io.file
         .readAll[IO](config.scheduleData.tmpDownloadLocation, 4096)
-        .drop(10) //drop gzip header
+        .drop(10) //drops gzip header
         .through(inflate(nowrap = true))
         .to(fs2.io.file.writeAll[IO](config.scheduleData.tmpUnzipLocation))
         .run

@@ -49,20 +49,19 @@ trait TestFeatures {
                                     trainActivationCache: TrainActivationCache)
 
   def testDatabaseConfig() = {
-    val databaseName = s"test-${System.currentTimeMillis()}-${Random.nextInt(99)}-${Random.nextInt(99)}"
+    val databaseName = s"testdb-${System.currentTimeMillis()}-${Random.nextInt(Integer.MAX_VALUE)}"
     DatabaseConfig(
       "org.h2.Driver",
       "jdbc:h2:mem:" + databaseName + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
       "sa",
-      "",
-      migrationScripts = List("db/migration/common")
+      ""
     )
   }
 
-  val testTransactor = transactor(testDatabaseConfig())(_.clean())
+  val testTransactor = setUpTransactor(testDatabaseConfig())(_.clean())
 
   def withDatabase[A](databaseConfig: DatabaseConfig)(f: HikariTransactor[IO] => IO[A]): A =
-    usingTransactor(databaseConfig)(_.clean)(x => Stream.eval(f(x))).runLast
+    withTransactor(databaseConfig)(_.clean)(x => Stream.eval(f(x))).runLast
       .unsafeRunSync()
       .getOrElse(fail(s"Unable to perform the operation"))
 

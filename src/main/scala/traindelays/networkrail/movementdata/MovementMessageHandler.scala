@@ -42,7 +42,3 @@ object MovementMessageHandler extends StrictLogging {
 
   }
 }
-
-trait MovementProcessor {
-  def stream: fs2.Stream[IO, Unit]
-}

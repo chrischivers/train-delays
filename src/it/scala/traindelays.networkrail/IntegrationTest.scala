@@ -23,7 +23,6 @@ trait IntegrationTest {
       "jdbc:postgresql://localhost/traindelays",
       "postgres",
       "",
-      List("db/migration/common"),
       10
     )
   )

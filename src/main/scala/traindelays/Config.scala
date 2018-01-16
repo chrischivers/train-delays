@@ -6,8 +6,7 @@ import java.util.concurrent.TimeUnit
 import com.typesafe.config.ConfigFactory
 import org.http4s.Uri
 
-import scala.collection.JavaConverters._
-import scala.concurrent.duration.{Duration, FiniteDuration}
+import scala.concurrent.duration.FiniteDuration
 
 case class NetworkRailConfig(host: String,
                              port: Int,
@@ -42,7 +41,6 @@ case class DatabaseConfig(driverClassName: String,
                           url: String,
                           username: String,
                           password: String,
-                          migrationScripts: List[String],
                           maximumPoolSize: Int = 2)
 
 case class RedisConfig(host: String, port: Int, dbIndex: Int)
@@ -80,7 +78,6 @@ object ConfigLoader {
         defaultConfigFactory.getString("db.url"),
         defaultConfigFactory.getString("db.username"),
         defaultConfigFactory.getString("db.password"),
-        defaultConfigFactory.getStringList("db.migrationScripts").asScala.toList,
         defaultConfigFactory.getInt("db.maximumPoolSize")
       ),
       RedisConfig(

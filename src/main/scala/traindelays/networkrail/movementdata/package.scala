@@ -303,4 +303,8 @@ package object movementdata {
                              stanox: Stanox,
                              cancellationType: CancellationType,
                              cancellationReasonCode: String)
+
+  trait MovementProcessor {
+    def stream: fs2.Stream[IO, Unit]
+  }
 }
