@@ -1,10 +1,13 @@
 package traindelays.networkrail.scripts
 
 import cats.effect.IO
+import fs2.Pipe
 import org.http4s.client.blaze.PooledHttp1Client
 import traindelays.ConfigLoader
 import traindelays.networkrail.NetworkRailClient
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.{ScheduleTable, _}
+import traindelays.networkrail.movementdata.{CancellationLog, TrainCancellationRecord}
 import traindelays.networkrail.scheduledata.{ScheduleDataReader, ScheduleRecord, TipLocRecord}
 
 object PopulateScheduleTable extends App {
@@ -19,8 +22,8 @@ object PopulateScheduleTable extends App {
     _ <- networkRailClient.downloadScheduleData
     _ <- networkRailClient.unpackScheduleData
     _ <- deleteAllRecords
-    _ <- writeScheduleRecords
     _ <- writeTiplocRecords
+    _ <- writeScheduleRecords
   } yield ()
 
   private def writeTiplocRecords =
@@ -28,16 +31,17 @@ object PopulateScheduleTable extends App {
       val tipLocTable = TipLocTable(db)
       scheduleDataReader
         .readData[TipLocRecord]
-        .filter(x => x.tipLocCode.value.toUpperCase() == "REIGATE")
         .to(tipLocTable.dbWriter)
     }.run
 
   private def writeScheduleRecords =
     withTransactor(config.databaseConfig)() { db =>
       val scheduleTable = ScheduleTable(db)
+      val tipLocTable   = TipLocTable(db)
       scheduleDataReader
         .readData[ScheduleRecord]
-        .filter(x => x.locationRecords.exists(y => y.tiplocCode.value.toUpperCase() == "REIGATE"))
+        .through(recordsToLogsPipe(tipLocTable))
+        .flatMap[ScheduleLog](fs2.Stream(_: _*))
         .to(scheduleTable.dbWriter)
     }.run
 
@@ -46,6 +50,12 @@ object PopulateScheduleTable extends App {
       val scheduleTable = ScheduleTable(db)
       fs2.Stream.eval(scheduleTable.deleteAllRecords())
     }.run
+
+  private def recordsToLogsPipe(tipLocTable: TipLocTable): Pipe[IO, ScheduleRecord, List[ScheduleLog]] =
+    (in: fs2.Stream[IO, ScheduleRecord]) => {
+      in.flatMap(x => fs2.Stream.eval(x.toScheduleLogs(tipLocTable)))
+
+    }
 
   app.unsafeRunSync()
 

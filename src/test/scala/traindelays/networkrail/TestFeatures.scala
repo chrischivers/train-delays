@@ -87,16 +87,10 @@ trait TestFeatures {
     withDatabase(databaseConfig) { db =>
       val redisClient          = MockRedisClient()
       val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
+      val tipLocTable          = TipLocTable(db)
 
       for {
         _ <- db.clean
-        _ <- initState.scheduleRecords
-          .flatMap(record => {
-            ScheduleTable
-              .addScheduleRecords(record)
-              .map(_.run.transact(db))
-          })
-          .sequence[IO, Int]
         _ <- initState.tiplocRecords
           .map(record => {
             TipLocTable
@@ -106,6 +100,21 @@ trait TestFeatures {
           })
           .sequence[IO, Int]
 
+        _ <- initState.scheduleRecords
+          .map(record => {
+            record.toScheduleLogs(tipLocTable).flatMap { scheduleLogs =>
+              scheduleLogs
+                .map { scheduleLog =>
+                  ScheduleTable
+                    .addScheduleLogRecord(scheduleLog)
+                    .run
+                    .transact(db)
+                }
+                .sequence[IO, Int]
+            }
+          })
+          .sequence[IO, List[Int]]
+
         _ <- initState.movementLogs
           .map(record => {
             MovementLogTable
@@ -114,6 +123,7 @@ trait TestFeatures {
               .transact(db)
           })
           .sequence[IO, Int]
+
         _ <- initState.subscriberRecords
           .map(record => {
             SubscriberTable
@@ -122,6 +132,7 @@ trait TestFeatures {
               .transact(db)
           })
           .sequence[IO, Int]
+
         _ <- initState.cancellationLogs
           .map(record => {
             CancellationLogTable

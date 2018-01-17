@@ -4,8 +4,10 @@ import java.time.{LocalDate, LocalTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.ServiceCode
+import traindelays.networkrail.{ServiceCode, Stanox}
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{
+  LocationType,
   OriginatingLocation,
   TerminatingLocation,
   TipLocCode
@@ -23,7 +25,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
   it should "insert a schedule record into the database" in {
 
     withInitialState(config)() { fixture =>
-      fixture.scheduleTable.addRecord(getTestScheduleRecord())
+      fixture.scheduleTable.addRecord(getTestScheduleLogRecord())
     }
   }
 
@@ -31,9 +33,13 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleRecord = getTestScheduleRecord()
 
-    val retrievedRecords = withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord))) {
-      fixture =>
-        fixture.scheduleTable.retrieveAllRecords()
+    val retrievedRecords = withInitialState(config)(
+      AppInitialState(
+        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
+                             TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+        scheduleRecords = List(scheduleRecord)
+      )) { fixture =>
+      fixture.scheduleTable.retrieveAllScheduleRecords()
     }
 
     retrievedRecords should have size 1
@@ -44,12 +50,16 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleRecord = getTestScheduleRecord()
 
-    val retrievedRecords = withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord))) {
-      fixture =>
-        for {
-          _         <- fixture.scheduleTable.deleteAllRecords()
-          retrieved <- fixture.scheduleTable.retrieveAllRecords()
-        } yield retrieved
+    val retrievedRecords = withInitialState(config)(
+      AppInitialState(
+        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
+                             TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+        scheduleRecords = List(scheduleRecord)
+      )) { fixture =>
+      for {
+        _         <- fixture.scheduleTable.deleteAllRecords()
+        retrieved <- fixture.scheduleTable.retrieveAllRecords()
+      } yield retrieved
     }
 
     retrievedRecords should have size 0
@@ -61,8 +71,13 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val scheduleRecord2 = getTestScheduleRecord().copy(scheduleTrainId = ScheduleTrainId("123456"))
 
     val retrievedRecords =
-      withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord1, scheduleRecord2))) { fixture =>
-        fixture.scheduleTable.retrieveAllRecords()
+      withInitialState(config)(
+        AppInitialState(
+          tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
+                               TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+          scheduleRecords = List(scheduleRecord1, scheduleRecord2)
+        )) { fixture =>
+        fixture.scheduleTable.retrieveAllScheduleRecords()
       }
 
     retrievedRecords should have size 2
@@ -88,8 +103,16 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val scheduleRecord = getTestScheduleRecord(locationRecords = List(slr1, slr2, slr3))
 
     val retrievedRecords =
-      withInitialState(config)(AppInitialState(scheduleRecords = List(scheduleRecord))) { fixture =>
-        fixture.scheduleTable.retrieveAllRecords()
+      withInitialState(config)(
+        AppInitialState(
+          tiplocRecords = List(
+            TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
+            TipLocRecord(TipLocCode("MERSTHAM"), Stanox("MER"), None),
+            TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)
+          ),
+          scheduleRecords = List(scheduleRecord)
+        )) { fixture =>
+        fixture.scheduleTable.retrieveAllScheduleRecords()
       }
 
     retrievedRecords should have size 1
@@ -127,6 +150,46 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       scheduleStartDate,
       scheduleEndDate,
       locationRecords
+    )
+
+  def getTestScheduleLogRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+                               trainServiceCode: ServiceCode = ServiceCode("24745000"),
+                               atocCode: AtocCode = AtocCode("SN"),
+                               monday: Boolean = true,
+                               tuesday: Boolean = true,
+                               wednesday: Boolean = true,
+                               thursday: Boolean = true,
+                               friday: Boolean = true,
+                               saturday: Boolean = false,
+                               sunday: Boolean = false,
+                               index: Int = 1,
+                               tipLocCode: TipLocCode = TipLocCode("REIGATE"),
+                               stanox: Stanox = Stanox("REIGATE"),
+                               scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+                               scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+                               locationType: LocationType = OriginatingLocation,
+                               arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
+                               departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter))) =
+    ScheduleLog(
+      None,
+      scheduleTrainId,
+      trainServiceCode,
+      atocCode,
+      index,
+      tipLocCode,
+      stanox,
+      monday,
+      tuesday,
+      wednesday,
+      thursday,
+      friday,
+      saturday,
+      sunday,
+      scheduleStartDate,
+      scheduleEndDate,
+      locationType,
+      arrivalTime,
+      departureTime
     )
 
 }

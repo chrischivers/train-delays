@@ -3,14 +3,17 @@ package traindelays.networkrail.db
 import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
-import traindelays.networkrail.ServiceCode
+import traindelays.networkrail.db.ScheduleTable.{ScheduleLog, toScheduleRecords}
+import traindelays.networkrail.{ServiceCode, Stanox}
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleRecord, ScheduleTrainId}
 
-trait ScheduleTable extends Table[ScheduleRecord] {
+trait ScheduleTable extends Table[ScheduleLog] {
 
   def deleteAllRecords(): IO[Unit]
+
+  def retrieveAllScheduleRecords(): IO[List[ScheduleRecord]]
 }
 
 object ScheduleTable {
@@ -24,49 +27,52 @@ object ScheduleTable {
     t => LocalTime.of(t.toLocalTime.getHour, t.toLocalTime.getMinute),
     lt => new java.sql.Time(lt.getHour, lt.getMinute, lt.getSecond))
 
-  case class RetrievedScheduleRecord(scheduleTrainId: ScheduleTrainId,
-                                     serviceCode: ServiceCode,
-                                     atocCode: AtocCode,
-                                     stopSequence: Int,
-                                     tiplocCode: TipLocCode,
-                                     monday: Boolean,
-                                     tuesday: Boolean,
-                                     wednesday: Boolean,
-                                     thursday: Boolean,
-                                     friday: Boolean,
-                                     saturday: Boolean,
-                                     sunday: Boolean,
-                                     scheduleStart: LocalDate,
-                                     scheduleEnd: LocalDate,
-                                     locationType: LocationType,
-                                     arrivalTime: Option[LocalTime],
-                                     departureTime: Option[LocalTime])
+  case class ScheduleLog(id: Option[Int],
+                         scheduleTrainId: ScheduleTrainId,
+                         serviceCode: ServiceCode,
+                         atocCode: AtocCode,
+                         stopSequence: Int,
+                         tiplocCode: TipLocCode,
+                         stanox: Stanox,
+                         monday: Boolean,
+                         tuesday: Boolean,
+                         wednesday: Boolean,
+                         thursday: Boolean,
+                         friday: Boolean,
+                         saturday: Boolean,
+                         sunday: Boolean,
+                         scheduleStart: LocalDate,
+                         scheduleEnd: LocalDate,
+                         locationType: LocationType,
+                         arrivalTime: Option[LocalTime],
+                         departureTime: Option[LocalTime])
 
-  def addScheduleRecords(record: ScheduleRecord): List[Update0] =
-    record.locationRecords.zipWithIndex.map {
-      case (locationRecord, index) =>
-        sql"""
-      INSERT INTO schedule
-      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
-      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${record.scheduleTrainId}, ${record.trainServiceCode}, ${record.atocCode}, ${index + 1}, ${locationRecord.tiplocCode}, ${record.daysRun.monday},
-        ${record.daysRun.tuesday}, ${record.daysRun.wednesday}, ${record.daysRun.thursday}, ${record.daysRun.friday}, ${record.daysRun.saturday},
-        ${record.daysRun.sunday}, ${record.scheduleStartDate}, ${record.scheduleEndDate}, ${locationRecord.locationType},
-        ${locationRecord.arrivalTime}, ${locationRecord.departureTime})
-     """.update
-    }
-
-  def allScheduleRecords(): Query0[RetrievedScheduleRecord] =
+  def addScheduleLogRecord(log: ScheduleLog): Update0 =
+//    record.locationRecords.zipWithIndex.map {
+//      case (locationRecord, index) =>
     sql"""
-      SELECT schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+      INSERT INTO schedule
+      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, stanox,
+      monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+      schedule_start, schedule_end, location_type, arrival_time, departure_time)
+      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.tiplocCode},
+      ${log.stanox}, ${log.monday}, ${log.tuesday}, ${log.wednesday}, ${log.thursday}, ${log.friday}, ${log.saturday},
+        ${log.sunday}, ${log.scheduleStart}, ${log.scheduleEnd}, ${log.locationType},
+        ${log.arrivalTime}, ${log.departureTime})
+     """.update
+
+  def allScheduleLogRecords(): Query0[ScheduleLog] =
+    sql"""
+      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, stanox,
+      monday, tuesday, wednesday, thursday, friday, saturday, sunday,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
       from schedule
-      """.query[RetrievedScheduleRecord]
+      """.query[ScheduleLog]
 
-  def deleteAllScheduleRecords(): Update0 =
+  def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
 
-  private def toScheduleRecords(retrieved: List[RetrievedScheduleRecord]): List[ScheduleRecord] =
+  private def toScheduleRecords(retrieved: List[ScheduleLog]): List[ScheduleRecord] =
     retrieved
       .groupBy(
         r =>
@@ -101,21 +107,24 @@ object ScheduleTable {
 
   def apply(db: Transactor[IO]): ScheduleTable =
     new ScheduleTable {
-      override def addRecord(record: ScheduleRecord): IO[Unit] =
+      override def addRecord(log: ScheduleLog): IO[Unit] =
         ScheduleTable
-          .addScheduleRecords(record)
-          .map(update => update.run.transact(db))
-          .sequence[IO, Int]
+          .addScheduleLogRecord(log)
+          .run
+          .transact(db)
           .map(_ => ())
 
-      override def retrieveAllRecords(): IO[List[ScheduleRecord]] =
+      override def retrieveAllRecords(): IO[List[ScheduleLog]] =
         ScheduleTable
-          .allScheduleRecords()
+          .allScheduleLogRecords()
           .list
           .transact(db)
-          .map(retrieved => toScheduleRecords(retrieved))
 
-      override def deleteAllRecords(): IO[Unit] = ScheduleTable.deleteAllScheduleRecords().run.transact(db).map(_ => ())
+      override def retrieveAllScheduleRecords(): IO[List[ScheduleRecord]] =
+        retrieveAllRecords().map(retrieved => toScheduleRecords(retrieved))
+
+      override def deleteAllRecords(): IO[Unit] =
+        ScheduleTable.deleteAllScheduleLogRecords().run.transact(db).map(_ => ())
     }
 
 }

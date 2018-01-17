@@ -9,6 +9,8 @@ import doobie.util.meta.Meta
 import fs2.Pipe
 import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, HCursor, Json}
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog
+import traindelays.networkrail.db.TipLocTable
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
@@ -46,9 +48,16 @@ package object scheduledata {
                             daysRun: DaysRun,
                             scheduleStartDate: LocalDate,
                             scheduleEndDate: LocalDate,
-                            locationRecords: List[ScheduleLocationRecord])
+                            locationRecords: List[ScheduleLocationRecord]) {
+
+    def toScheduleLogs(tipLocTable: TipLocTable): IO[List[ScheduleLog]] =
+      ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocTable)
+  }
 
   object ScheduleRecord {
+
+    import cats.instances.list._
+    import cats.syntax.traverse._
 
     implicit case object JsonFilter extends JsonFilter[ScheduleRecord] {
       override implicit val jsonFilter
@@ -62,6 +71,39 @@ package object scheduledata {
             rec.copy(locationRecords = rec.locationRecords.filterNot(locRec =>
               locRec.departureTime.isEmpty && locRec.arrivalTime.isEmpty)))
     }
+
+    def scheduleRecordToScheduleLogs(scheduleRecord: ScheduleRecord, tipLocTable: TipLocTable): IO[List[ScheduleLog]] =
+      scheduleRecord.locationRecords.zipWithIndex
+        .map {
+          case (locationRecord, index) =>
+            tipLocTable.tipLocRecordFor(locationRecord.tiplocCode).map { tipLocRecordOpt =>
+              tipLocRecordOpt.map { tipLocRecord =>
+                ScheduleLog(
+                  None,
+                  scheduleRecord.scheduleTrainId,
+                  scheduleRecord.trainServiceCode,
+                  scheduleRecord.atocCode,
+                  index + 1,
+                  locationRecord.tiplocCode,
+                  tipLocRecord.stanox,
+                  scheduleRecord.daysRun.monday,
+                  scheduleRecord.daysRun.tuesday,
+                  scheduleRecord.daysRun.wednesday,
+                  scheduleRecord.daysRun.thursday,
+                  scheduleRecord.daysRun.friday,
+                  scheduleRecord.daysRun.saturday,
+                  scheduleRecord.daysRun.sunday,
+                  scheduleRecord.scheduleStartDate,
+                  scheduleRecord.scheduleEndDate,
+                  locationRecord.locationType,
+                  locationRecord.arrivalTime,
+                  locationRecord.departureTime
+                )
+              }
+            }
+        }
+        .sequence[IO, Option[ScheduleLog]]
+        .map(_.flatten)
 
     private def daysRunFrom(daysRun: String): Either[DecodingFailure, DaysRun] =
       if (daysRun.length == 7 && daysRun.forall(char => char == '1' || char == '0')) {
