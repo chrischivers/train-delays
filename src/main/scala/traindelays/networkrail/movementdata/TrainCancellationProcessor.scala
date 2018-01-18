@@ -25,7 +25,7 @@ object TrainCancellationProcessor {
           .through(recordsToLogPipe)
           .collect[CancellationLog] { case Some(cl) => cl }
           .observe(subscriberHandler.cancellationNotifier)
-          .observe1(x => IO(println(x)))
+//          .observe1(x => IO(println(x)))
           .to(cancellationLogTable.dbWriter)
 
     }

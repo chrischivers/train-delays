@@ -25,7 +25,7 @@ object TrainMovementProcessor {
           .through(recordsToLogPipe)
           .collect[MovementLog] { case Some(ml) => ml }
           .observe(subscriberHandler.movementNotifier)
-          .observe1(x => IO(println(x)))
+//          .observe1(x => IO(println(x)))
           .to(movementLogTable.dbWriter)
 
     }
