@@ -8,7 +8,7 @@ import fs2.compress._
 import org.http4s.client.Client
 import org.http4s.headers.Authorization
 import org.http4s.{BasicCredentials, EntityBody, Headers, Request}
-import traindelays.NetworkRailConfig
+import traindelays.{NetworkRailConfig, ScheduleDataConfig}
 import traindelays.stomp.{StompClient, StompHandler}
 
 trait NetworkRailClient {
@@ -28,7 +28,6 @@ object NetworkRailClient extends StrictLogging {
     override def downloadScheduleData: IO[Unit] = {
       val request =
         Request[IO](uri = config.scheduleData.downloadUrl).withHeaders(Headers(Authorization(credentials)))
-
       followRedirects(client, config.maxRedirects).fetch(request) { resp =>
         if (resp.status.isSuccess) {
           writeToFile(config.scheduleData.tmpDownloadLocation, resp.body).map(_ => ())
@@ -49,6 +48,12 @@ object NetworkRailClient extends StrictLogging {
       StompClient(config)
         .subscribe(topic, listener)
     }
+
+    def deleteTmpFiles() = IO {
+      config.scheduleData.tmpDownloadLocation.toFile.delete()
+      config.scheduleData.tmpUnzipLocation.toFile.delete()
+    }
+
   }
 
   private def writeToFile(path: Path, data: EntityBody[IO]): IO[Option[Unit]] =

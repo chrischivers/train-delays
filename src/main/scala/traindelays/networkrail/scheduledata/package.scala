@@ -52,6 +52,9 @@ package object scheduledata {
 
     def toScheduleLogs(tipLocTable: TipLocTable): IO[List[ScheduleLog]] =
       ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocTable)
+
+    def toScheduleLogs(tipLocRecords: List[TipLocRecord]): IO[List[ScheduleLog]] =
+      ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocRecords)
   }
 
   object ScheduleRecord {
@@ -104,6 +107,36 @@ package object scheduledata {
         }
         .sequence[IO, Option[ScheduleLog]]
         .map(_.flatten)
+
+    def scheduleRecordToScheduleLogs(scheduleRecord: ScheduleRecord,
+                                     tipLocRecords: List[TipLocRecord]): IO[List[ScheduleLog]] = IO {
+      scheduleRecord.locationRecords.zipWithIndex.flatMap {
+        case (locationRecord, index) =>
+          tipLocRecords.find(rec => rec.tipLocCode == locationRecord.tiplocCode).map { tipLocRecord =>
+            ScheduleLog(
+              None,
+              scheduleRecord.scheduleTrainId,
+              scheduleRecord.trainServiceCode,
+              scheduleRecord.atocCode,
+              index + 1,
+              locationRecord.tiplocCode,
+              tipLocRecord.stanox,
+              scheduleRecord.daysRun.monday,
+              scheduleRecord.daysRun.tuesday,
+              scheduleRecord.daysRun.wednesday,
+              scheduleRecord.daysRun.thursday,
+              scheduleRecord.daysRun.friday,
+              scheduleRecord.daysRun.saturday,
+              scheduleRecord.daysRun.sunday,
+              scheduleRecord.scheduleStartDate,
+              scheduleRecord.scheduleEndDate,
+              locationRecord.locationType,
+              locationRecord.arrivalTime,
+              locationRecord.departureTime
+            )
+          }
+      }
+    }
 
     private def daysRunFrom(daysRun: String): Either[DecodingFailure, DaysRun] =
       if (daysRun.length == 7 && daysRun.forall(char => char == '1' || char == '0')) {

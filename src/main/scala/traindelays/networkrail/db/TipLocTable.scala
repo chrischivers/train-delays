@@ -1,12 +1,13 @@
 package traindelays.networkrail.db
 
 import cats.effect.IO
-import traindelays.networkrail.Stanox
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata.TipLocRecord
 
 trait TipLocTable extends Table[TipLocRecord] {
   def tipLocRecordFor(tipLocCode: TipLocCode): IO[Option[TipLocRecord]]
+
+  def addTipLocRecords(records: List[TipLocRecord]): IO[Unit]
 
 }
 
@@ -14,6 +15,7 @@ object TipLocTable {
 
   import doobie._
   import doobie.implicits._
+  import cats.instances.list._
 
   def addTiplocRecord(record: TipLocRecord): Update0 =
     sql"""
@@ -21,6 +23,17 @@ object TipLocTable {
       (tiploc_code, stanox, description)
       VALUES(${record.tipLocCode}, ${record.stanox}, ${record.description})
      """.update
+
+  def addTiplocRecords(records: List[TipLocRecord]) = {
+    val sql =
+      s"""
+         |    INSERT INTO tiploc
+         |      (tiploc_code, stanox, description)
+         |      VALUES(?, ?, ?)
+  """.stripMargin
+
+    Update[TipLocRecord](sql).updateMany(records)
+  }
 
   def allTiplocRecords(): Query0[TipLocRecord] =
     sql"""
@@ -55,5 +68,7 @@ object TipLocTable {
           .option
           .transact(db)
 
+      override def addTipLocRecords(records: List[TipLocRecord]): IO[Unit] =
+        TipLocTable.addTiplocRecords(records).transact(db).map(_ => ())
     }
 }

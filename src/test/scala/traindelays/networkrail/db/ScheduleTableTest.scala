@@ -22,10 +22,19 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   protected def config: DatabaseConfig = testDatabaseConfig()
 
-  it should "insert a schedule record into the database" in {
+  it should "insert a schedule log record into the database" in {
 
     withInitialState(config)() { fixture =>
       fixture.scheduleTable.addRecord(getTestScheduleLogRecord())
+    }
+  }
+
+  it should "insert multiple schedule log records into the database" in {
+
+    withInitialState(config)() { fixture =>
+      val log1 = getTestScheduleLogRecord()
+      val log2 = getTestScheduleLogRecord(scheduleTrainId = ScheduleTrainId("98742"))
+      fixture.scheduleTable.addRecords(List(log1, log2))
     }
   }
 
@@ -45,7 +54,6 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     retrievedRecords should have size 1
     retrievedRecords.head shouldBe scheduleRecord
   }
-
   it should "delete all records from the database" in {
 
     val scheduleRecord = getTestScheduleRecord()
