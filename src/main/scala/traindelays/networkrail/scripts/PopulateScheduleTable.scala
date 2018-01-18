@@ -20,11 +20,11 @@ object PopulateScheduleTable extends App with StrictLogging {
   val scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
 
   val app = for {
-//    _                       <- networkRailClient.deleteTmpFiles()
-//    _                       <- IO.eval(Eval.now(logger.info("Downloading schedule data")))
-//    _                       <- networkRailClient.downloadScheduleData
-//    _                       <- IO.eval(Eval.now(logger.info("Unpacking schedule data")))
-//    _                       <- networkRailClient.unpackScheduleData
+    _                       <- networkRailClient.deleteTmpFiles()
+    _                       <- IO.eval(Eval.now(logger.info("Downloading schedule data")))
+    _                       <- networkRailClient.downloadScheduleData
+    _                       <- IO.eval(Eval.now(logger.info("Unpacking schedule data")))
+    _                       <- networkRailClient.unpackScheduleData
     existingScheduleRecords <- existingScheduleRecords
     existingTipLocRecords   <- existingTipLocRecords
     _                       <- IO.eval(Eval.now(logger.info("Writing tiploc records")))

@@ -4,7 +4,7 @@ version := "0.1"
 
 scalaVersion := "2.12.4"
 
-unmanagedJars in Compile += file(Path.userHome + "lib/gozirra-client-0.4.1.jar")
+unmanagedJars in Compile += file("lib/gozirra-client-0.4.1.jar")
 
 
 val circeVersion = "0.9.0-M2"
