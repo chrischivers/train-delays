@@ -20,13 +20,12 @@ object MovementMessageHandler extends StrictLogging {
     override def message(headers: util.Map[_, _], body: String): Unit = {
       handleMessage(body).unsafeRunSync()
 
-      def handleMessage(msg: String): IO[Unit] = {
-        logger.info(s"Handling message [$msg]")
+      def handleMessage(msg: String): IO[Unit] =
         (for {
           parsedMsg      <- parse(msg)
           trainMovements <- parsedMsg.as[List[TrainMovements]]
         } yield trainMovements)
-          .fold(
+          .fold[IO[Unit]](
             err => IO(logger.error(s"Error parsing movement message [$msg]", err)),
             _.map {
               case tar: TrainActivationRecord   => trainActivationMessageQueue.enqueue1(tar)
@@ -34,10 +33,8 @@ object MovementMessageHandler extends StrictLogging {
               case tcr: TrainCancellationRecord => trainCancellationMessageQueue.enqueue1(tcr)
               case utr: UnhandledTrainRecord =>
                 IO(logger.info(s"Unhandled train message of type: ${utr.unhandledType}"))
-            }.sequence
-              .map(_ => ())
+            }.sequence[IO, Unit].map(_ => ())
           )
-      }
     }
 
   }
