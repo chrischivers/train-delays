@@ -1,4 +1,4 @@
-package traindelays.networkrail.scripts
+package traindelays.scripts
 
 import akka.actor.ActorSystem
 import cats.effect.IO
@@ -34,7 +34,7 @@ object StartMovementListener extends App {
                                              trainActivationMessageQueue: Queue[IO, TrainActivationRecord]) =
     withTransactor(config.databaseConfig)() { db =>
       val movementLogTable  = MovementLogTable(db)
-      val subscriberTable   = MemoizedSubscriberTable(db, config.networkRailConfig.subscribersConfig)
+      val subscriberTable   = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
       val emailer           = Emailer(config.emailerConfig)
       val subscriberFetcher = SubscriberHandler(movementLogTable, subscriberTable, emailer)
 

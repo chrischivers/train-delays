@@ -1,4 +1,4 @@
-package traindelays.networkrail.scripts
+package traindelays.scripts
 
 import java.io.{FileInputStream, FileOutputStream, PrintWriter}
 

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS schedule (
   atoc_code VARCHAR(10) NOT NULL,
   stop_sequence SMALLINT NOT NULL,
   tiploc_code VARCHAR(10) NOT NULL,
+  subsequent_tip_loc_codes VARCHAR(50)[] NOT NULL,
   stanox VARCHAR(10) NOT NULL,
   monday   BOOLEAN NOT NULL,
   tuesday   BOOLEAN NOT NULL,

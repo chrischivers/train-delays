@@ -1,14 +1,26 @@
 package traindelays
 
+import java.nio.file.{Path, Paths}
+import java.time.{LocalDate, LocalTime}
+
 import akka.actor.ActorSystem
 import cats.effect.IO
 import doobie.hikari.HikariTransactor
 import fs2.Stream
+import org.http4s.Uri
 import org.scalatest.Matchers.fail
 import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, TipLocTable, _}
 import traindelays.networkrail.movementdata._
-import traindelays.networkrail.scheduledata.{ScheduleRecord, ScheduleTrainId, TipLocRecord}
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType.{
+  OriginatingLocation,
+  TerminatingLocation
+}
+import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
+import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers.SubscriberRecord
 import traindelays.networkrail.{ServiceCode, Stanox, TOC}
 
@@ -24,11 +36,14 @@ trait TestFeatures {
 
   implicit class DBExt(db: Transactor[IO]) {
 
-    def clean: IO[Int] =
-      sql"DELETE FROM schedule".update.run.transact(db)
-    sql"DELETE FROM tiploc".update.run.transact(db)
-    sql"DELETE FROM movement_log".update.run.transact(db)
-    sql"DELETE FROM watching".update.run.transact(db)
+    def clean: IO[Unit] =
+      for {
+        _ <- sql"DELETE FROM schedule".update.run.transact(db)
+        _ <- sql"DELETE FROM tiploc".update.run.transact(db)
+        _ <- sql"DELETE FROM movement_log".update.run.transact(db)
+        _ <- sql"DELETE FROM subscribers".update.run.transact(db)
+        _ <- sql"DELETE FROM cancellation_log".update.run.transact(db)
+      } yield ()
   }
 
   case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
@@ -82,12 +97,14 @@ trait TestFeatures {
   def withInitialState[A](
       databaseConfig: DatabaseConfig,
       subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute),
+      scheduleDataConfig: ScheduleDataConfig =
+        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 1 minute),
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
       f: TrainDelaysTestFixture => IO[A])(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
       val redisClient          = MockRedisClient()
       val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
-      val tipLocTable          = TipLocTable(db)
+      val tipLocTable          = TipLocTable(db, scheduleDataConfig.memoizeFor)
 
       for {
         _ <- db.clean
@@ -142,12 +159,14 @@ trait TestFeatures {
           })
           .sequence[IO, Int]
         result <- f(
-          TrainDelaysTestFixture(ScheduleTable(db),
-                                 TipLocTable(db),
-                                 MovementLogTable(db),
-                                 CancellationLogTable(db),
-                                 MemoizedSubscriberTable(db, subscribersConfig),
-                                 trainActivationCache))
+          TrainDelaysTestFixture(
+            ScheduleTable(db, scheduleDataConfig.memoizeFor),
+            tipLocTable,
+            MovementLogTable(db),
+            CancellationLogTable(db),
+            SubscriberTable(db, subscribersConfig.memoizeFor),
+            trainActivationCache
+          ))
       } yield result
     }
 
@@ -226,5 +245,82 @@ trait TestFeatures {
       cancellationRecord.stanox,
       cancellationRecord.cancellationType,
       cancellationRecord.cancellationReasonCode
+    )
+
+  def createScheduleRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+                           trainServiceCode: ServiceCode = ServiceCode("24745000"),
+                           atocCode: AtocCode = AtocCode("SN"),
+                           daysRun: DaysRun = DaysRun(monday = true,
+                                                      tuesday = true,
+                                                      wednesday = true,
+                                                      thursday = true,
+                                                      friday = true,
+                                                      saturday = false,
+                                                      sunday = false),
+                           scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+                           scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+                           locationRecords: List[ScheduleLocationRecord] = List(
+                             ScheduleLocationRecord(OriginatingLocation,
+                                                    TipLocCode("REIGATE"),
+                                                    None,
+                                                    Some(LocalTime.parse("0649", timeFormatter))),
+                             ScheduleLocationRecord(TerminatingLocation,
+                                                    TipLocCode("REDHILL"),
+                                                    Some(LocalTime.parse("0653", timeFormatter)),
+                                                    None)
+                           )) =
+    ScheduleRecord(
+      scheduleTrainId,
+      trainServiceCode,
+      atocCode,
+      daysRun,
+      scheduleStartDate,
+      scheduleEndDate,
+      locationRecords
+    )
+
+  def createScheduleLogRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+                              trainServiceCode: ServiceCode = ServiceCode("24745000"),
+                              atocCode: AtocCode = AtocCode("SN"),
+                              monday: Boolean = true,
+                              tuesday: Boolean = true,
+                              wednesday: Boolean = true,
+                              thursday: Boolean = true,
+                              friday: Boolean = true,
+                              saturday: Boolean = false,
+                              sunday: Boolean = false,
+                              daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
+                              index: Int = 1,
+                              tipLocCode: TipLocCode = TipLocCode("REIGATE"),
+                              subsequentTipLocCodes: List[TipLocCode] =
+                                List(TipLocCode("EASTCRYDON"), TipLocCode("LBRIDGE")),
+                              stanox: Stanox = Stanox("REIGATE"),
+                              scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+                              scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+                              locationType: LocationType = OriginatingLocation,
+                              arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
+                              departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter))) =
+    ScheduleLog(
+      None,
+      scheduleTrainId,
+      trainServiceCode,
+      atocCode,
+      index,
+      tipLocCode,
+      subsequentTipLocCodes,
+      stanox,
+      monday,
+      tuesday,
+      wednesday,
+      thursday,
+      friday,
+      saturday,
+      sunday,
+      daysRunPattern,
+      scheduleStartDate,
+      scheduleEndDate,
+      locationType,
+      arrivalTime,
+      departureTime
     )
 }

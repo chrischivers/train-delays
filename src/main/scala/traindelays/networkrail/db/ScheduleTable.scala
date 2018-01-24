@@ -3,13 +3,18 @@ package traindelays.networkrail.db
 import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
+import com.typesafe.scalalogging.StrictLogging
+import io.circe.Decoder
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleRecord, ScheduleTrainId}
 import traindelays.networkrail.{ServiceCode, Stanox}
 
-trait ScheduleTable extends Table[ScheduleLog] {
+import scala.concurrent.duration.FiniteDuration
+
+trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
   def deleteAllRecords(): IO[Unit]
 
@@ -17,12 +22,14 @@ trait ScheduleTable extends Table[ScheduleLog] {
 
   def addRecords(records: List[ScheduleLog]): IO[Unit]
 
+  def retrieveScheduleLogRecordsFor(from: TipLocCode, to: TipLocCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
+
   val dbWriterMultiple: fs2.Sink[IO, List[ScheduleLog]] = fs2.Sink { records =>
     addRecords(records)
   }
 }
 
-object ScheduleTable {
+object ScheduleTable extends StrictLogging {
 
   import cats.instances.list._
   import doobie._
@@ -38,6 +45,7 @@ object ScheduleTable {
                          atocCode: AtocCode,
                          stopSequence: Int,
                          tiplocCode: TipLocCode,
+                         subsequentTipLocCodes: List[TipLocCode],
                          stanox: Stanox,
                          monday: Boolean,
                          tuesday: Boolean,
@@ -46,6 +54,7 @@ object ScheduleTable {
                          friday: Boolean,
                          saturday: Boolean,
                          sunday: Boolean,
+                         daysRunPattern: DaysRunPattern,
                          scheduleStart: LocalDate,
                          scheduleEnd: LocalDate,
                          locationType: LocationType,
@@ -60,16 +69,53 @@ object ScheduleTable {
         that.scheduleStart == scheduleStart &&
         that.scheduleEnd == scheduleEnd
   }
+  object ScheduleLog {
+
+    sealed trait DaysRunPattern {
+      val string: String
+    }
+
+    object DaysRunPattern {
+
+      case object Weekdays extends DaysRunPattern {
+        override val string: String = "weekdays"
+      }
+      case object Saturdays extends DaysRunPattern {
+        override val string: String = "saturdays"
+      }
+      case object Sundays extends DaysRunPattern {
+        override val string: String = "sundays"
+      }
+
+      import doobie.util.meta.Meta
+
+      def fromString(str: String): Option[DaysRunPattern] =
+        str match {
+          case Weekdays.string  => Some(Weekdays)
+          case Saturdays.string => Some(Saturdays)
+          case Sundays.string   => Some(Sundays)
+          case _                => None
+        }
+      implicit val decoder: Decoder[DaysRunPattern] = Decoder.decodeString.map(str =>
+        fromString(str).getOrElse {
+          logger.error(s"Unknown days run pattern [$str]. Defaulting to 'weekdays'")
+          Weekdays
+      })
+
+      implicit val meta: Meta[DaysRunPattern] =
+        Meta[String].xmap(str => DaysRunPattern.fromString(str).getOrElse(Weekdays), _.string)
+    }
+  }
 
   def addScheduleLogRecord(log: ScheduleLog): Update0 =
     sql"""
       INSERT INTO schedule
-      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, stanox,
-      monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
       schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.tiplocCode},
+      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.tiplocCode}, ${log.subsequentTipLocCodes},
       ${log.stanox}, ${log.monday}, ${log.tuesday}, ${log.wednesday}, ${log.thursday}, ${log.friday}, ${log.saturday},
-        ${log.sunday}, ${log.scheduleStart}, ${log.scheduleEnd}, ${log.locationType},
+        ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart}, ${log.scheduleEnd}, ${log.locationType},
         ${log.arrivalTime}, ${log.departureTime})
      """.update
 
@@ -78,6 +124,7 @@ object ScheduleTable {
                                   AtocCode,
                                   Int,
                                   TipLocCode,
+                                  List[TipLocCode],
                                   Stanox,
                                   Boolean,
                                   Boolean,
@@ -86,6 +133,7 @@ object ScheduleTable {
                                   Boolean,
                                   Boolean,
                                   Boolean,
+                                  DaysRunPattern,
                                   LocalDate,
                                   LocalDate,
                                   LocationType,
@@ -101,6 +149,7 @@ object ScheduleTable {
          log.atocCode,
          log.stopSequence,
          log.tiplocCode,
+         log.subsequentTipLocCodes,
          log.stanox,
          log.monday,
          log.tuesday,
@@ -109,6 +158,7 @@ object ScheduleTable {
          log.friday,
          log.saturday,
          log.sunday,
+         log.daysRunPattern,
          log.scheduleStart,
          log.scheduleEnd,
          log.locationType,
@@ -117,10 +167,10 @@ object ScheduleTable {
 
     val sql = s"""
        |   INSERT INTO schedule
-       |      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, stanox,
-       |      monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+       |      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+       |      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
        |      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.stripMargin
 
     Update[ScheduleLogToBeInserted](sql).updateMany(toBeInserted)
@@ -128,11 +178,23 @@ object ScheduleTable {
 
   def allScheduleLogRecords(): Query0[ScheduleLog] =
     sql"""
-      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, stanox,
-      monday, tuesday, wednesday, thursday, friday, saturday, sunday,
+      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
-      from schedule
+      FROM schedule
       """.query[ScheduleLog]
+
+  def scheduleRecordsFor(fromStation: TipLocCode,
+                         toStation: TipLocCode,
+                         daysRunPattern: DaysRunPattern): Query0[ScheduleLog] =
+    //TODO change
+    sql"""  
+         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+         monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
+         schedule_start, schedule_end, location_type, arrival_time, departure_time
+         FROM schedule
+         WHERE days_run_pattern = ${daysRunPattern} AND tiploc_code = ${fromStation} AND ${toStation} = ANY(subsequent_tip_loc_codes)
+          """.query[ScheduleLog]
 
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
@@ -170,20 +232,17 @@ object ScheduleTable {
       }
       .toList
 
-  def apply(db: Transactor[IO]): ScheduleTable =
+  def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): ScheduleTable =
     new ScheduleTable {
+
+      override val memoizeFor: FiniteDuration = memoizeDuration
+
       override def addRecord(log: ScheduleLog): IO[Unit] =
         ScheduleTable
           .addScheduleLogRecord(log)
           .run
           .transact(db)
           .map(_ => ())
-
-      override def retrieveAllRecords(): IO[List[ScheduleLog]] =
-        ScheduleTable
-          .allScheduleLogRecords()
-          .list
-          .transact(db)
 
       override def retrieveAllScheduleRecords(): IO[List[ScheduleRecord]] =
         retrieveAllRecords().map(retrieved => toScheduleRecords(retrieved))
@@ -193,6 +252,17 @@ object ScheduleTable {
 
       override def addRecords(records: List[ScheduleLog]): IO[Unit] =
         ScheduleTable.addScheduleLogRecords(records).transact(db).map(_ => ())
+
+      override protected def retrieveAll(): IO[List[ScheduleLog]] =
+        ScheduleTable
+          .allScheduleLogRecords()
+          .list
+          .transact(db)
+
+      override def retrieveScheduleLogRecordsFor(from: TipLocCode,
+                                                 to: TipLocCode,
+                                                 pattern: DaysRunPattern): IO[List[ScheduleLog]] =
+        ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
     }
 
 }

@@ -70,12 +70,14 @@ class NetworkRailClientIntegrationTest
       .take(10)
 
     val retrievedScheduleRecords =
-      withInitialState(testconfig.databaseConfig)(AppInitialState(scheduleRecords = scheduleResults)) {
+      withInitialState(testconfig.databaseConfig, scheduleDataConfig = testconfig.networkRailConfig.scheduleData)(
+        AppInitialState(scheduleRecords = scheduleResults)) {
         _.scheduleTable.retrieveAllRecords()
       }
 
     val retrievedTiplocRecords =
-      withInitialState(testconfig.databaseConfig)(AppInitialState(tiplocRecords = tipLocResults)) {
+      withInitialState(testconfig.databaseConfig, scheduleDataConfig = testconfig.networkRailConfig.scheduleData)(
+        AppInitialState(tiplocRecords = tipLocResults)) {
         _.tipLocTable.retrieveAllRecords()
       }
     retrievedScheduleRecords.size should ===(scheduleResults.size)

@@ -1,0 +1,74 @@
+<html>
+<head>
+    <link rel="stylesheet" href="/bootstrap.css">
+    <script src="/jquery-1.12.4.js"></script>
+</head>
+<body>
+<form id="route-selector-form">
+    <div class="form-row">
+        <div class="col">
+    <div class="form-group">
+        <label for="fromStation">Travelling From</label>
+        <input type="text" class="form-control" id="fromStation" name="fromStation" placeholder="Enter station you are travelling from">
+    </div>
+        </div>
+        <div class="col">
+    <div class="form-group">
+        <label for="toStation">Travelling To</label>
+        <input type="text" class="form-control" id="toStation" name="toStation" placeholder="Enter station you are travelling to">
+    </div>
+        </div>
+    </div>
+
+
+    <div class="form-row">
+        <div class="col">
+
+            <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                    <input class="form-check-input" type="radio" name="weekdaysSatSun" id="weekdays" value="weekdays" checked>
+                    Weekdays
+                </label>
+            </div>
+            <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                    <input class="form-check-input" type="radio" name="weekdaysSatSun" id="saturdays" value="saturdays">
+                    Weekends
+                </label>
+            </div>
+
+            <div class="form-check form-check-inline">
+                <label class="form-check-label">
+                    <input class="form-check-input" type="radio" name="weekdaysSatSun" id="sundays" value="sundays">
+                    Weekends
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Submit</button>
+</form>
+<script>
+
+    $(function () {
+
+        $('#route-selector-form').on('submit', function (e) {
+
+            if (!e.isDefaultPrevented()) {
+                var url = "schedule-query";
+                $.ajax({
+                    type: "POST",
+                    url: url,
+                    data: $(this).serialize(),
+                    success: function (data) {
+                        var jsonResponse = JSON.parse(data);
+                        //something here
+                    }
+                });
+                return false;
+            }
+        })
+    });
+</script>
+</body>
+</html>

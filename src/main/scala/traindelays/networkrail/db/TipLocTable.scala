@@ -4,10 +4,14 @@ import cats.effect.IO
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata.TipLocRecord
 
-trait TipLocTable extends Table[TipLocRecord] {
+import scala.concurrent.duration.FiniteDuration
+
+trait TipLocTable extends MemoizedTable[TipLocRecord] {
   def tipLocRecordFor(tipLocCode: TipLocCode): IO[Option[TipLocRecord]]
 
   def addTipLocRecords(records: List[TipLocRecord]): IO[Unit]
+
+  def deleteAllRecords(): IO[Unit]
 
 }
 
@@ -47,20 +51,20 @@ object TipLocTable {
     WHERE tiploc_code = ${tipLocCode.value}
       """.query[TipLocRecord]
 
-  def apply(db: Transactor[IO]): TipLocTable =
+  def deleteAllTiplocRecords(): Update0 =
+    sql"""DELETE FROM tiploc""".update
+
+  def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): TipLocTable =
     new TipLocTable {
+
+      override val memoizeFor: FiniteDuration = memoizeDuration
+
       override def addRecord(record: TipLocRecord): IO[Unit] =
         TipLocTable
           .addTiplocRecord(record)
           .run
           .transact(db)
           .map(_ => ())
-
-      override def retrieveAllRecords(): IO[List[TipLocRecord]] =
-        TipLocTable
-          .allTiplocRecords()
-          .list
-          .transact(db)
 
       override def tipLocRecordFor(tipLocCode: TipLocCode): IO[Option[TipLocRecord]] =
         TipLocTable
@@ -70,5 +74,15 @@ object TipLocTable {
 
       override def addTipLocRecords(records: List[TipLocRecord]): IO[Unit] =
         TipLocTable.addTiplocRecords(records).transact(db).map(_ => ())
+
+      override protected def retrieveAll(): IO[List[TipLocRecord]] =
+        TipLocTable
+          .allTiplocRecords()
+          .list
+          .transact(db)
+
+      override def deleteAllRecords(): IO[Unit] =
+        TipLocTable.deleteAllTiplocRecords().run.transact(db).map(_ => ())
+
     }
 }

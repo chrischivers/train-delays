@@ -42,9 +42,9 @@ object SubscriberHandler {
         //TODO only notify in particular circumstances (e.g. late)
 
         for {
-          subscriberList <- subscriberTable
-            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
-          affected = filterSubscribersBy(subscriberList, log.serviceCode, log.scheduleTrainId, log.stanox)
+          allSubscribers <- subscriberTable.retrieveAllRecords()
+//            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
+          affected = filterSubscribersBy(allSubscribers, log.serviceCode, log.scheduleTrainId, log.stanox)
           _ <- affected.traverse(subscriber => emailSubscriberWithMovementUpdate(subscriber, log, emailer))
         } yield ()
       }

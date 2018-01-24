@@ -3,7 +3,7 @@ package traindelays.networkrail.db
 import cats.effect.IO
 import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
 
-trait CancellationLogTable extends Table[CancellationLog]
+trait CancellationLogTable extends NonMemoizedTable[CancellationLog]
 
 object CancellationLogTable {
 
@@ -33,7 +33,7 @@ object CancellationLogTable {
           .transact(db)
           .map(_ => ())
 
-      override def retrieveAllRecords(): IO[List[CancellationLog]] =
+      override protected def retrieveAll(): IO[List[CancellationLog]] =
         CancellationLogTable
           .allCancellationLogRecords()
           .list

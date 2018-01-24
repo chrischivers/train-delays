@@ -17,7 +17,10 @@ case class NetworkRailConfig(host: String,
                              movements: MovementsConfig,
                              subscribersConfig: SubscribersConfig)
 
-case class ScheduleDataConfig(downloadUrl: Uri, tmpDownloadLocation: Path, tmpUnzipLocation: Path)
+case class ScheduleDataConfig(downloadUrl: Uri,
+                              tmpDownloadLocation: Path,
+                              tmpUnzipLocation: Path,
+                              memoizeFor: FiniteDuration)
 
 case class MovementsConfig(topic: String, activationExpiry: FiniteDuration)
 
@@ -61,7 +64,9 @@ object ConfigLoader {
         ScheduleDataConfig(
           Uri.unsafeFromString(defaultConfigFactory.getString("networkRail.scheduleData.uri")),
           Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpDownloadLocation")),
-          Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpUnzipLocation"))
+          Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpUnzipLocation")),
+          FiniteDuration(defaultConfigFactory.getDuration("networkRail.scheduleData.memoizeFor").toMillis,
+                         TimeUnit.MILLISECONDS)
         ),
         MovementsConfig(
           defaultConfigFactory.getString("networkRail.movements.topic"),

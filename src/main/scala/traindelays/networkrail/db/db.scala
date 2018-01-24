@@ -4,9 +4,18 @@ import cats.effect.IO
 import fs2.Stream
 import org.flywaydb.core.Flyway
 import traindelays.DatabaseConfig
-import doobie.hikari._, doobie.hikari.implicits._
+import doobie.hikari._
+import doobie.hikari.implicits._
+import traindelays.networkrail.db.Table
+
+import scala.concurrent.duration.FiniteDuration
+import scalacache.memoization.memoizeF
 
 package object db {
+
+  private val commonMigrationLocation    = "db/migration/common"
+  private val h2MigrationsLocation       = "db/migration/h2"
+  private val postgresMigrationsLocation = "db/migration/postgres"
 
   def setUpTransactor(config: DatabaseConfig)(beforeMigration: Flyway => Unit = _ => ()) =
     for {
@@ -16,7 +25,11 @@ package object db {
           datasource.setMaximumPoolSize(config.maximumPoolSize)
           val flyway = new Flyway()
           flyway.setDataSource(datasource)
-          flyway.setLocations("db/migration")
+          if (config.driverClassName.contains("h2")) {
+            flyway.setLocations(commonMigrationLocation, h2MigrationsLocation)
+          } else {
+            flyway.setLocations(commonMigrationLocation, postgresMigrationsLocation)
+          }
           flyway.migrate()
 
         }
@@ -30,15 +43,36 @@ package object db {
       (t: HikariTransactor[IO]) => t.shutdown
     )
 
-  trait Table[A] {
+  protected trait Table[A] {
 
     def addRecord(record: A): IO[Unit]
 
-    def retrieveAllRecords(): IO[List[A]]
+    protected def retrieveAll(): IO[List[A]]
 
     val dbWriter: fs2.Sink[IO, A] = fs2.Sink { record =>
       addRecord(record)
     }
+  }
+
+  trait MemoizedTable[A] extends Table[A] {
+
+    import scalacache.CatsEffect.modes._
+    import scalacache._
+    import scalacache.guava._
+
+    implicit private val memoizeCache: Cache[List[A]] = GuavaCache[List[A]]
+    val memoizeFor: FiniteDuration
+
+    def retrieveAllRecords(): IO[List[A]] =
+      memoizeF(Some(memoizeFor)) {
+        retrieveAll()
+      }
+  }
+
+  trait NonMemoizedTable[A] extends Table[A] {
+
+    def retrieveAllRecords(): IO[List[A]] =
+      retrieveAll()
   }
 
 }

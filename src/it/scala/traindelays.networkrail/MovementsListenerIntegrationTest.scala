@@ -50,7 +50,8 @@ class MovementsListenerIntegrationTest
 
   it should "persist movement records where all details exist to DB" in {
 
-    withInitialState(testconfig.databaseConfig)(AppInitialState.empty) { fixture =>
+    withInitialState(testconfig.databaseConfig, scheduleDataConfig = testconfig.networkRailConfig.scheduleData)(
+      AppInitialState.empty) { fixture =>
       withQueues.map {
         case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
           val movementWatcher =

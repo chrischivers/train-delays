@@ -5,11 +5,11 @@ import java.time.{LocalDate, LocalTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType.{
   OriginatingLocation,
-  TerminatingLocation,
-  TipLocCode
+  TerminatingLocation
 }
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.{ServiceCode, Stanox}
 
