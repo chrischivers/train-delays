@@ -28,7 +28,9 @@ package object scheduledata {
 
   case class ScheduleTrainId(value: String)
   object ScheduleTrainId {
+    import io.circe.generic.semiauto._
     implicit val decoder: Decoder[ScheduleTrainId] = Decoder.decodeString.map(ScheduleTrainId(_))
+    implicit val encoder: Encoder[ScheduleTrainId] = deriveEncoder[ScheduleTrainId]
 
     implicit val meta: Meta[ScheduleTrainId] =
       Meta[String].xmap(ScheduleTrainId(_), _.value)
@@ -36,7 +38,9 @@ package object scheduledata {
 
   case class AtocCode(value: String)
   object AtocCode {
+    import io.circe.generic.semiauto._
     implicit val decoder: Decoder[AtocCode] = Decoder.decodeString.map(AtocCode(_))
+    implicit val encoder: Encoder[AtocCode] = deriveEncoder[AtocCode]
 
     implicit val meta: Meta[AtocCode] =
       Meta[String].xmap(AtocCode(_), _.value)
@@ -85,13 +89,14 @@ package object scheduledata {
               tipLocRecordOpt.flatMap { tipLocRecord =>
                 scheduleRecord.daysRun.toDaysRunPattern.map { daysRunPattern =>
                   {
-                    val subsequentTipLocRecords =
-                      locationRecordsWithIndex.dropWhile(_._2 < index + 1).map(_._1.tiplocCode)
+                    val (subsequentTipLocCodes, subsequentArrivalTimes) =
+                      subsequentTipLocCodesAndArrivalTimes(locationRecordsWithIndex, index).unzip
                     createScheduleLogFrom(scheduleRecord,
                                           index,
                                           locationRecord,
                                           tipLocRecord,
-                                          subsequentTipLocRecords,
+                                          subsequentTipLocCodes,
+                                          subsequentArrivalTimes,
                                           daysRunPattern)
                   }
                 }
@@ -110,12 +115,14 @@ package object scheduledata {
           tipLocRecords.find(rec => rec.tipLocCode == locationRecord.tiplocCode).flatMap { tipLocRecord =>
             scheduleRecord.daysRun.toDaysRunPattern.map { daysRunPattern =>
               {
-                val subsequentTipLocRecords = locationRecordsWithIndex.dropWhile(_._2 < index + 1).map(_._1.tiplocCode)
+                val (subsequentTipLocCodes, subsequentArrivalTimes) =
+                  subsequentTipLocCodesAndArrivalTimes(locationRecordsWithIndex, index).unzip
                 createScheduleLogFrom(scheduleRecord,
                                       index,
                                       locationRecord,
                                       tipLocRecord,
-                                      subsequentTipLocRecords,
+                                      subsequentTipLocCodes,
+                                      subsequentArrivalTimes,
                                       daysRunPattern)
               }
 
@@ -124,11 +131,20 @@ package object scheduledata {
       }
     }
 
+    private def subsequentTipLocCodesAndArrivalTimes(locationRecordsWithIndex: List[(ScheduleLocationRecord, Int)],
+                                                     index: Int): List[(TipLocCode, LocalTime)] =
+      locationRecordsWithIndex
+        .dropWhile(_._2 < index + 1)
+        .map(x =>
+          x._1.tiplocCode -> x._1.arrivalTime.getOrElse(throw new IllegalStateException(
+            "Arrival time optional for subsequent stops"))) //TODO do this in a better way
+
     private def createScheduleLogFrom(scheduleRecord: ScheduleRecord,
                                       index: Int,
                                       locationRecord: ScheduleLocationRecord,
                                       tipLocRecord: TipLocRecord,
                                       subsequentTipLocCodes: List[TipLocCode],
+                                      subsequentArrivalTimes: List[LocalTime],
                                       daysRunPattern: DaysRunPattern) =
       ScheduleLog(
         None,
@@ -138,6 +154,7 @@ package object scheduledata {
         index + 1,
         locationRecord.tiplocCode,
         subsequentTipLocCodes,
+        subsequentArrivalTimes,
         tipLocRecord.stanox,
         scheduleRecord.daysRun.monday,
         scheduleRecord.daysRun.tuesday,
@@ -199,12 +216,10 @@ package object scheduledata {
       object TipLocCode {
 
         import doobie.postgres.implicits._
-        import io.circe.syntax._
+        import io.circe.generic.semiauto._
 
         implicit val decoder: Decoder[TipLocCode] = Decoder.decodeString.map(TipLocCode(_))
-        implicit val encoder: Encoder[TipLocCode] = (a: TipLocCode) => Json.fromString(a.value)
-
-        implicit val decoderList: Decoder[List[TipLocCode]] = Decoder.decodeList[String].map(_.map(TipLocCode(_)))
+        implicit val encoder: Encoder[TipLocCode] = deriveEncoder[TipLocCode]
 
         implicit val meta: Meta[TipLocCode] =
           Meta[String].xmap(TipLocCode(_), _.value)
@@ -236,6 +251,7 @@ package object scheduledata {
             case IntermediateLocation.string => IntermediateLocation
           }
         implicit val decoder: Decoder[LocationType] = Decoder.decodeString.map(fromString)
+        implicit val encoder: Encoder[LocationType] = (a: LocationType) => Json.fromString(a.string)
 
         implicit val meta: Meta[LocationType] =
           Meta[String].xmap(LocationType.fromString, _.string)

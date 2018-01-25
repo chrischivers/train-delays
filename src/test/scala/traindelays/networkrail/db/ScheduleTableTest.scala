@@ -37,7 +37,20 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     }
   }
 
-  it should "retrieve an inserted record from the database" in {
+  it should "insert and retrieve an inserted schedule log record from the database" in {
+
+    val scheduleLogRecord = createScheduleLogRecord()
+
+    val retrievedRecords = withInitialState(config)() { fixture =>
+      fixture.scheduleTable.addRecord(scheduleLogRecord).unsafeRunSync()
+      fixture.scheduleTable.retrieveAllRecords()
+    }
+
+    retrievedRecords should have size 1
+    retrievedRecords.head shouldBe scheduleLogRecord.copy(id = Some(1))
+  }
+
+  it should "insert and retrieve an inserted schedule record from the database" in {
 
     val scheduleRecord = createScheduleRecord()
 

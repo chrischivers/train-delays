@@ -35,10 +35,13 @@ case class EmailerConfig(enabled: Boolean,
                          numberAttempts: Int,
                          secondsBetweenAttempts: Int)
 
+case class HttpConfig(port: Int)
+
 case class TrainDelaysConfig(networkRailConfig: NetworkRailConfig,
                              databaseConfig: DatabaseConfig,
                              redisConfig: RedisConfig,
-                             emailerConfig: EmailerConfig)
+                             emailerConfig: EmailerConfig,
+                             httpConfig: HttpConfig)
 
 case class DatabaseConfig(driverClassName: String,
                           url: String,
@@ -99,6 +102,9 @@ object ConfigLoader {
         defaultConfigFactory.getString("email.smtpPassword"),
         defaultConfigFactory.getInt("email.numberAttempts"),
         defaultConfigFactory.getInt("email.secondsBetweenAttempts")
+      ),
+      HttpConfig(
+        defaultConfigFactory.getInt("http-server.port")
       )
     )
   }

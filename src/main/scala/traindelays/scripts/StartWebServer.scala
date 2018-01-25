@@ -17,7 +17,7 @@ object StartWebServer extends StreamApp[IO] {
       val scheduleTable = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
       BlazeBuilder[IO]
-        .bindHttp(8080, "localhost")
+        .bindHttp(config.httpConfig.port, "localhost")
         .mountService(Service(scheduleTable), "/")
         .serve
 

@@ -2,15 +2,13 @@ package traindelays.ui
 
 import _root_.cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
+import io.circe.syntax._
 import org.http4s.dsl.io._
 import org.http4s.{HttpService, Request, StaticFile, UrlForm}
-import traindelays.networkrail.Stanox
 import traindelays.networkrail.db.ScheduleTable
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
-import io.circe.syntax._
-import io.circe.generic.auto._
-import traindelays.networkrail.scheduledata._
+import org.http4s.circe._
 
 object Service extends StrictLogging {
 
@@ -20,13 +18,17 @@ object Service extends StrictLogging {
 
     case request @ POST -> Root / "schedule-query" =>
       request.decode[UrlForm] { m =>
-        (for {
-          fromStation    <- m.getFirst("fromStation").map(TipLocCode(_))
-          toStation      <- m.getFirst("toStation").map(TipLocCode(_))
+        val result: Option[IO[List[ScheduleQueryResponse]]] = for {
+          fromStation    <- m.getFirst("fromStation").map(str => TipLocCode(str.toUpperCase()))
+          toStation      <- m.getFirst("toStation").map(str => TipLocCode(str.toUpperCase()))
           weekdaysSatSun <- m.getFirst("weekdaysSatSun").flatMap(DaysRunPattern.fromString)
         } yield {
-          scheduleTable.retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun)
-        }).fold(BadRequest())(result => Ok("TODO")) //TODO
+          //TODO check if tiploc valid?
+          scheduleTable.retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun).map { scheduleLogs =>
+            queryResponsesFrom(scheduleLogs, toStation)
+          }
+        }
+        result.fold(BadRequest())(lst => Ok(lst.map(_.asJson.noSpaces)))
       }
   }
 

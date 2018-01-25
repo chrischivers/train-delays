@@ -4,7 +4,7 @@ import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.Decoder
+import io.circe.{Decoder, Encoder, Json}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
@@ -34,10 +34,16 @@ object ScheduleTable extends StrictLogging {
   import cats.instances.list._
   import doobie._
   import doobie.implicits._
+  import doobie.postgres._, doobie.postgres.implicits._
+  import io.circe.java8.time._
 
-  implicit val LocalTimeMeta: Meta[LocalTime] = Meta[java.sql.Time].xmap(
-    t => LocalTime.of(t.toLocalTime.getHour, t.toLocalTime.getMinute),
-    lt => new java.sql.Time(lt.getHour, lt.getMinute, lt.getSecond))
+  implicit val localTimeMeta: doobie.Meta[LocalTime] = doobie
+    .Meta[java.sql.Time]
+    .xmap(t => LocalTime.of(t.toLocalTime.getHour, t.toLocalTime.getMinute),
+          lt => new java.sql.Time(lt.getHour, lt.getMinute, lt.getSecond))
+
+  implicit val localTimeListMeta: Meta[List[LocalTime]] =
+    Meta[List[String]].xmap(_.map(t => LocalTime.parse(t)), lt => lt.map(_.toString))
 
   case class ScheduleLog(id: Option[Int],
                          scheduleTrainId: ScheduleTrainId,
@@ -46,6 +52,7 @@ object ScheduleTable extends StrictLogging {
                          stopSequence: Int,
                          tiplocCode: TipLocCode,
                          subsequentTipLocCodes: List[TipLocCode],
+                         subsequentArrivalTimes: List[LocalTime],
                          stanox: Stanox,
                          monday: Boolean,
                          tuesday: Boolean,
@@ -70,6 +77,10 @@ object ScheduleTable extends StrictLogging {
         that.scheduleEnd == scheduleEnd
   }
   object ScheduleLog {
+    import io.circe.generic.semiauto._
+    import io.circe.java8.time._
+
+//    implicit val encoder: Encoder[ScheduleLog] = deriveEncoder[ScheduleLog]
 
     sealed trait DaysRunPattern {
       val string: String
@@ -90,7 +101,7 @@ object ScheduleTable extends StrictLogging {
       import doobie.util.meta.Meta
 
       def fromString(str: String): Option[DaysRunPattern] =
-        str match {
+        str.toLowerCase match {
           case Weekdays.string  => Some(Weekdays)
           case Saturdays.string => Some(Saturdays)
           case Sundays.string   => Some(Sundays)
@@ -102,6 +113,8 @@ object ScheduleTable extends StrictLogging {
           Weekdays
       })
 
+      implicit val encoder: Encoder[DaysRunPattern] = (a: DaysRunPattern) => Json.fromString(a.string)
+
       implicit val meta: Meta[DaysRunPattern] =
         Meta[String].xmap(str => DaysRunPattern.fromString(str).getOrElse(Weekdays), _.string)
     }
@@ -110,10 +123,11 @@ object ScheduleTable extends StrictLogging {
   def addScheduleLogRecord(log: ScheduleLog): Update0 =
     sql"""
       INSERT INTO schedule
-      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
-      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
-      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.tiplocCode}, ${log.subsequentTipLocCodes},
+      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, 
+      subsequent_arrival_times, stanox, monday, tuesday, wednesday, thursday, friday, saturday, sunday, 
+      days_run_pattern, schedule_start, schedule_end, location_type, arrival_time, departure_time)
+      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.tiplocCode},
+      ${log.subsequentTipLocCodes}, ${log.subsequentArrivalTimes},
       ${log.stanox}, ${log.monday}, ${log.tuesday}, ${log.wednesday}, ${log.thursday}, ${log.friday}, ${log.saturday},
         ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart}, ${log.scheduleEnd}, ${log.locationType},
         ${log.arrivalTime}, ${log.departureTime})
@@ -125,6 +139,7 @@ object ScheduleTable extends StrictLogging {
                                   Int,
                                   TipLocCode,
                                   List[TipLocCode],
+                                  List[LocalTime],
                                   Stanox,
                                   Boolean,
                                   Boolean,
@@ -150,6 +165,7 @@ object ScheduleTable extends StrictLogging {
          log.stopSequence,
          log.tiplocCode,
          log.subsequentTipLocCodes,
+         log.subsequentArrivalTimes,
          log.stanox,
          log.monday,
          log.tuesday,
@@ -167,10 +183,11 @@ object ScheduleTable extends StrictLogging {
 
     val sql = s"""
        |   INSERT INTO schedule
-       |      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+       |      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes,
+       |      subsequent_arrival_times, stanox,
        |      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
        |      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.stripMargin
 
     Update[ScheduleLogToBeInserted](sql).updateMany(toBeInserted)
@@ -178,7 +195,8 @@ object ScheduleTable extends StrictLogging {
 
   def allScheduleLogRecords(): Query0[ScheduleLog] =
     sql"""
-      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes,
+      subsequent_arrival_times, stanox,
       monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
       FROM schedule
@@ -187,9 +205,10 @@ object ScheduleTable extends StrictLogging {
   def scheduleRecordsFor(fromStation: TipLocCode,
                          toStation: TipLocCode,
                          daysRunPattern: DaysRunPattern): Query0[ScheduleLog] =
-    //TODO change
+    //TODO something with dates (only main valid dates)
     sql"""  
-         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, stanox,
+         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes,
+         subsequent_arrival_times, stanox,
          monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule

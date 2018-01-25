@@ -13,7 +13,7 @@ import traindelays.networkrail.movementdata._
 import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
 import traindelays.stomp.StompClient
 
-import scala.concurrent.ExecutionContext.Implicits.global //TODO something better with this
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object StartMovementListener extends App {
 

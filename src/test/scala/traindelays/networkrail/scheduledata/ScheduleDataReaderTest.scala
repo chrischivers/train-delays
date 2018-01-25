@@ -22,7 +22,6 @@ class ScheduleDataReaderTest extends FlatSpec {
 
     val result = reader.readData[ScheduleRecord].runLog.unsafeRunSync().toList
 
-    //TODO more here once test data has been trimmed
     result should have size 3
     result.head shouldBe ScheduleRecord(
       ScheduleTrainId("G76481"),

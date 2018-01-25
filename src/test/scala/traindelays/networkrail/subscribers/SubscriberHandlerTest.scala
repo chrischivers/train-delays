@@ -135,7 +135,6 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
   }
 
   it should "email relevant subscribers when cancellation log received for which they are subscribed" in {
-//TODO combine with above
     val activationRecord   = createActivationRecord()
     val cancellationRecord = createCancellationRecord()
 

@@ -1,7 +1,10 @@
 <html>
 <head>
     <link rel="stylesheet" href="/bootstrap.css">
+    <link rel="stylesheet" href="/dataTables.bootstrap4.min.css">
     <script src="/jquery-1.12.4.js"></script>
+    <script src="/jquery.dataTables.min.js"></script>
+    <script src="/dataTables.bootstrap4.min.js"></script>
 </head>
 <body>
 <form id="route-selector-form">
@@ -33,14 +36,14 @@
             <div class="form-check form-check-inline">
                 <label class="form-check-label">
                     <input class="form-check-input" type="radio" name="weekdaysSatSun" id="saturdays" value="saturdays">
-                    Weekends
+                    Saturdays
                 </label>
             </div>
 
             <div class="form-check form-check-inline">
                 <label class="form-check-label">
                     <input class="form-check-input" type="radio" name="weekdaysSatSun" id="sundays" value="sundays">
-                    Weekends
+                    Sundays
                 </label>
             </div>
         </div>
@@ -48,7 +51,29 @@
 
     <button type="submit" class="btn btn-primary">Submit</button>
 </form>
+<table id="query-results" class="display" width="100%"></table>
 <script>
+
+    var dataTable;
+
+    $(document).ready( function () {
+        dataTable = $('#query-results').DataTable({
+            columns: [
+                { title: "TrainId" },
+                { title: "ServiceCode" },
+                { title: "AtocCode" },
+                { title: "FromTipLocCode" },
+                { title: "FromStanox" },
+                { title: "DepartureTime" },
+                { title: "ToTipLocCode" },
+                { title: "ArrivalTime" },
+                { title: "DaysRunPattern" },
+                { title: "ScheduleStart" },
+                { title: "ScheduleEnd" }
+            ],
+            order: [[ 5, "asc" ]]
+        });
+    } );
 
     $(function () {
 
@@ -61,8 +86,26 @@
                     url: url,
                     data: $(this).serialize(),
                     success: function (data) {
-                        var jsonResponse = JSON.parse(data);
-                        //something here
+                        var json = JSON.parse(data);
+                        var rowArray = [];
+                        for (var i = 0; i < json.length; i++) {
+                            var scheduleTrainId = json[i].scheduleTrainId.value;
+                            var serviceCode = json[i].serviceCode.value;
+                            var atocCode = json[i].atocCode.value;
+                            var fromTiplocCode = json[i].fromTipLocCode.value;
+                            var fromStanox = json[i].fromStanox.value;
+                            var departureTime = json[i].departureTime;
+                            var toTipLocCode = json[i].toTipLocCode.value;
+                            var arrivalTime = json[i].arrivalTime;
+                            var daysRunPattern = json[i].daysRunPattern;
+                            var scheduleStart = json[i].scheduleStart;
+                            var scheduleEnd = json[i].scheduleEnd;
+                            var row = [scheduleTrainId, serviceCode, atocCode, fromTiplocCode, fromStanox, departureTime, toTipLocCode, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
+                            rowArray.push(row);
+                        }
+
+                        dataTable.clear();
+                        dataTable.rows.add(rowArray).draw();
                     }
                 });
                 return false;

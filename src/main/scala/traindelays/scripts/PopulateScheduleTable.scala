@@ -1,6 +1,5 @@
 package traindelays.scripts
 
-import cats.Eval
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import fs2.Pipe
@@ -30,8 +29,8 @@ object PopulateScheduleTable extends App with StrictLogging {
 //        _ <- networkRailClient.downloadScheduleData
 //        _ <- IO.pure(logger.info("Unpacking schedule data"))
 //        _ <- networkRailClient.unpackScheduleData
-//        _ <- IO.pure(logger.info("Writing tiploc records"))
-//        _ <- writeTiplocRecords(tipLocTable)
+        _ <- IO.pure(logger.info("Writing tiploc records"))
+        _ <- writeTiplocRecords(tipLocTable)
         _ <- IO.pure(logger.info("Writing schedule records"))
         _ <- writeScheduleRecords(tipLocTable, scheduleTable)
         _ <- IO.pure(logger.info("Schedule Table population complete"))

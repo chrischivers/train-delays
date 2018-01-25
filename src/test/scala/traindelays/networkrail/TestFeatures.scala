@@ -294,6 +294,8 @@ trait TestFeatures {
                               tipLocCode: TipLocCode = TipLocCode("REIGATE"),
                               subsequentTipLocCodes: List[TipLocCode] =
                                 List(TipLocCode("EASTCRYDON"), TipLocCode("LBRIDGE")),
+                              subsequentArrivalTimes: List[LocalTime] =
+                                List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
                               stanox: Stanox = Stanox("REIGATE"),
                               scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
                               scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
@@ -308,6 +310,7 @@ trait TestFeatures {
       index,
       tipLocCode,
       subsequentTipLocCodes,
+      subsequentArrivalTimes,
       stanox,
       monday,
       tuesday,

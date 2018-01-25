@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS schedule (
   stop_sequence SMALLINT NOT NULL,
   tiploc_code VARCHAR(10) NOT NULL,
   subsequent_tip_loc_codes VARCHAR(50)[] NOT NULL,
+  subsequent_arrival_times VARCHAR(50)[] NOT NULL,
   stanox VARCHAR(10) NOT NULL,
   monday   BOOLEAN NOT NULL,
   tuesday   BOOLEAN NOT NULL,
