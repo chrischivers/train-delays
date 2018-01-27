@@ -13,6 +13,9 @@ import traindelays.networkrail.scheduledata.{AtocCode, ScheduleRecord, ScheduleT
 import traindelays.networkrail.{ServiceCode, Stanox}
 
 import scala.concurrent.duration.FiniteDuration
+import scalacache.Cache
+import scalacache.guava.GuavaCache
+import scalacache.memoization.memoizeF
 
 trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
@@ -23,6 +26,8 @@ trait ScheduleTable extends MemoizedTable[ScheduleLog] {
   def addRecords(records: List[ScheduleLog]): IO[Unit]
 
   def retrieveScheduleLogRecordsFor(from: TipLocCode, to: TipLocCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
+
+  def retrieveDistinctTipLocCodes(): IO[List[TipLocCode]]
 
   val dbWriterMultiple: fs2.Sink[IO, List[ScheduleLog]] = fs2.Sink { records =>
     addRecords(records)
@@ -77,10 +82,6 @@ object ScheduleTable extends StrictLogging {
         that.scheduleEnd == scheduleEnd
   }
   object ScheduleLog {
-    import io.circe.generic.semiauto._
-    import io.circe.java8.time._
-
-//    implicit val encoder: Encoder[ScheduleLog] = deriveEncoder[ScheduleLog]
 
     sealed trait DaysRunPattern {
       val string: String
@@ -215,6 +216,13 @@ object ScheduleTable extends StrictLogging {
          WHERE days_run_pattern = ${daysRunPattern} AND tiploc_code = ${fromStation} AND ${toStation} = ANY(subsequent_tip_loc_codes)
           """.query[ScheduleLog]
 
+  def retrieveDistinctTipLocCodes(): Query0[TipLocCode] =
+    sql"""
+          SELECT DISTINCT tiploc_code
+          FROM schedule
+          ORDER BY tiploc_code ASC
+          """.query[TipLocCode]
+
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
 
@@ -254,6 +262,9 @@ object ScheduleTable extends StrictLogging {
   def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): ScheduleTable =
     new ScheduleTable {
 
+      import scalacache.CatsEffect.modes._
+      implicit private val memoizeCacheDistinctTipLocCodes: Cache[List[TipLocCode]] = GuavaCache[List[TipLocCode]]
+
       override val memoizeFor: FiniteDuration = memoizeDuration
 
       override def addRecord(log: ScheduleLog): IO[Unit] =
@@ -282,6 +293,12 @@ object ScheduleTable extends StrictLogging {
                                                  to: TipLocCode,
                                                  pattern: DaysRunPattern): IO[List[ScheduleLog]] =
         ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
+
+      override def retrieveDistinctTipLocCodes: IO[List[TipLocCode]] =
+        memoizeF(Some(memoizeFor)) {
+          ScheduleTable.retrieveDistinctTipLocCodes().list.transact(db)
+        }
+
     }
 
 }

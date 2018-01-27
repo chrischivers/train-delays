@@ -6,7 +6,7 @@ import cats.effect.IO
 import org.http4s.Uri
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.Stanox
+import traindelays.networkrail.{CRS, Stanox}
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.{DatabaseConfig, ScheduleDataConfig, TestFeatures}
 import traindelays.networkrail.scheduledata._
@@ -83,7 +83,8 @@ class TipLocTableTest extends FlatSpec with TestFeatures {
 
   def getTipLocRecord(tipLocCode: TipLocCode = TipLocCode("REDHILL"),
                       stanox: Stanox = Stanox("87722"),
+                      crs: CRS = CRS("RED"),
                       description: Option[String] = Some("REDHILL")) =
-    TipLocRecord(tipLocCode, stanox, description)
+    TipLocRecord(tipLocCode, stanox, crs, description)
 
 }

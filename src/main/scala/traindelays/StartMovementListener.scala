@@ -1,12 +1,10 @@
-package traindelays.scripts
+package traindelays
 
 import akka.actor.ActorSystem
 import cats.effect.IO
-import cats.instances.queue
 import fs2.async
 import fs2.async.mutable.Queue
 import redis.RedisClient
-import traindelays.ConfigLoader
 import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.db._
 import traindelays.networkrail.movementdata._

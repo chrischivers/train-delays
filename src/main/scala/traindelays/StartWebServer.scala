@@ -1,16 +1,14 @@
-package traindelays.scripts
+package traindelays
 
 import cats.effect.IO
-import org.http4s.util.{ExitCode, StreamApp}
 import org.http4s.server.blaze._
-import traindelays.ConfigLoader
+import org.http4s.util.{ExitCode, StreamApp}
 import traindelays.networkrail.db.{ScheduleTable, withTransactor}
-import traindelays.scripts.PopulateScheduleTable.config
 import traindelays.ui.Service
 
 object StartWebServer extends StreamApp[IO] {
 
-  val config = ConfigLoader.defaultConfig
+  def config = ConfigLoader.defaultConfig
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): fs2.Stream[IO, ExitCode] =
     withTransactor(config.databaseConfig)() { db =>
@@ -22,4 +20,14 @@ object StartWebServer extends StreamApp[IO] {
         .serve
 
     }
+
+//  def testconfig: TrainDelaysConfig = config.copy(
+//    databaseConfig = DatabaseConfig(
+//      "org.postgresql.Driver",
+//      "jdbc:postgresql://localhost/traindelays",
+//      "postgres",
+//      "",
+//      10
+//    )
+//  )
 }

@@ -36,6 +36,15 @@ package object networkrail {
       Meta[String].xmap(Stanox(_), _.value)
   }
 
+  case class CRS(value: String)
+  object CRS {
+    import io.circe.generic.semiauto._
+    implicit val decoder: Decoder[CRS] = Decoder.decodeString.map(CRS(_))
+    implicit val encoder: Encoder[CRS] = deriveEncoder[CRS]
+    implicit val meta: Meta[CRS] =
+      Meta[String].xmap(CRS(_), _.value)
+  }
+
   def followRedirects(client: Client[IO], maxRedirects: Int): Client[IO] =
     FollowRedirect(maxRedirects)(client)
 }

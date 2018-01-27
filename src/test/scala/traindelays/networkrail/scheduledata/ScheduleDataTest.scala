@@ -5,7 +5,7 @@ import java.time.LocalTime
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.TestFeatures
-import traindelays.networkrail.Stanox
+import traindelays.networkrail.{CRS, Stanox}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
@@ -86,10 +86,10 @@ class ScheduleDataTest extends FlatSpec with TestFeatures {
     val scheduleRecord =
       createScheduleRecord(locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
 
-    val tiplocRecord1 = TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), None)
-    val tiplocRecord2 = TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), None)
-    val tiplocRecord3 = TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34567"), None)
-    val tiplocRecord4 = TipLocRecord(TipLocCode("EASTCROYDON"), Stanox("45678"), None)
+    val tiplocRecord1 = TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None)
+    val tiplocRecord2 = TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RDH"), None)
+    val tiplocRecord3 = TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34567"), CRS("MER"), None)
+    val tiplocRecord4 = TipLocRecord(TipLocCode("EASTCROYDON"), Stanox("45678"), CRS("ECD"), None)
 
     val scheduleLogs = scheduleRecord.toScheduleLogs(List(tiplocRecord1, tiplocRecord2, tiplocRecord3, tiplocRecord4))
     scheduleLogs should have size 4

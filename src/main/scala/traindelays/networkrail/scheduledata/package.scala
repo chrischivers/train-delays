@@ -300,13 +300,14 @@ package object scheduledata {
 
   }
 
-  case class TipLocRecord(tipLocCode: TipLocCode, stanox: Stanox, description: Option[String])
+  case class TipLocRecord(tipLocCode: TipLocCode, stanox: Stanox, crs: CRS, description: Option[String])
 
   object TipLocRecord {
 
     implicit case object JsonFilter extends JsonFilter[TipLocRecord] {
-      override implicit val jsonFilter: Json => Boolean =
-        _.hcursor.downField("TiplocV1").downField("stanox").as[String].isRight
+      override implicit val jsonFilter: Json => Boolean = json =>
+        json.hcursor.downField("TiplocV1").downField("crs_code").as[String].isRight &&
+          json.hcursor.downField("TiplocV1").downField("stanox").as[String].isRight
     }
 
     implicit case object TipLocTransformer extends Transformer[TipLocRecord] {
@@ -322,9 +323,10 @@ package object scheduledata {
         for {
           tipLocCode  <- tipLocObject.downField("tiploc_code").as[TipLocCode]
           stanox      <- tipLocObject.downField("stanox").as[Stanox]
+          crs         <- tipLocObject.downField("crs_code").as[CRS]
           description <- tipLocObject.downField("tps_description").as[Option[String]]
         } yield {
-          TipLocRecord(tipLocCode, stanox, description)
+          TipLocRecord(tipLocCode, stanox, crs, description)
         }
       }
     }

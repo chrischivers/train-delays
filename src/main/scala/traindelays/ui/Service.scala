@@ -16,8 +16,12 @@ object Service extends StrictLogging {
     case request @ GET -> Root / path if List(".js", ".css", ".html").exists(path.endsWith) =>
       static(path, request)
 
+    case request @ GET -> Root / "tiploc-codes" =>
+      Ok(scheduleTable.retrieveDistinctTipLocCodes().map(_.map(_.value).asJson.noSpaces))
+
     case request @ POST -> Root / "schedule-query" =>
       request.decode[UrlForm] { m =>
+        println(m.values)
         val result: Option[IO[List[ScheduleQueryResponse]]] = for {
           fromStation    <- m.getFirst("fromStation").map(str => TipLocCode(str.toUpperCase()))
           toStation      <- m.getFirst("toStation").map(str => TipLocCode(str.toUpperCase()))

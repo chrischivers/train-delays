@@ -60,7 +60,7 @@ package object db {
     import scalacache._
     import scalacache.guava._
 
-    implicit private val memoizeCache: Cache[List[A]] = GuavaCache[List[A]]
+    implicit protected val memoizeCache: Cache[List[A]] = GuavaCache[List[A]]
     val memoizeFor: FiniteDuration
 
     def retrieveAllRecords(): IO[List[A]] =

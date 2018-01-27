@@ -11,7 +11,7 @@ import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecor
 }
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.{ServiceCode, Stanox}
+import traindelays.networkrail.{CRS, ServiceCode, Stanox}
 
 class ScheduleDataReaderTest extends FlatSpec {
 
@@ -49,14 +49,15 @@ class ScheduleDataReaderTest extends FlatSpec {
     )
   }
 
-  it should "read data from tiploc source records" in {
+  it should "read data from tiploc source records, ignoring those without crs code" in {
 
     val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid.json").getPath)
     val reader = ScheduleDataReader(source)
 
     val result = reader.readData[TipLocRecord].runLog.unsafeRunSync().toList
-    result should have size 13
-    result.head shouldBe TipLocRecord(TipLocCode("REDH316"), Stanox("87720"), Some("REDHILL SIGNAL T1316"))
+    result should have size 2
+    result.head shouldBe TipLocRecord(TipLocCode("REDHILL"), Stanox("87722"), CRS("RDH"), Some("REDHILL"))
+    result(1) shouldBe TipLocRecord(TipLocCode("REIGATE"), Stanox("87089"), CRS("REI"), Some("REIGATE"))
 
   }
 

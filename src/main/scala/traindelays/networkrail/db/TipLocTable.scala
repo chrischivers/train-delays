@@ -24,16 +24,16 @@ object TipLocTable {
   def addTiplocRecord(record: TipLocRecord): Update0 =
     sql"""
       INSERT INTO tiploc
-      (tiploc_code, stanox, description)
-      VALUES(${record.tipLocCode}, ${record.stanox}, ${record.description})
+      (tiploc_code, stanox, crs, description)
+      VALUES(${record.tipLocCode}, ${record.stanox}, ${record.crs}, ${record.description})
      """.update
 
   def addTiplocRecords(records: List[TipLocRecord]) = {
     val sql =
       s"""
          |    INSERT INTO tiploc
-         |      (tiploc_code, stanox, description)
-         |      VALUES(?, ?, ?)
+         |      (tiploc_code, stanox, crs, description)
+         |      VALUES(?, ?, ?, ?)
   """.stripMargin
 
     Update[TipLocRecord](sql).updateMany(records)
@@ -41,12 +41,12 @@ object TipLocTable {
 
   def allTiplocRecords(): Query0[TipLocRecord] =
     sql"""
-      SELECT tiploc_code, stanox, description
+      SELECT tiploc_code, stanox, crs, description
       FROM tiploc
       """.query[TipLocRecord]
 
   def tipLocRecordFor(tipLocCode: TipLocCode) =
-    sql"""SELECT tiploc_code, stanox, description
+    sql"""SELECT tiploc_code, stanox, crs, description
     FROM tiploc
     WHERE tiploc_code = ${tipLocCode.value}
       """.query[TipLocRecord]

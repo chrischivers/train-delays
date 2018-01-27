@@ -3,12 +3,13 @@ import java.time.LocalTime
 
 import cats.effect.IO
 import traindelays.DatabaseConfig
-import traindelays.networkrail.{IntegrationTest, Stanox}
+import traindelays.networkrail.{CRS, IntegrationTest, Stanox}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata.{TipLocRecord, timeFormatter}
 import org.scalatest.Matchers._
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTest {
@@ -36,10 +37,10 @@ class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTes
     val scheduleRecord =
       createScheduleRecord(locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
 
-    val tiplocRecord1 = TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), None)
-    val tiplocRecord2 = TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), None)
-    val tiplocRecord3 = TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34567"), None)
-    val tiplocRecord4 = TipLocRecord(TipLocCode("EASTCROYDN"), Stanox("45678"), None)
+    val tiplocRecord1 = TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None)
+    val tiplocRecord2 = TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)
+    val tiplocRecord3 = TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34567"), CRS("MER"), None)
+    val tiplocRecord4 = TipLocRecord(TipLocCode("EASTCROYDN"), Stanox("45678"), CRS("ECD"), None)
 
     withInitialState(config)(
       AppInitialState(

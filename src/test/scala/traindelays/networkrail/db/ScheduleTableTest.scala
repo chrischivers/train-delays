@@ -7,12 +7,11 @@ import cats.effect.IO
 import org.http4s.Uri
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.Stanox
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType._
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata._
+import traindelays.networkrail.{CRS, Stanox}
 import traindelays.{DatabaseConfig, ScheduleDataConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -56,8 +55,8 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val retrievedRecords = withInitialState(config)(
       AppInitialState(
-        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
-                             TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
+                             TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       fixture.scheduleTable.retrieveAllScheduleRecords()
@@ -77,8 +76,8 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                      scheduleDataConfig =
                        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
       AppInitialState(
-        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
-                             TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("1234"), CRS("REI"), None),
+                             TipLocRecord(TipLocCode("REDHILL"), Stanox("4567"), CRS("RED"), None)),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       IO {
@@ -107,8 +106,8 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val retrievedRecords = withInitialState(config)(
       AppInitialState(
-        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
-                             TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
+                             TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       for {
@@ -128,8 +127,8 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val retrievedRecords =
       withInitialState(config)(
         AppInitialState(
-          tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
-                               TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)),
+          tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
+                               TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)),
           scheduleRecords = List(scheduleRecord1, scheduleRecord2)
         )) { fixture =>
         fixture.scheduleTable.retrieveAllScheduleRecords()
@@ -161,9 +160,9 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       withInitialState(config)(
         AppInitialState(
           tiplocRecords = List(
-            TipLocRecord(TipLocCode("REIGATE"), Stanox("REI"), None),
-            TipLocRecord(TipLocCode("MERSTHAM"), Stanox("MER"), None),
-            TipLocRecord(TipLocCode("REDHILL"), Stanox("RED"), None)
+            TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
+            TipLocRecord(TipLocCode("MERSTHAM"), Stanox("3456"), CRS("MER"), None),
+            TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)
           ),
           scheduleRecords = List(scheduleRecord)
         )) { fixture =>
@@ -172,6 +171,34 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     retrievedRecords should have size 1
     retrievedRecords.head shouldBe scheduleRecord
+
+  }
+
+  it should "retrieve distinct tip loc codes from the database (which are memoized)" in {
+
+    val scheduleRecord1 = createScheduleRecord(scheduleTrainId = ScheduleTrainId("123456"))
+    val scheduleRecord2 = createScheduleRecord(scheduleTrainId = ScheduleTrainId("234567"))
+
+    withInitialState(config)(
+      AppInitialState(
+        tiplocRecords = List(
+          TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
+          TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None),
+          TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34566"), CRS("MER"), None)
+        ),
+        scheduleRecords = List(scheduleRecord1, scheduleRecord2)
+      )) { fixture =>
+      IO {
+        val retrievedRecords1 = fixture.scheduleTable.retrieveDistinctTipLocCodes().unsafeRunSync()
+        retrievedRecords1 should have size 2
+        retrievedRecords1 shouldBe List(TipLocCode("REDHILL"), TipLocCode("REIGATE"))
+
+        fixture.scheduleTable.deleteAllRecords().unsafeRunSync()
+
+        val retrievedRecords2 = fixture.scheduleTable.retrieveDistinctTipLocCodes().unsafeRunSync()
+        retrievedRecords2 should have size 2
+      }
+    }
 
   }
 

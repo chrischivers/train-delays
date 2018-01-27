@@ -9,14 +9,14 @@ import traindelays.networkrail.{ServiceCode, Stanox}
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
 import io.circe.generic.semiauto._
+import traindelays.networkrail.tocs.tocs
 
 package object ui {
 
   case class ScheduleQueryResponse(scheduleTrainId: ScheduleTrainId,
-                                   serviceCode: ServiceCode,
                                    atocCode: AtocCode,
+                                   tocName: String,
                                    fromTipLocCode: TipLocCode,
-                                   fromStanox: Stanox,
                                    departureTime: LocalTime,
                                    toTipLocCode: TipLocCode,
                                    arrivalTime: LocalTime,
@@ -30,20 +30,21 @@ package object ui {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
   }
 
+  //TODO test this
   def queryResponsesFrom(scheduleLogs: List[ScheduleLog], toTipLocCode: TipLocCode): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
         departureTime <- log.departureTime
+        tocName       <- tocs.mapping.get(log.atocCode)
         indexOfArrivalStopOpt = log.subsequentTipLocCodes.indexWhere(_ == toTipLocCode)
         indexOfArrivalStop <- if (indexOfArrivalStopOpt == -1) None else Some(indexOfArrivalStopOpt)
         arrivalTime = log.subsequentArrivalTimes(indexOfArrivalStop)
       } yield {
         ScheduleQueryResponse(
           log.scheduleTrainId,
-          log.serviceCode,
           log.atocCode,
+          tocName,
           log.tiplocCode,
-          log.stanox,
           departureTime,
           toTipLocCode,
           arrivalTime,
