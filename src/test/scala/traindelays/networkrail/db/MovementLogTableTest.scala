@@ -4,7 +4,7 @@ import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.networkrail.{ServiceCode, Stanox, TOC}
+import traindelays.networkrail.{ServiceCode, StanoxCode, TOC}
 import traindelays.{DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -53,7 +53,7 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
                      serviceCode: ServiceCode = ServiceCode("24673605"),
                      eventType: EventType = Arrival,
                      toc: TOC = TOC("SN"),
-                     stanox: Stanox = Stanox("87214"),
+                     stanoxCode: StanoxCode = StanoxCode("87214"),
                      plannedPassengerTimestamp: Long = 1514663220000L,
                      actualTimestamp: Long = 1514663160000L,
                      variationStatus: VariationStatus = Early) =
@@ -64,7 +64,7 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
       serviceCode,
       eventType,
       toc,
-      stanox,
+      stanoxCode,
       plannedPassengerTimestamp,
       actualTimestamp,
       actualTimestamp - plannedPassengerTimestamp,

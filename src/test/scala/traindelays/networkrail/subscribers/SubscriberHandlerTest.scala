@@ -22,8 +22,8 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     val scheduleTrainId  = ScheduleTrainId("AXgGH")
     val email            = "test@test.com"
     val serviceCode      = movementRecord.trainServiceCode
-    val stanox           = movementRecord.stanox.get
-    val subscriberRecord = SubscriberRecord(None, userID, email, scheduleTrainId, serviceCode, stanox)
+    val stanoxCode       = movementRecord.stanoxCode.get
+    val subscriberRecord = SubscriberRecord(None, userID, email, scheduleTrainId, serviceCode, stanoxCode)
 
     withInitialState(config)(
       AppInitialState(subscriberRecords = List(subscriberRecord),
@@ -53,8 +53,8 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     val email            = "test@test.com"
     val trainID          = movementRecord1.trainId
     val serviceCode      = movementRecord1.trainServiceCode
-    val stanox           = movementRecord1.stanox.get
-    val subscriberRecord = SubscriberRecord(None, userID, email, scheduleTrainId, serviceCode, stanox)
+    val stanoxCode       = movementRecord1.stanoxCode.get
+    val subscriberRecord = SubscriberRecord(None, userID, email, scheduleTrainId, serviceCode, stanoxCode)
 
     withInitialState(config)(
       AppInitialState(
@@ -87,19 +87,19 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     val email1           = "test1@test.com"
     val scheduleTrainId1 = activationRecord.scheduleTrainId
     val serviceCode1     = activationRecord.trainServiceCode
-    val stanox1          = movementRecord1.stanox.get
+    val stanox1          = movementRecord1.stanoxCode.get
 
     val userID2          = UserId(UUID.randomUUID().toString)
     val email2           = "test2@test.com"
     val scheduleTrainId2 = ScheduleTrainId("ID123")
     val serviceCode2     = activationRecord.trainServiceCode
-    val stanox2          = movementRecord1.stanox.get
+    val stanox2          = movementRecord1.stanoxCode.get
 
     val userID3          = UserId(UUID.randomUUID().toString)
     val email3           = "test3@test.com"
     val scheduleTrainId3 = activationRecord.scheduleTrainId
     val serviceCode3     = activationRecord.trainServiceCode
-    val stanox3          = movementRecord1.stanox.get
+    val stanox3          = movementRecord1.stanoxCode.get
 
     val subscriberRecord1 = SubscriberRecord(None, userID1, email1, scheduleTrainId1, serviceCode1, stanox1)
     val subscriberRecord2 = SubscriberRecord(None, userID2, email2, scheduleTrainId2, serviceCode2, stanox2)
@@ -142,19 +142,19 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     val email1           = "test1@test.com"
     val scheduleTrainId1 = activationRecord.scheduleTrainId
     val serviceCode1     = activationRecord.trainServiceCode
-    val stanox1          = cancellationRecord.stanox
+    val stanox1          = cancellationRecord.stanoxCode
 
     val userID2          = UserId(UUID.randomUUID().toString)
     val email2           = "test2@test.com"
     val scheduleTrainId2 = ScheduleTrainId("ID123")
     val serviceCode2     = activationRecord.trainServiceCode
-    val stanox2          = cancellationRecord.stanox
+    val stanox2          = cancellationRecord.stanoxCode
 
     val userID3          = UserId(UUID.randomUUID().toString)
     val email3           = "test3@test.com"
     val scheduleTrainId3 = activationRecord.scheduleTrainId
     val serviceCode3     = activationRecord.trainServiceCode
-    val stanox3          = cancellationRecord.stanox
+    val stanox3          = cancellationRecord.stanoxCode
 
     val subscriberRecord1 = SubscriberRecord(None, userID1, email1, scheduleTrainId1, serviceCode1, stanox1)
     val subscriberRecord2 = SubscriberRecord(None, userID2, email2, scheduleTrainId2, serviceCode2, stanox2)

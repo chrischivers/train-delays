@@ -4,7 +4,7 @@ import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.networkrail.{ServiceCode, Stanox, TOC}
+import traindelays.networkrail.{ServiceCode, StanoxCode, TOC}
 import traindelays.{DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -53,7 +53,7 @@ class CancellationLogTableTest extends FlatSpec with TestFeatures {
                          scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G12345"),
                          serviceCode: ServiceCode = ServiceCode("24673605"),
                          toc: TOC = TOC("SN"),
-                         stanox: Stanox = Stanox("87214"),
+                         stanoxCode: StanoxCode = StanoxCode("87214"),
                          cancellationType: CancellationType = EnRoute,
                          cancellationReasonCode: String = "YI") =
     CancellationLog(
@@ -62,7 +62,7 @@ class CancellationLogTableTest extends FlatSpec with TestFeatures {
       scheduleTrainId,
       serviceCode,
       toc,
-      stanox,
+      stanoxCode,
       cancellationType,
       cancellationReasonCode
     )

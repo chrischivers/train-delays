@@ -8,7 +8,7 @@ import traindelays.ConfigLoader
 import traindelays.networkrail.NetworkRailClient
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.{ScheduleTable, _}
-import traindelays.networkrail.scheduledata.{ScheduleDataReader, ScheduleRecord, TipLocRecord}
+import traindelays.networkrail.scheduledata._
 
 object PopulateScheduleTable extends App with StrictLogging {
 
@@ -19,20 +19,20 @@ object PopulateScheduleTable extends App with StrictLogging {
   val scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
 
   val app = withTransactor(config.databaseConfig)() { db =>
-    val tipLocTable   = TipLocTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val stanoxTable   = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
     val scheduleTable = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
     fs2.Stream.eval {
       for {
-//        _ <- networkRailClient.deleteTmpFiles()
-//        _ <- IO.pure(logger.info("Downloading schedule data"))
-//        _ <- networkRailClient.downloadScheduleData
-//        _ <- IO.pure(logger.info("Unpacking schedule data"))
-//        _ <- networkRailClient.unpackScheduleData
-        _ <- IO.pure(logger.info("Writing tiploc records"))
-        _ <- writeTiplocRecords(tipLocTable)
+        _ <- networkRailClient.deleteTmpFiles()
+        _ <- IO.pure(logger.info("Downloading schedule data"))
+        _ <- networkRailClient.downloadScheduleData
+        _ <- IO.pure(logger.info("Unpacking schedule data"))
+        _ <- networkRailClient.unpackScheduleData
+        _ <- IO.pure(logger.info("Writing stanox records"))
+        _ <- writeStanoxRecords(stanoxTable)
         _ <- IO.pure(logger.info("Writing schedule records"))
-        _ <- writeScheduleRecords(tipLocTable, scheduleTable)
+        _ <- writeScheduleRecords(stanoxTable, scheduleTable)
         _ <- IO.pure(logger.info("Schedule Table population complete"))
       } yield ()
     }
@@ -40,23 +40,23 @@ object PopulateScheduleTable extends App with StrictLogging {
 
   app.unsafeRunSync()
 
-  private def writeTiplocRecords(tipLocTable: TipLocTable) =
+  private def writeStanoxRecords(stanoxTable: StanoxTable) =
     for {
-      existingTipLocRecords <- tipLocTable.retrieveAllRecords()
+      existingStanoxRecords <- stanoxTable.retrieveAllRecords(forceRefresh = true)
       _ <- scheduleDataReader
-        .readData[TipLocRecord]
-        .filter(rec => !existingTipLocRecords.exists(existingRec => existingRec.tipLocCode == rec.tipLocCode))
-        .to(tipLocTable.dbWriter)
+        .readData[StanoxRecord]
+        .filter(rec => !existingStanoxRecords.exists(existingRec => existingRec.stanoxCode == rec.stanoxCode))
+        .to(stanoxTable.dbWriter)
         .run
     } yield ()
 
-  private def writeScheduleRecords(tipLocTable: TipLocTable, scheduleTable: ScheduleTable) =
+  private def writeScheduleRecords(stanoxTable: StanoxTable, scheduleTable: ScheduleTable) =
     for {
-      existingTipLocRecords   <- tipLocTable.retrieveAllRecords()
-      existingScheduleRecords <- scheduleTable.retrieveAllRecords()
+      existingStanoxRecords   <- stanoxTable.retrieveAllRecords(forceRefresh = true)
+      existingScheduleRecords <- scheduleTable.retrieveAllRecords(forceRefresh = true)
 
       recordsToLogsPipe: Pipe[IO, ScheduleRecord, List[ScheduleLog]] = (in: fs2.Stream[IO, ScheduleRecord]) => {
-        in.map(_.toScheduleLogs(existingTipLocRecords))
+        in.map(_.toScheduleLogs(existingStanoxRecords))
       }
 
       removeExistingLogsPipe: Pipe[IO, List[ScheduleLog], List[ScheduleLog]] = (in: fs2.Stream[IO,

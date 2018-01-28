@@ -6,7 +6,8 @@ import org.scalactic.TripleEqualsSupport
 import org.scalatest.Matchers._
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
 import traindelays.TestFeatures
-import traindelays.networkrail.scheduledata.{ScheduleDataReader, ScheduleRecord, TipLocRecord}
+import traindelays.networkrail.scheduledata.{ScheduleDataReader, ScheduleRecord, StanoxRecord}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class NetworkRailClientIntegrationTest
@@ -33,7 +34,7 @@ class NetworkRailClientIntegrationTest
     cleanUpFile(configWithTmpDownloadLocation.scheduleData.tmpDownloadLocation.toString)
   }
 
-  it should "unpack downloaded schedule/tiploc data and parse json correctly" in {
+  it should "unpack downloaded schedule/stanox data and parse json correctly" in {
 
     val networkRailClient = NetworkRailClient(testconfig.networkRailConfig, client)
     networkRailClient.unpackScheduleData.unsafeRunSync()
@@ -44,11 +45,11 @@ class NetworkRailClientIntegrationTest
     val scheduleResults = scheduleDataReader.readData[ScheduleRecord].runLog.unsafeRunSync().toList
     scheduleResults.size should ===(19990)
 
-    val tipLocResult = scheduleDataReader.readData[TipLocRecord].runLog.unsafeRunSync().toList
-    tipLocResult.size should ===(10088)
+    val stanoxResult = scheduleDataReader.readData[StanoxRecord].runLog.unsafeRunSync().toList
+    stanoxResult.size should ===(10088)
   }
 
-  it should "unpack downloaded schedule/tiploc data and persist to DB" in {
+  it should "unpack downloaded schedule/stanox data and persist to DB" in {
 
     val networkRailClient = NetworkRailClient(testconfig.networkRailConfig, client)
     networkRailClient.unpackScheduleData.unsafeRunSync()
@@ -62,8 +63,8 @@ class NetworkRailClientIntegrationTest
       .toList
       .take(10)
 
-    val tipLocResults = scheduleDataReader
-      .readData[TipLocRecord]
+    val stanoxResults = scheduleDataReader
+      .readData[StanoxRecord]
       .runLog
       .unsafeRunSync()
       .toList
@@ -75,16 +76,16 @@ class NetworkRailClientIntegrationTest
         _.scheduleTable.retrieveAllRecords()
       }
 
-    val retrievedTiplocRecords =
+    val retrievedStanoxRecords =
       withInitialState(testconfig.databaseConfig, scheduleDataConfig = testconfig.networkRailConfig.scheduleData)(
-        AppInitialState(tiplocRecords = tipLocResults)) {
-        _.tipLocTable.retrieveAllRecords()
+        AppInitialState(stanoxRecords = stanoxResults)) {
+        _.stanoxTable.retrieveAllRecords()
       }
     retrievedScheduleRecords.size should ===(scheduleResults.size)
     retrievedScheduleRecords should contain theSameElementsAs scheduleResults
 
-    retrievedTiplocRecords.size should ===(tipLocResults.size)
-    retrievedTiplocRecords should contain theSameElementsAs tipLocResults
+    retrievedStanoxRecords.size should ===(stanoxResults.size)
+    retrievedStanoxRecords should contain theSameElementsAs stanoxResults
   }
 
   override protected def afterEach(): Unit =

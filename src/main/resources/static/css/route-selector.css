@@ -1,3 +1,6 @@
 .lowered {
     margin-top: 25px;
 }
+#fromStationStanox, #toStationStanox {
+    display: none;
+}

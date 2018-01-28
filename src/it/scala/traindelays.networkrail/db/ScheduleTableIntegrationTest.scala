@@ -2,13 +2,13 @@ package traindelays.networkrail.db
 import java.time.LocalTime
 
 import cats.effect.IO
+import org.scalatest.Matchers._
 import traindelays.DatabaseConfig
-import traindelays.networkrail.{CRS, IntegrationTest, Stanox}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
-import traindelays.networkrail.scheduledata.{TipLocRecord, timeFormatter}
-import org.scalatest.Matchers._
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
+import traindelays.networkrail.scheduledata.{StanoxRecord, timeFormatter}
+import traindelays.networkrail.{CRS, IntegrationTest, StanoxCode, TipLocCode}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -37,62 +37,52 @@ class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTes
     val scheduleRecord =
       createScheduleRecord(locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
 
-    val tiplocRecord1 = TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None)
-    val tiplocRecord2 = TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)
-    val tiplocRecord3 = TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34567"), CRS("MER"), None)
-    val tiplocRecord4 = TipLocRecord(TipLocCode("EASTCROYDN"), Stanox("45678"), CRS("ECD"), None)
+    val stanoxRecord1 = StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None)
+    val stanoxRecord2 = StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)
+    val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), CRS("MER"), None)
+    val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDN"), CRS("ECD"), None)
 
     withInitialState(config)(
       AppInitialState(
-        tiplocRecords = List(
-          tiplocRecord1,
-          tiplocRecord2,
-          tiplocRecord3,
-          tiplocRecord4
+        stanoxRecords = List(
+          stanoxRecord1,
+          stanoxRecord2,
+          stanoxRecord3,
+          stanoxRecord4
         ),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       IO {
         val retrieved1 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(locationRecord1.tiplocCode,
-                                         locationRecord4.tiplocCode,
-                                         DaysRunPattern.Weekdays)
+          .retrieveScheduleLogRecordsFor(stanoxRecord1.stanoxCode, stanoxRecord4.stanoxCode, DaysRunPattern.Weekdays)
           .unsafeRunSync()
         retrieved1 should have size 1
-        retrieved1.head.tiplocCode shouldBe locationRecord1.tiplocCode
+        retrieved1.head.stanoxCode shouldBe stanoxRecord1.stanoxCode
 
         val retrieved2 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(locationRecord2.tiplocCode,
-                                         locationRecord4.tiplocCode,
-                                         DaysRunPattern.Weekdays)
+          .retrieveScheduleLogRecordsFor(stanoxRecord2.stanoxCode, stanoxRecord4.stanoxCode, DaysRunPattern.Weekdays)
           .unsafeRunSync()
         retrieved2 should have size 1
-        retrieved2.head.tiplocCode shouldBe locationRecord2.tiplocCode
+        retrieved2.head.stanoxCode shouldBe stanoxRecord2.stanoxCode
 
         val retrieved3 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(locationRecord2.tiplocCode,
-                                         locationRecord3.tiplocCode,
-                                         DaysRunPattern.Weekdays)
+          .retrieveScheduleLogRecordsFor(stanoxRecord2.stanoxCode, stanoxRecord3.stanoxCode, DaysRunPattern.Weekdays)
           .unsafeRunSync()
         retrieved3 should have size 1
-        retrieved3.head.tiplocCode shouldBe locationRecord2.tiplocCode
+        retrieved3.head.stanoxCode shouldBe stanoxRecord2.stanoxCode
 
         val retrieved4 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(locationRecord3.tiplocCode,
-                                         locationRecord2.tiplocCode,
-                                         DaysRunPattern.Weekdays)
+          .retrieveScheduleLogRecordsFor(stanoxRecord3.stanoxCode, stanoxRecord2.stanoxCode, DaysRunPattern.Weekdays)
           .unsafeRunSync()
         retrieved4 should have size 0
 
         val retrieved5 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(locationRecord3.tiplocCode,
-                                         locationRecord3.tiplocCode,
-                                         DaysRunPattern.Weekdays)
+          .retrieveScheduleLogRecordsFor(stanoxRecord3.stanoxCode, stanoxRecord3.stanoxCode, DaysRunPattern.Weekdays)
           .unsafeRunSync()
         retrieved5 should have size 0
 
         val retrieved6 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(locationRecord2.tiplocCode, locationRecord3.tiplocCode, DaysRunPattern.Sundays)
+          .retrieveScheduleLogRecordsFor(stanoxRecord2.stanoxCode, stanoxRecord3.stanoxCode, DaysRunPattern.Sundays)
           .unsafeRunSync()
         retrieved6 should have size 0
 

@@ -4,7 +4,7 @@ import cats.effect.IO
 import traindelays.SubscribersConfig
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.SubscriberRecord
-import traindelays.networkrail.{ServiceCode, Stanox}
+import traindelays.networkrail.{ServiceCode, StanoxCode}
 
 import scala.concurrent.duration.FiniteDuration
 import scalacache.memoization._
@@ -12,7 +12,7 @@ import scalacache.memoization._
 trait SubscriberTable extends MemoizedTable[SubscriberRecord] {
   def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
                            serviceCode: ServiceCode,
-                           stanox: Stanox): IO[List[SubscriberRecord]]
+                           stanoxCode: StanoxCode): IO[List[SubscriberRecord]]
   def deleteAllRecords(): IO[Unit]
 }
 
@@ -24,13 +24,13 @@ object SubscriberTable {
   def addSubscriberRecord(record: SubscriberRecord): Update0 =
     sql"""
       INSERT INTO subscribers
-      (user_id, email, schedule_train_id, service_code, stanox)
-      VALUES(${record.userId}, ${record.email}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanox})
+      (user_id, email, schedule_train_id, service_code, stanox_code)
+      VALUES(${record.userId}, ${record.email}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanoxCode})
      """.update
 
   protected def allSubscriberRecords(): Query0[SubscriberRecord] =
     sql"""
-      SELECT id, user_id, email, schedule_train_id, service_code, stanox
+      SELECT id, user_id, email, schedule_train_id, service_code, stanox_code
       FROM subscribers
       """.query[SubscriberRecord]
 
@@ -48,11 +48,11 @@ object SubscriberTable {
 
       override def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
                                         serviceCode: ServiceCode,
-                                        stanox: Stanox): IO[List[SubscriberRecord]] =
+                                        stanoxCode: StanoxCode): IO[List[SubscriberRecord]] =
         sql"""
-          SELECT id, user_id, email, schedule_train_id, service_code, stanox
+          SELECT id, user_id, email, schedule_train_id, service_code, stanox_code
           FROM subscribers
-          WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode} AND stanox = ${stanox}
+          WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode} AND stanox_code = ${stanoxCode}
       """.query[SubscriberRecord].list.transact(db)
 
       override def deleteAllRecords(): IO[Unit] =

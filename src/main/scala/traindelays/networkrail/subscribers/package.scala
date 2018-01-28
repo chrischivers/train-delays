@@ -20,7 +20,7 @@ package object subscribers {
                               email: String,
                               scheduleTrainId: ScheduleTrainId,
                               serviceCode: ServiceCode,
-                              stanox: Stanox)
+                              stanoxCode: StanoxCode)
 
   case class SubscriberReport(subscriberRecord: SubscriberRecord, movementLogs: List[MovementLog])
 }

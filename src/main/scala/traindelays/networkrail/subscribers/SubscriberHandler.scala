@@ -3,7 +3,7 @@ package traindelays.networkrail.subscribers
 import cats.effect.IO
 import cats.instances.list._
 import cats.syntax.traverse._
-import traindelays.networkrail.{ServiceCode, Stanox}
+import traindelays.networkrail.{ServiceCode, StanoxCode}
 import traindelays.networkrail.db.{MovementLogTable, SubscriberTable}
 import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
@@ -32,7 +32,7 @@ object SubscriberHandler {
                 log =>
                   log.scheduleTrainId == watchingRecord.scheduleTrainId &&
                     log.serviceCode == watchingRecord.serviceCode &&
-                    log.stanox == watchingRecord.stanox
+                    log.stanoxCode == watchingRecord.stanoxCode
               ) //TODO do we care about all predicates?
             SubscriberReport(watchingRecord, filteredLogs)
           }
@@ -43,8 +43,8 @@ object SubscriberHandler {
 
         for {
           allSubscribers <- subscriberTable.retrieveAllRecords()
-//            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
-          affected = filterSubscribersBy(allSubscribers, log.serviceCode, log.scheduleTrainId, log.stanox)
+//            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanoxCode)
+          affected = filterSubscribersBy(allSubscribers, log.serviceCode, log.scheduleTrainId, log.stanoxCode)
           _ <- affected.traverse(subscriber => emailSubscriberWithMovementUpdate(subscriber, log, emailer))
         } yield ()
       }
@@ -52,8 +52,8 @@ object SubscriberHandler {
       override def cancellationNotifier: fs2.Sink[IO, CancellationLog] = fs2.Sink[IO, CancellationLog] { log =>
         for {
           subscriberList <- subscriberTable
-            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanox)
-          affected = filterSubscribersBy(subscriberList, log.serviceCode, log.scheduleTrainId, log.stanox)
+            .subscriberRecordsFor(log.scheduleTrainId, log.serviceCode, log.stanoxCode)
+          affected = filterSubscribersBy(subscriberList, log.serviceCode, log.scheduleTrainId, log.stanoxCode)
           _ <- affected.traverse(subscriber => emailSubscriberWithCancellationUpdate(subscriber, log, emailer))
         } yield ()
       }
@@ -61,12 +61,12 @@ object SubscriberHandler {
       private def filterSubscribersBy(allSubscribers: List[SubscriberRecord],
                                       serviceCode: ServiceCode,
                                       scheduleTrainId: ScheduleTrainId,
-                                      stanox: Stanox): List[SubscriberRecord] =
+                                      stanoxCode: StanoxCode): List[SubscriberRecord] =
         allSubscribers.filter(
           subscriber =>
             subscriber.serviceCode == serviceCode &&
               subscriber.scheduleTrainId == scheduleTrainId &&
-              subscriber.stanox == stanox) //TODO do we care about all predicates?
+              subscriber.stanoxCode == stanoxCode) //TODO do we care about all predicates?
 
       //TODO set proper notifcations
       private def emailSubscriberWithMovementUpdate(subscriberRecord: SubscriberRecord,

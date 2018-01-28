@@ -7,10 +7,10 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.{Decoder, Encoder, Json}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleRecord, ScheduleTrainId}
-import traindelays.networkrail.{ServiceCode, Stanox}
+import traindelays.networkrail.{ServiceCode, StanoxCode}
 
 import scala.concurrent.duration.FiniteDuration
 import scalacache.Cache
@@ -21,13 +21,9 @@ trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
   def deleteAllRecords(): IO[Unit]
 
-  def retrieveAllScheduleRecords(): IO[List[ScheduleRecord]]
-
   def addRecords(records: List[ScheduleLog]): IO[Unit]
 
-  def retrieveScheduleLogRecordsFor(from: TipLocCode, to: TipLocCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
-
-  def retrieveDistinctTipLocCodes(): IO[List[TipLocCode]]
+  def retrieveScheduleLogRecordsFor(from: StanoxCode, to: StanoxCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
 
   val dbWriterMultiple: fs2.Sink[IO, List[ScheduleLog]] = fs2.Sink { records =>
     addRecords(records)
@@ -55,10 +51,9 @@ object ScheduleTable extends StrictLogging {
                          serviceCode: ServiceCode,
                          atocCode: AtocCode,
                          stopSequence: Int,
-                         tiplocCode: TipLocCode,
-                         subsequentTipLocCodes: List[TipLocCode],
+                         stanoxCode: StanoxCode,
+                         subsequentStanoxCodes: List[StanoxCode],
                          subsequentArrivalTimes: List[LocalTime],
-                         stanox: Stanox,
                          monday: Boolean,
                          tuesday: Boolean,
                          wednesday: Boolean,
@@ -76,7 +71,7 @@ object ScheduleTable extends StrictLogging {
     def matchesKeyFields(that: ScheduleLog): Boolean =
       that.scheduleTrainId == scheduleTrainId &&
         that.serviceCode == serviceCode &&
-        that.tiplocCode == tiplocCode &&
+        that.stanoxCode == stanoxCode &&
         that.stopSequence == stopSequence &&
         that.scheduleStart == scheduleStart &&
         that.scheduleEnd == scheduleEnd
@@ -124,24 +119,22 @@ object ScheduleTable extends StrictLogging {
   def addScheduleLogRecord(log: ScheduleLog): Update0 =
     sql"""
       INSERT INTO schedule
-      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes, 
-      subsequent_arrival_times, stanox, monday, tuesday, wednesday, thursday, friday, saturday, sunday, 
+      (schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+      subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
       days_run_pattern, schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.tiplocCode},
-      ${log.subsequentTipLocCodes}, ${log.subsequentArrivalTimes},
-      ${log.stanox}, ${log.monday}, ${log.tuesday}, ${log.wednesday}, ${log.thursday}, ${log.friday}, ${log.saturday},
-        ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart}, ${log.scheduleEnd}, ${log.locationType},
-        ${log.arrivalTime}, ${log.departureTime})
+      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.stanoxCode},
+      ${log.subsequentStanoxCodes}, ${log.subsequentArrivalTimes}, ${log.monday}, ${log.tuesday}, ${log.wednesday},
+      ${log.thursday}, ${log.friday}, ${log.saturday}, ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart},
+      ${log.scheduleEnd}, ${log.locationType}, ${log.arrivalTime}, ${log.departureTime})
      """.update
 
   type ScheduleLogToBeInserted = (ScheduleTrainId,
                                   ServiceCode,
                                   AtocCode,
                                   Int,
-                                  TipLocCode,
-                                  List[TipLocCode],
+                                  StanoxCode,
+                                  List[StanoxCode],
                                   List[LocalTime],
-                                  Stanox,
                                   Boolean,
                                   Boolean,
                                   Boolean,
@@ -164,10 +157,9 @@ object ScheduleTable extends StrictLogging {
          log.serviceCode,
          log.atocCode,
          log.stopSequence,
-         log.tiplocCode,
-         log.subsequentTipLocCodes,
+         log.stanoxCode,
+         log.subsequentStanoxCodes,
          log.subsequentArrivalTimes,
-         log.stanox,
          log.monday,
          log.tuesday,
          log.wednesday,
@@ -184,11 +176,11 @@ object ScheduleTable extends StrictLogging {
 
     val sql = s"""
        |   INSERT INTO schedule
-       |      (schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes,
-       |      subsequent_arrival_times, stanox,
+       |      (schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+       |      subsequent_arrival_times,
        |      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
        |      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.stripMargin
 
     Update[ScheduleLogToBeInserted](sql).updateMany(toBeInserted)
@@ -196,74 +188,29 @@ object ScheduleTable extends StrictLogging {
 
   def allScheduleLogRecords(): Query0[ScheduleLog] =
     sql"""
-      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes,
-      subsequent_arrival_times, stanox,
-      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
+      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+      subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
       FROM schedule
       """.query[ScheduleLog]
 
-  def scheduleRecordsFor(fromStation: TipLocCode,
-                         toStation: TipLocCode,
+  def scheduleRecordsFor(fromStation: StanoxCode,
+                         toStation: StanoxCode,
                          daysRunPattern: DaysRunPattern): Query0[ScheduleLog] =
     //TODO something with dates (only main valid dates)
     sql"""  
-         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, tiploc_code, subsequent_tip_loc_codes,
-         subsequent_arrival_times, stanox,
-         monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
+         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+         subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
-         WHERE days_run_pattern = ${daysRunPattern} AND tiploc_code = ${fromStation} AND ${toStation} = ANY(subsequent_tip_loc_codes)
+         WHERE days_run_pattern = ${daysRunPattern} AND stanox_code = ${fromStation} AND ${toStation} = ANY(subsequent_stanox_codes)
           """.query[ScheduleLog]
-
-  def retrieveDistinctTipLocCodes(): Query0[TipLocCode] =
-    sql"""
-          SELECT DISTINCT tiploc_code
-          FROM schedule
-          ORDER BY tiploc_code ASC
-          """.query[TipLocCode]
 
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
 
-  private def toScheduleRecords(retrieved: List[ScheduleLog]): List[ScheduleRecord] =
-    retrieved
-      .groupBy(
-        r =>
-          (r.scheduleTrainId,
-           r.serviceCode,
-           r.atocCode,
-           r.scheduleStart,
-           r.scheduleEnd,
-           r.monday,
-           r.tuesday,
-           r.wednesday,
-           r.thursday,
-           r.friday,
-           r.saturday,
-           r.sunday))
-      .map {
-        case ((scheduleTrainId, serviceCode, atocCode, scheduleStart, scheduleEnd, mon, tue, wed, thu, fri, sat, sun),
-              recs) =>
-          ScheduleRecord(
-            scheduleTrainId,
-            serviceCode,
-            atocCode,
-            DaysRun(mon, tue, wed, thu, fri, sat, sun),
-            scheduleStart,
-            scheduleEnd,
-            recs
-              .sortBy(_.stopSequence)
-              .map(rec => ScheduleLocationRecord(rec.locationType, rec.tiplocCode, rec.arrivalTime, rec.departureTime))
-          )
-      }
-      .toList
-
   def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): ScheduleTable =
     new ScheduleTable {
-
-      import scalacache.CatsEffect.modes._
-      implicit private val memoizeCacheDistinctTipLocCodes: Cache[List[TipLocCode]] = GuavaCache[List[TipLocCode]]
 
       override val memoizeFor: FiniteDuration = memoizeDuration
 
@@ -273,9 +220,6 @@ object ScheduleTable extends StrictLogging {
           .run
           .transact(db)
           .map(_ => ())
-
-      override def retrieveAllScheduleRecords(): IO[List[ScheduleRecord]] =
-        retrieveAllRecords().map(retrieved => toScheduleRecords(retrieved))
 
       override def deleteAllRecords(): IO[Unit] =
         ScheduleTable.deleteAllScheduleLogRecords().run.transact(db).map(_ => ())
@@ -289,15 +233,10 @@ object ScheduleTable extends StrictLogging {
           .list
           .transact(db)
 
-      override def retrieveScheduleLogRecordsFor(from: TipLocCode,
-                                                 to: TipLocCode,
+      override def retrieveScheduleLogRecordsFor(from: StanoxCode,
+                                                 to: StanoxCode,
                                                  pattern: DaysRunPattern): IO[List[ScheduleLog]] =
         ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
-
-      override def retrieveDistinctTipLocCodes: IO[List[TipLocCode]] =
-        memoizeF(Some(memoizeFor)) {
-          ScheduleTable.retrieveDistinctTipLocCodes().list.transact(db)
-        }
 
     }
 

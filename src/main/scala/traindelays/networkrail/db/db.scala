@@ -63,9 +63,12 @@ package object db {
     implicit protected val memoizeCache: Cache[List[A]] = GuavaCache[List[A]]
     val memoizeFor: FiniteDuration
 
-    def retrieveAllRecords(): IO[List[A]] =
-      memoizeF(Some(memoizeFor)) {
-        retrieveAll()
+    def retrieveAllRecords(forceRefresh: Boolean = false): IO[List[A]] =
+      if (forceRefresh) retrieveAll()
+      else {
+        memoizeF(Some(memoizeFor)) {
+          retrieveAll()
+        }
       }
   }
 

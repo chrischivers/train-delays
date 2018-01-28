@@ -1,1 +1,1 @@
-CREATE INDEX subscribers_lookup_ix ON subscribers (schedule_train_id, service_code, stanox);
+CREATE INDEX subscribers_lookup_ix ON subscribers (schedule_train_id, service_code, stanox_code);

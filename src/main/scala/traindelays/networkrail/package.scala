@@ -27,13 +27,18 @@ package object networkrail {
       Meta[String].xmap(TOC(_), _.value)
   }
 
-  case class Stanox(value: String)
-  object Stanox {
+  case class StanoxCode(value: String)
+  object StanoxCode {
     import io.circe.generic.semiauto._
-    implicit val decoder: Decoder[Stanox] = Decoder.decodeString.map(Stanox(_))
-    implicit val encoder: Encoder[Stanox] = deriveEncoder[Stanox]
-    implicit val meta: Meta[Stanox] =
-      Meta[String].xmap(Stanox(_), _.value)
+    import doobie.postgres.implicits._
+    implicit val decoder: Decoder[StanoxCode] = Decoder.decodeString.map(StanoxCode(_))
+    implicit val encoder: Encoder[StanoxCode] = deriveEncoder[StanoxCode]
+    implicit val meta: Meta[StanoxCode] =
+      Meta[String].xmap(StanoxCode(_), _.value)
+
+    implicit val metaList: Meta[List[StanoxCode]] =
+      Meta[List[String]].xmap(_.map(StanoxCode(_)), _.map(_.value))
+
   }
 
   case class CRS(value: String)
@@ -43,6 +48,16 @@ package object networkrail {
     implicit val encoder: Encoder[CRS] = deriveEncoder[CRS]
     implicit val meta: Meta[CRS] =
       Meta[String].xmap(CRS(_), _.value)
+  }
+
+  case class TipLocCode(value: String)
+  object TipLocCode {
+    import io.circe.generic.semiauto._
+
+    implicit val decoder: Decoder[TipLocCode] = Decoder.decodeString.map(TipLocCode(_))
+    implicit val encoder: Encoder[TipLocCode] = deriveEncoder[TipLocCode]
+    implicit val meta: Meta[TipLocCode] =
+      Meta[String].xmap(TipLocCode(_), _.value)
   }
 
   def followRedirects(client: Client[IO], maxRedirects: Int): Client[IO] =

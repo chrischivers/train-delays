@@ -4,10 +4,9 @@ CREATE TABLE IF NOT EXISTS schedule (
   service_code    VARCHAR(10)   NOT NULL,
   atoc_code VARCHAR(10) NOT NULL,
   stop_sequence SMALLINT NOT NULL,
-  tiploc_code VARCHAR(10) NOT NULL,
-  subsequent_tip_loc_codes ARRAY NOT NULL,
+  stanox_code VARCHAR(10) NOT NULL,
+  subsequent_stanox_codes ARRAY NOT NULL,
   subsequent_arrival_times ARRAY NOT NULL,
-  stanox VARCHAR(10) NOT NULL,
   monday   BOOLEAN NOT NULL,
   tuesday   BOOLEAN NOT NULL,
   wednesday   BOOLEAN NOT NULL,
@@ -20,14 +19,15 @@ CREATE TABLE IF NOT EXISTS schedule (
   location_type VARCHAR(5) NOT NULL,
   arrival_time TIME NULL,
   departure_time TIME NULL,
-  CONSTRAINT unique_cons UNIQUE(schedule_train_id, service_code, tiploc_code, stop_sequence, schedule_start, schedule_end)
+  CONSTRAINT unique_cons UNIQUE(schedule_train_id, service_code, stanox_code, stop_sequence, schedule_start, schedule_end)
 );
 
-CREATE TABLE IF NOT EXISTS tiploc (
+CREATE TABLE IF NOT EXISTS stanox (
+  stanox_code VARCHAR(10) NOT NULL,
   tiploc_code VARCHAR(10) NOT NULL,
-  stanox VARCHAR(10) NOT NULL,
+  crs VARCHAR(10) NOT NULL,
   description VARCHAR(50) NULL,
-  PRIMARY KEY (tiploc_code)
+  PRIMARY KEY (stanox_code)
 );
 
 CREATE TABLE IF NOT EXISTS movement_log (
@@ -37,7 +37,7 @@ CREATE TABLE IF NOT EXISTS movement_log (
   service_code    VARCHAR(10)   NOT NULL,
   event_type VARCHAR(15) NOT NULL,
   toc VARCHAR(10) NOT NULL,
-  stanox VARCHAR(10) NOT NULL,
+  stanox_code VARCHAR(10) NOT NULL,
   planned_passenger_timestamp BIGINT NOT NULL,
   actual_timestamp BIGINT NOT NULL,
   difference BIGINT NOT NULL,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS cancellation_log (
   schedule_train_id VARCHAR(10) NOT NULL,
   service_code    VARCHAR(10)   NOT NULL,
   toc VARCHAR(10) NOT NULL,
-  stanox VARCHAR(10) NOT NULL,
+  stanox_code VARCHAR(10) NOT NULL,
   cancellation_type VARCHAR(10) NOT NULL,
   cancellation_reason_code VARCHAR(10) NULL
 );
@@ -61,5 +61,5 @@ CREATE TABLE IF NOT EXISTS subscribers (
   email VARCHAR NOT NULL,
   schedule_train_id     VARCHAR(10)    NOT NULL,
   service_code   VARCHAR(10)   NOT NULL,
-  stanox VARCHAR(10) NOT NULL
+  stanox_code VARCHAR(10) NOT NULL
 );

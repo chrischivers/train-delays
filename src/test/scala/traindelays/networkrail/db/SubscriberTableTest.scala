@@ -5,7 +5,7 @@ import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
-import traindelays.networkrail.{ServiceCode, Stanox}
+import traindelays.networkrail.{ServiceCode, StanoxCode}
 import traindelays.{DatabaseConfig, SubscribersConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -57,7 +57,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
       withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
         fixture.subscriberTable.subscriberRecordsFor(watchingRecord1.scheduleTrainId,
                                                      watchingRecord1.serviceCode,
-                                                     watchingRecord1.stanox)
+                                                     watchingRecord1.stanoxCode)
       }
 
     retrievedRecords should have size 1
@@ -96,7 +96,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
                           email: String = "test@test.com",
                           scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
                           serviceCode: ServiceCode = ServiceCode("24745000"),
-                          stanox: Stanox = Stanox("REDHILL")) =
-    SubscriberRecord(None, userId, email, scheduleTrainId, serviceCode, stanox)
+                          stanoxCode: StanoxCode = StanoxCode("REDHILL")) =
+    SubscriberRecord(None, userId, email, scheduleTrainId, serviceCode, stanoxCode)
 
 }

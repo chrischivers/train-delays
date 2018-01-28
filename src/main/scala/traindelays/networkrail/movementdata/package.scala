@@ -143,7 +143,7 @@ package object movementdata {
   case class TrainCancellationRecord(trainId: TrainId,
                                      trainServiceCode: ServiceCode,
                                      toc: TOC,
-                                     stanox: Stanox,
+                                     stanoxCode: StanoxCode,
                                      cancellationType: CancellationType,
                                      cancellationReasonCode: String)
       extends TrainMovements {
@@ -162,12 +162,12 @@ package object movementdata {
           trainId                <- bodyObject.downField("train_id").as[TrainId]
           trainServiceCode       <- bodyObject.downField("train_service_code").as[ServiceCode]
           toc                    <- bodyObject.downField("toc_id").as[TOC]
-          stanox                 <- bodyObject.downField("loc_stanox").as[Stanox]
+          stanoxCode             <- bodyObject.downField("loc_stanox").as[StanoxCode]
           cancellationType       <- bodyObject.downField("canx_type").as[CancellationType]
           cancellationReasonCode <- bodyObject.downField("canx_reason_code").as[String]
 
         } yield {
-          TrainCancellationRecord(trainId, trainServiceCode, toc, stanox, cancellationType, cancellationReasonCode)
+          TrainCancellationRecord(trainId, trainServiceCode, toc, stanoxCode, cancellationType, cancellationReasonCode)
         }
       }
     }
@@ -182,7 +182,7 @@ package object movementdata {
             scheduleTrainId,
             cancellationRec.trainServiceCode,
             cancellationRec.toc,
-            cancellationRec.stanox,
+            cancellationRec.stanoxCode,
             cancellationRec.cancellationType,
             cancellationRec.cancellationReasonCode
           )
@@ -198,7 +198,7 @@ package object movementdata {
                                  actualTimestamp: Long,
                                  plannedTimestamp: Long,
                                  plannedPassengerTimestamp: Option[Long],
-                                 stanox: Option[Stanox],
+                                 stanoxCode: Option[StanoxCode],
                                  variationStatus: Option[VariationStatus])
       extends TrainMovements {
 
@@ -231,10 +231,10 @@ package object movementdata {
             .downField("gbtt_timestamp")
             .as[Option[String]]
             .map(emptyStringOptionToNone(_)(_.toLong))
-          stanox <- bodyObject
+          stanoxCode <- bodyObject
             .downField("loc_stanox")
             .as[Option[String]]
-            .map(emptyStringOptionToNone(_)(Stanox(_)))
+            .map(emptyStringOptionToNone(_)(StanoxCode(_)))
           variationStatus <- bodyObject.downField("variation_status").as[Option[VariationStatus]]
 
         } yield {
@@ -245,7 +245,7 @@ package object movementdata {
                               actualTimestamp,
                               plannedTimestamp,
                               plannedPassengerTimestamp,
-                              stanox,
+                              stanoxCode,
                               variationStatus)
         }
       }
@@ -261,7 +261,7 @@ package object movementdata {
                                             cache: TrainActivationCache): IO[Option[MovementLog]] =
       cache.getFromCache(movementRec.trainId).map { scheduleTrainIdOpt =>
         for {
-          stanox                    <- movementRec.stanox
+          stanoxCode                <- movementRec.stanoxCode
           plannedPassengerTimestamp <- movementRec.plannedPassengerTimestamp
           variationStatus           <- movementRec.variationStatus
           scheduleTrainId           <- scheduleTrainIdOpt
@@ -273,7 +273,7 @@ package object movementdata {
             movementRec.trainServiceCode,
             movementRec.eventType,
             movementRec.toc,
-            stanox,
+            stanoxCode,
             plannedPassengerTimestamp,
             movementRec.actualTimestamp,
             movementRec.actualTimestamp - plannedPassengerTimestamp,
@@ -289,7 +289,7 @@ package object movementdata {
                          serviceCode: ServiceCode,
                          eventType: EventType,
                          toc: TOC,
-                         stanox: Stanox,
+                         stanoxCode: StanoxCode,
                          plannedPassengerTimestamp: Long,
                          actualTimestamp: Long,
                          difference: Long,
@@ -300,7 +300,7 @@ package object movementdata {
                              scheduleTrainId: ScheduleTrainId,
                              serviceCode: ServiceCode,
                              toc: TOC,
-                             stanox: Stanox,
+                             stanoxCode: StanoxCode,
                              cancellationType: CancellationType,
                              cancellationReasonCode: String)
 

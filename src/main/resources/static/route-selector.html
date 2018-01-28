@@ -2,8 +2,10 @@
 <head>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="https://cdn.datatables.net/1.10.16/css/dataTables.bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css" rel="stylesheet"/>
     <link href="/route-selector.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.10.16/js/dataTables.bootstrap.min.js"></script>
@@ -13,15 +15,16 @@
 
 <div class="col-md-12">
     <form id="route-selector-form">
-        <datalist id="tiploc-codes"></datalist>
         <div class="col-md-6 form-group">
             <label for="fromStation">Traveling From</label>
-            <input type="text" name="fromStation" id="fromStation" class="form-control" list="tiploc-codes"/>
+            <input type="text" id="fromStation" class="form-control" autocomplete="off"/>
+            <input  type="text" name= "fromStationStanox" id="fromStationStanox"/>
         </div>
 
         <div class="col-md-6 form-group">
             <label for="toStation">Traveling To</label>
-            <input type="text" name="toStation" id="toStation" class="form-control" list="tiploc-codes"/>
+            <input type="text" id="toStation" class="form-control" autocomplete="off"/>
+            <input  type="text" name= "toStationStanox" id="toStationStanox"/>
         </div>
         <div class="col-md-12 form-group">
             <label class="radio-inline"><input type="radio" id="weekdays" name="weekdaysSatSun" value="weekdays" checked>Weekdays</label>
@@ -43,8 +46,9 @@
 <script>
 
     var dataTable;
+    var stations = [];
 
-    $(document).ready(function () {
+    function setUpDataTable() {
         dataTable = $('#query-results').DataTable({
             columns: [
                 {title: "TrainId"},
@@ -69,20 +73,37 @@
                 }
             ]
         });
+    }
 
+    function getStationDataList() {
         $.ajax({
             type: "GET",
-            url: "tiploc-codes",
+            url: "stations",
             success: function (data) {
-                var dataList = document.getElementById('tiploc-codes');
-                var options = JSON.parse(data);
-                options.forEach(function (item) {
-                    var option = document.createElement('option');
-                    option.value = item;
-                    dataList.appendChild(option);
+                stations = JSON.parse(data);
+                $( "#fromStation" ).autocomplete({
+                    source: stations,
+                    select: function (event, ui) {
+                        $( "#fromStation" ).val( ui.item.value );
+                        $( "#fromStationStanox" ).val( ui.item.key );
+                        return false;
+                    }
+                });
+                $( "#toStation" ).autocomplete({
+                    source: stations,
+                    select: function (event, ui) {
+                        $( "#toStation" ).val( ui.item.value );
+                        $( "#toStationStanox" ).val( ui.item.key );
+                        return false;
+                    }
                 });
             }
         });
+    }
+
+    $(document).ready(function () {
+        setUpDataTable();
+        getStationDataList();
 
 
         $(function () {
@@ -101,14 +122,14 @@
                                 var scheduleTrainId = json[i].scheduleTrainId.value;
                                 var atocCode = json[i].atocCode.value;
                                 var tocName = json[i].tocName;
-                                var fromTiplocCode = json[i].fromTipLocCode.value;
+                                var fromStanoxCode = json[i].fromStanoxCode.value;
                                 var departureTime = json[i].departureTime;
-                                var toTipLocCode = json[i].toTipLocCode.value;
+                                var toStanoxCode = json[i].toStanoxCode.value;
                                 var arrivalTime = json[i].arrivalTime;
                                 var daysRunPattern = json[i].daysRunPattern;
                                 var scheduleStart = json[i].scheduleStart;
                                 var scheduleEnd = json[i].scheduleEnd;
-                                var row = [scheduleTrainId, atocCode, tocName, fromTiplocCode, toTipLocCode, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
+                                var row = [scheduleTrainId, atocCode, tocName, fromStanoxCode, toStanoxCode, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
                                 rowArray.push(row);
                             }
 

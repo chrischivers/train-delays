@@ -10,8 +10,7 @@ import io.circe.Decoder.Result
 import io.circe.{Decoder, DecodingFailure, Encoder, HCursor, Json}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.db.TipLocTable
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 
 package object scheduledata {
@@ -54,11 +53,11 @@ package object scheduledata {
                             scheduleEndDate: LocalDate,
                             locationRecords: List[ScheduleLocationRecord]) {
 
-    def toScheduleLogs(tipLocTable: TipLocTable): IO[List[ScheduleLog]] =
-      ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocTable)
+//    def toScheduleLogs(tipLocTable: TipLocTable): IO[List[ScheduleLog]] =
+//      ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocTable)
 
-    def toScheduleLogs(tipLocRecords: List[TipLocRecord]): List[ScheduleLog] =
-      ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocRecords)
+    def toScheduleLogs(stanoxRecords: List[StanoxRecord]): List[ScheduleLog] =
+      ScheduleRecord.scheduleRecordToScheduleLogs(this, stanoxRecords)
   }
 
   object ScheduleRecord {
@@ -80,70 +79,52 @@ package object scheduledata {
     }
 
     def scheduleRecordToScheduleLogs(scheduleRecord: ScheduleRecord,
-                                     tipLocTable: TipLocTable): IO[List[ScheduleLog]] = {
-      val locationRecordsWithIndex = scheduleRecord.locationRecords.zipWithIndex
-      locationRecordsWithIndex
-        .map {
-          case (locationRecord, index) =>
-            tipLocTable.tipLocRecordFor(locationRecord.tiplocCode).map { tipLocRecordOpt =>
-              tipLocRecordOpt.flatMap { tipLocRecord =>
-                scheduleRecord.daysRun.toDaysRunPattern.map { daysRunPattern =>
-                  {
-                    val (subsequentTipLocCodes, subsequentArrivalTimes) =
-                      subsequentTipLocCodesAndArrivalTimes(locationRecordsWithIndex, index).unzip
-                    createScheduleLogFrom(scheduleRecord,
-                                          index,
-                                          locationRecord,
-                                          tipLocRecord,
-                                          subsequentTipLocCodes,
-                                          subsequentArrivalTimes,
-                                          daysRunPattern)
-                  }
-                }
-              }
-            }
-        }
-        .sequence[IO, Option[ScheduleLog]]
-        .map(_.flatten)
-    }
-
-    def scheduleRecordToScheduleLogs(scheduleRecord: ScheduleRecord,
-                                     tipLocRecords: List[TipLocRecord]): List[ScheduleLog] = {
+                                     stanoxRecords: List[StanoxRecord]): List[ScheduleLog] = {
       val locationRecordsWithIndex = scheduleRecord.locationRecords.zipWithIndex
       locationRecordsWithIndex.flatMap {
         case (locationRecord, index) =>
-          tipLocRecords.find(rec => rec.tipLocCode == locationRecord.tiplocCode).flatMap { tipLocRecord =>
-            scheduleRecord.daysRun.toDaysRunPattern.map { daysRunPattern =>
-              {
-                val (subsequentTipLocCodes, subsequentArrivalTimes) =
-                  subsequentTipLocCodesAndArrivalTimes(locationRecordsWithIndex, index).unzip
-                createScheduleLogFrom(scheduleRecord,
-                                      index,
-                                      locationRecord,
-                                      tipLocRecord,
-                                      subsequentTipLocCodes,
-                                      subsequentArrivalTimes,
-                                      daysRunPattern)
-              }
+          stanoxRecords
+            .find(rec => rec.tipLocCode == locationRecord.tipLocCode)
+            .flatMap { stanoxRecord =>
+              scheduleRecord.daysRun.toDaysRunPattern.map { daysRunPattern =>
+                {
+                  val (subsequentStanoxCodes, subsequentArrivalTimes) =
+                    subsequentStanoxCodesAndArrivalTimes(locationRecordsWithIndex, index, stanoxRecords).unzip
+                  createScheduleLogFrom(scheduleRecord,
+                                        index,
+                                        locationRecord,
+                                        stanoxRecord,
+                                        subsequentStanoxCodes,
+                                        subsequentArrivalTimes,
+                                        daysRunPattern)
+                }
 
+              }
             }
-          }
       }
     }
 
-    private def subsequentTipLocCodesAndArrivalTimes(locationRecordsWithIndex: List[(ScheduleLocationRecord, Int)],
-                                                     index: Int): List[(TipLocCode, LocalTime)] =
+    private def subsequentStanoxCodesAndArrivalTimes(
+        locationRecordsWithIndex: List[(ScheduleLocationRecord, Int)],
+        index: Int,
+        existingStanoxRecords: List[StanoxRecord]): List[(StanoxCode, LocalTime)] =
       locationRecordsWithIndex
         .dropWhile(_._2 < index + 1)
-        .map(x =>
-          x._1.tiplocCode -> x._1.arrivalTime.getOrElse(throw new IllegalStateException(
-            "Arrival time optional for subsequent stops"))) //TODO do this in a better way
+        .map {
+          case (scheduleLocationRecord, _) =>
+            val stanoxRecord = existingStanoxRecords.find(_.tipLocCode == scheduleLocationRecord.tipLocCode)
+            stanoxRecord
+              .getOrElse(throw new IllegalStateException(
+                s"Unable to find stanox record for tiplocCode ${scheduleLocationRecord.tipLocCode}")) //TODO do this in a better way
+              .stanoxCode -> scheduleLocationRecord.arrivalTime.getOrElse(throw new IllegalStateException(
+              "Arrival time optional for subsequent stops")) //TODO do this in a better way
+        }
 
     private def createScheduleLogFrom(scheduleRecord: ScheduleRecord,
                                       index: Int,
                                       locationRecord: ScheduleLocationRecord,
-                                      tipLocRecord: TipLocRecord,
-                                      subsequentTipLocCodes: List[TipLocCode],
+                                      stanoxRecord: StanoxRecord,
+                                      subsequentStanoxCodes: List[StanoxCode],
                                       subsequentArrivalTimes: List[LocalTime],
                                       daysRunPattern: DaysRunPattern) =
       ScheduleLog(
@@ -152,10 +133,9 @@ package object scheduledata {
         scheduleRecord.trainServiceCode,
         scheduleRecord.atocCode,
         index + 1,
-        locationRecord.tiplocCode,
-        subsequentTipLocCodes,
+        stanoxRecord.stanoxCode,
+        subsequentStanoxCodes,
         subsequentArrivalTimes,
-        tipLocRecord.stanox,
         scheduleRecord.daysRun.monday,
         scheduleRecord.daysRun.tuesday,
         scheduleRecord.daysRun.wednesday,
@@ -206,27 +186,11 @@ package object scheduledata {
     }
 
     case class ScheduleLocationRecord(locationType: LocationType,
-                                      tiplocCode: TipLocCode,
+                                      tipLocCode: TipLocCode,
                                       arrivalTime: Option[LocalTime],
                                       departureTime: Option[LocalTime])
 
     object ScheduleLocationRecord {
-
-      case class TipLocCode(value: String)
-      object TipLocCode {
-
-        import doobie.postgres.implicits._
-        import io.circe.generic.semiauto._
-
-        implicit val decoder: Decoder[TipLocCode] = Decoder.decodeString.map(TipLocCode(_))
-        implicit val encoder: Encoder[TipLocCode] = deriveEncoder[TipLocCode]
-
-        implicit val meta: Meta[TipLocCode] =
-          Meta[String].xmap(TipLocCode(_), _.value)
-
-        implicit val metaList: Meta[List[TipLocCode]] =
-          Meta[List[String]].xmap(_.map(TipLocCode(_)), _.map(_.value))
-      }
 
       sealed trait LocationType {
         val string: String
@@ -297,38 +261,41 @@ package object scheduledata {
           Right(DaysRun(boolVec(0), boolVec(1), boolVec(2), boolVec(3), boolVec(4), boolVec(5), boolVec(6)))
         } else Left(DecodingFailure.apply(s"Unable to decode DaysRun string $daysRun", List.empty))
     }
-
   }
 
-  case class TipLocRecord(tipLocCode: TipLocCode, stanox: Stanox, crs: CRS, description: Option[String])
+  case class StanoxRecord(stanoxCode: StanoxCode, tipLocCode: TipLocCode, crs: CRS, description: Option[String])
 
-  object TipLocRecord {
+  object StanoxRecord {
 
-    implicit case object JsonFilter extends JsonFilter[TipLocRecord] {
+    implicit case object JsonFilter extends JsonFilter[StanoxRecord] {
       override implicit val jsonFilter: Json => Boolean = json =>
-        json.hcursor.downField("TiplocV1").downField("crs_code").as[String].isRight &&
-          json.hcursor.downField("TiplocV1").downField("stanox").as[String].isRight
+        json.hcursor.downField("TiplocV1").downField("stanox").as[String].isRight &&
+          json.hcursor.downField("TiplocV1").downField("crs_code").as[String].isRight
     }
 
-    implicit case object TipLocTransformer extends Transformer[TipLocRecord] {
-      override implicit val transform: Pipe[IO, TipLocRecord, TipLocRecord] = identity
+    implicit case object StanoxRecordTransformer extends Transformer[StanoxRecord] {
+      override implicit val transform: Pipe[IO, StanoxRecord, StanoxRecord] = identity
     }
 
-    implicit val tipLocDecoder: Decoder[TipLocRecord] {
-      def apply(c: HCursor): Result[TipLocRecord]
-    } = new Decoder[TipLocRecord] {
+    import io.circe.generic.semiauto._
+    implicit val stanoxRecordEncoder: Encoder[StanoxRecord] = deriveEncoder[StanoxRecord]
 
-      override def apply(c: HCursor): Result[TipLocRecord] = {
+    implicit val stanoxRecordDecoder: Decoder[StanoxRecord] {
+      def apply(c: HCursor): Result[StanoxRecord]
+    } = new Decoder[StanoxRecord] {
+
+      override def apply(c: HCursor): Result[StanoxRecord] = {
         val tipLocObject = c.downField("TiplocV1")
         for {
+          stanoxCode  <- tipLocObject.downField("stanox").as[StanoxCode]
           tipLocCode  <- tipLocObject.downField("tiploc_code").as[TipLocCode]
-          stanox      <- tipLocObject.downField("stanox").as[Stanox]
           crs         <- tipLocObject.downField("crs_code").as[CRS]
           description <- tipLocObject.downField("tps_description").as[Option[String]]
         } yield {
-          TipLocRecord(tipLocCode, stanox, crs, description)
+          StanoxRecord(stanoxCode, tipLocCode, crs, description)
         }
       }
     }
   }
+
 }

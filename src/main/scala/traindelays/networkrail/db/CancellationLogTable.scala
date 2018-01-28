@@ -13,14 +13,14 @@ object CancellationLogTable {
   def addCancellationLogRecord(record: CancellationLog): Update0 =
     sql"""
       INSERT INTO cancellation_log
-      (train_id, schedule_train_id, service_code, toc, stanox, cancellation_type, cancellation_reason_code)
-      VALUES(${record.trainId}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.toc}, ${record.stanox},
+      (train_id, schedule_train_id, service_code, toc, stanox_code, cancellation_type, cancellation_reason_code)
+      VALUES(${record.trainId}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.toc}, ${record.stanoxCode},
       ${record.cancellationType}, ${record.cancellationReasonCode})
      """.update
 
   def allCancellationLogRecords(): Query0[CancellationLog] =
     sql"""
-      SELECT id, train_id, schedule_train_id, service_code, toc, stanox, cancellation_type, cancellation_reason_code
+      SELECT id, train_id, schedule_train_id, service_code, toc, stanox_code, cancellation_type, cancellation_reason_code
       from cancellation_log
       """.query[CancellationLog]
 

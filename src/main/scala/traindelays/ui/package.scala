@@ -5,8 +5,7 @@ import java.time.{LocalDate, LocalTime}
 import io.circe.Encoder
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.{ServiceCode, Stanox}
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
+import traindelays.networkrail.{ServiceCode, StanoxCode}
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
 import io.circe.generic.semiauto._
 import traindelays.networkrail.tocs.tocs
@@ -16,9 +15,9 @@ package object ui {
   case class ScheduleQueryResponse(scheduleTrainId: ScheduleTrainId,
                                    atocCode: AtocCode,
                                    tocName: String,
-                                   fromTipLocCode: TipLocCode,
+                                   fromStanoxCode: StanoxCode,
                                    departureTime: LocalTime,
-                                   toTipLocCode: TipLocCode,
+                                   toStanoxCode: StanoxCode,
                                    arrivalTime: LocalTime,
                                    daysRunPattern: DaysRunPattern,
                                    scheduleStart: LocalDate,
@@ -31,12 +30,12 @@ package object ui {
   }
 
   //TODO test this
-  def queryResponsesFrom(scheduleLogs: List[ScheduleLog], toTipLocCode: TipLocCode): List[ScheduleQueryResponse] =
+  def queryResponsesFrom(scheduleLogs: List[ScheduleLog], toStanoxCode: StanoxCode): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
         departureTime <- log.departureTime
         tocName       <- tocs.mapping.get(log.atocCode)
-        indexOfArrivalStopOpt = log.subsequentTipLocCodes.indexWhere(_ == toTipLocCode)
+        indexOfArrivalStopOpt = log.subsequentStanoxCodes.indexWhere(_ == toStanoxCode)
         indexOfArrivalStop <- if (indexOfArrivalStopOpt == -1) None else Some(indexOfArrivalStopOpt)
         arrivalTime = log.subsequentArrivalTimes(indexOfArrivalStop)
       } yield {
@@ -44,9 +43,9 @@ package object ui {
           log.scheduleTrainId,
           log.atocCode,
           tocName,
-          log.tiplocCode,
+          log.stanoxCode,
           departureTime,
-          toTipLocCode,
+          toStanoxCode,
           arrivalTime,
           log.daysRunPattern,
           log.scheduleStart,

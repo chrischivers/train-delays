@@ -56,7 +56,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
       createActivationRecord(trainId = TrainId("ABCDE"), scheduleTrainId = ScheduleTrainId("98765"))
     val activationRecord2 =
       createActivationRecord(trainId = TrainId("FGHIJ"), scheduleTrainId = ScheduleTrainId("54321"))
-    val movementRecord1 = createMovementRecord(stanox = None, trainId = activationRecord1.trainId)
+    val movementRecord1 = createMovementRecord(stanoxCode = None, trainId = activationRecord1.trainId)
     val movementRecord2 = createMovementRecord(trainId = activationRecord2.trainId)
     withInitialState(config)() { fixture =>
       withQueues

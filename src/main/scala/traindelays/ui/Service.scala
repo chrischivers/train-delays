@@ -2,29 +2,35 @@ package traindelays.ui
 
 import _root_.cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
+import io.circe.Json
 import io.circe.syntax._
 import org.http4s.dsl.io._
 import org.http4s.{HttpService, Request, StaticFile, UrlForm}
-import traindelays.networkrail.db.ScheduleTable
+import traindelays.networkrail.db.{ScheduleTable, StanoxTable}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import org.http4s.circe._
+import traindelays.networkrail.{StanoxCode, TipLocCode}
+import traindelays.networkrail.scheduledata.StanoxRecord
 
 object Service extends StrictLogging {
 
-  def apply(scheduleTable: ScheduleTable) = HttpService[IO] {
+  def apply(scheduleTable: ScheduleTable, stanoxTable: StanoxTable) = HttpService[IO] {
     case request @ GET -> Root / path if List(".js", ".css", ".html").exists(path.endsWith) =>
       static(path, request)
 
-    case request @ GET -> Root / "tiploc-codes" =>
-      Ok(scheduleTable.retrieveDistinctTipLocCodes().map(_.map(_.value).asJson.noSpaces))
+    case request @ GET -> Root / "stations" =>
+      Ok(
+        stanoxTable
+          .retrieveAllRecords()
+          //TODO filter out those not in schedule table?
+          .map(stanoxRecords => jsonStationsFrom(stanoxRecords).noSpaces))
 
     case request @ POST -> Root / "schedule-query" =>
       request.decode[UrlForm] { m =>
         println(m.values)
         val result: Option[IO[List[ScheduleQueryResponse]]] = for {
-          fromStation    <- m.getFirst("fromStation").map(str => TipLocCode(str.toUpperCase()))
-          toStation      <- m.getFirst("toStation").map(str => TipLocCode(str.toUpperCase()))
+          fromStation    <- m.getFirst("fromStationStanox").map(str => StanoxCode(str))
+          toStation      <- m.getFirst("toStationStanox").map(str => StanoxCode(str))
           weekdaysSatSun <- m.getFirst("weekdaysSatSun").flatMap(DaysRunPattern.fromString)
         } yield {
           //TODO check if tiploc valid?
@@ -51,4 +57,10 @@ object Service extends StrictLogging {
       StaticFile.fromResource(s"/static/$prefix" + file, Some(request)).getOrElseF(NotFound())
     }
   }
+
+  private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]) =
+    Json.arr(
+      stanoxRecords.map(rec =>
+        Json.obj("key"   -> Json.fromString(rec.stanoxCode.value),
+                 "value" -> Json.fromString(s"${rec.description.getOrElse("")} [${rec.crs.value}]"))): _*)
 }

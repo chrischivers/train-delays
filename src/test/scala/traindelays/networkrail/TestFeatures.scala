@@ -1,6 +1,6 @@
 package traindelays
 
-import java.nio.file.{Path, Paths}
+import java.nio.file.Paths
 import java.time.{LocalDate, LocalTime}
 
 import akka.actor.ActorSystem
@@ -12,17 +12,17 @@ import org.scalatest.Matchers.fail
 import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, TipLocTable, _}
+import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, _}
 import traindelays.networkrail.movementdata._
+import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType.{
   OriginatingLocation,
   TerminatingLocation
 }
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.{LocationType, TipLocCode}
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers.SubscriberRecord
-import traindelays.networkrail.{ServiceCode, Stanox, TOC}
+import traindelays.networkrail.{ServiceCode, StanoxCode, TOC, TipLocCode}
 
 import scala.concurrent.ExecutionContext
 import scala.util.Random
@@ -39,7 +39,7 @@ trait TestFeatures {
     def clean: IO[Unit] =
       for {
         _ <- sql"DELETE FROM schedule".update.run.transact(db)
-        _ <- sql"DELETE FROM tiploc".update.run.transact(db)
+        _ <- sql"DELETE FROM stanox".update.run.transact(db)
         _ <- sql"DELETE FROM movement_log".update.run.transact(db)
         _ <- sql"DELETE FROM subscribers".update.run.transact(db)
         _ <- sql"DELETE FROM cancellation_log".update.run.transact(db)
@@ -47,7 +47,7 @@ trait TestFeatures {
   }
 
   case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
-                             tiplocRecords: List[TipLocRecord] = List.empty,
+                             stanoxRecords: List[StanoxRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
                              subscriberRecords: List[SubscriberRecord] = List.empty,
                              cancellationLogs: List[CancellationLog] = List.empty)
@@ -57,7 +57,7 @@ trait TestFeatures {
   }
 
   case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
-                                    tipLocTable: TipLocTable,
+                                    stanoxTable: StanoxTable,
                                     movementLogTable: MovementLogTable,
                                     cancellationLogTable: CancellationLogTable,
                                     subscriberTable: SubscriberTable,
@@ -104,14 +104,14 @@ trait TestFeatures {
     withDatabase(databaseConfig) { db =>
       val redisClient          = MockRedisClient()
       val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
-      val tipLocTable          = TipLocTable(db, scheduleDataConfig.memoizeFor)
+      val stanoxTable          = StanoxTable(db, scheduleDataConfig.memoizeFor)
 
       for {
         _ <- db.clean
-        _ <- initState.tiplocRecords
+        _ <- initState.stanoxRecords
           .map(record => {
-            TipLocTable
-              .addTiplocRecord(record)
+            StanoxTable
+              .addStanoxRecord(record)
               .run
               .transact(db)
           })
@@ -119,8 +119,10 @@ trait TestFeatures {
 
         _ <- initState.scheduleRecords
           .map(record => {
-            record.toScheduleLogs(tipLocTable).flatMap { scheduleLogs =>
-              scheduleLogs
+            for {
+              existingStanoxRecords <- stanoxTable.retrieveAllRecords()
+              x <- record
+                .toScheduleLogs(existingStanoxRecords)
                 .map { scheduleLog =>
                   ScheduleTable
                     .addScheduleLogRecord(scheduleLog)
@@ -128,11 +130,12 @@ trait TestFeatures {
                     .transact(db)
                 }
                 .sequence[IO, Int]
-            }
+
+            } yield x
           })
           .sequence[IO, List[Int]]
 
-        _ <- initState.movementLogs
+        z <- initState.movementLogs
           .map(record => {
             MovementLogTable
               .addMovementLogRecord(record)
@@ -161,7 +164,7 @@ trait TestFeatures {
         result <- f(
           TrainDelaysTestFixture(
             ScheduleTable(db, scheduleDataConfig.memoizeFor),
-            tipLocTable,
+            stanoxTable,
             MovementLogTable(db),
             CancellationLogTable(db),
             SubscriberTable(db, subscribersConfig.memoizeFor),
@@ -177,7 +180,7 @@ trait TestFeatures {
                            actualTimestamp: Long = System.currentTimeMillis(),
                            plannedTimestamp: Long = System.currentTimeMillis() - 60000,
                            plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           stanox: Option[Stanox] = Some(Stanox("REDHILL")),
+                           stanoxCode: Option[StanoxCode] = Some(StanoxCode("REDHILL")),
                            variationStatus: Option[VariationStatus] = Some(Late)) =
     TrainMovementRecord(
       trainId,
@@ -187,21 +190,21 @@ trait TestFeatures {
       actualTimestamp,
       plannedTimestamp,
       plannedPassengerTimestamp,
-      stanox,
+      stanoxCode,
       variationStatus
     )
 
   def createCancellationRecord(trainId: TrainId = TrainId("12345"),
                                trainServiceCode: ServiceCode = ServiceCode("23456"),
                                toc: TOC = TOC("SN"),
-                               stanox: Stanox = Stanox("REDHILL"),
+                               stanoxCode: StanoxCode = StanoxCode("REDHILL"),
                                cancellationType: CancellationType = EnRoute,
                                cancellationReasonCode: String = "YI") =
     TrainCancellationRecord(
       trainId,
       trainServiceCode,
       toc,
-      stanox,
+      stanoxCode,
       cancellationType,
       cancellationReasonCode
     )
@@ -226,7 +229,7 @@ trait TestFeatures {
       movementRecord.trainServiceCode,
       movementRecord.eventType,
       movementRecord.toc,
-      movementRecord.stanox.get,
+      movementRecord.stanoxCode.get,
       movementRecord.plannedPassengerTimestamp.get,
       movementRecord.actualTimestamp,
       movementRecord.actualTimestamp - movementRecord.plannedPassengerTimestamp.get,
@@ -242,7 +245,7 @@ trait TestFeatures {
       scheduleTrainId,
       cancellationRecord.trainServiceCode,
       cancellationRecord.toc,
-      cancellationRecord.stanox,
+      cancellationRecord.stanoxCode,
       cancellationRecord.cancellationType,
       cancellationRecord.cancellationReasonCode
     )
@@ -291,12 +294,10 @@ trait TestFeatures {
                               sunday: Boolean = false,
                               daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
                               index: Int = 1,
-                              tipLocCode: TipLocCode = TipLocCode("REIGATE"),
-                              subsequentTipLocCodes: List[TipLocCode] =
-                                List(TipLocCode("EASTCRYDON"), TipLocCode("LBRIDGE")),
+                              stanoxCode: StanoxCode = StanoxCode("12345"),
+                              subsequentStanoxCodes: List[StanoxCode] = List(StanoxCode("23456"), StanoxCode("34567")),
                               subsequentArrivalTimes: List[LocalTime] =
                                 List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
-                              stanox: Stanox = Stanox("REIGATE"),
                               scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
                               scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
                               locationType: LocationType = OriginatingLocation,
@@ -308,10 +309,9 @@ trait TestFeatures {
       trainServiceCode,
       atocCode,
       index,
-      tipLocCode,
-      subsequentTipLocCodes,
+      stanoxCode,
+      subsequentStanoxCodes,
       subsequentArrivalTimes,
-      stanox,
       monday,
       tuesday,
       wednesday,

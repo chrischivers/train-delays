@@ -9,9 +9,8 @@ import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType._
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.TipLocCode
 import traindelays.networkrail.scheduledata._
-import traindelays.networkrail.{CRS, Stanox}
+import traindelays.networkrail.{CRS, StanoxCode, TipLocCode}
 import traindelays.{DatabaseConfig, ScheduleDataConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -49,21 +48,22 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     retrievedRecords.head shouldBe scheduleLogRecord.copy(id = Some(1))
   }
 
-  it should "insert and retrieve an inserted schedule record from the database" in {
+  it should "insert a schedule record and retrieve a schedule log record from the database" in {
 
     val scheduleRecord = createScheduleRecord()
 
     val retrievedRecords = withInitialState(config)(
       AppInitialState(
-        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
-                             TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)),
+        stanoxRecords = List(StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
+                             StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
-      fixture.scheduleTable.retrieveAllScheduleRecords()
+      fixture.scheduleTable.retrieveAllRecords()
     }
 
-    retrievedRecords should have size 1
-    retrievedRecords.head shouldBe scheduleRecord
+    retrievedRecords should have size 2
+    retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
+    retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
   }
 
   it should "memoize retrieval of an inserted record from the database" in {
@@ -76,25 +76,25 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                      scheduleDataConfig =
                        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
       AppInitialState(
-        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("1234"), CRS("REI"), None),
-                             TipLocRecord(TipLocCode("REDHILL"), Stanox("4567"), CRS("RED"), None)),
+        stanoxRecords = List(StanoxRecord(StanoxCode("1234"), TipLocCode("REIGATE"), CRS("REI"), None),
+                             StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), CRS("RED"), None)),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       IO {
-        val retrievedRecords1 = fixture.scheduleTable.retrieveAllScheduleRecords().unsafeRunSync()
+        val retrievedRecords1 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
 
-        retrievedRecords1 should have size 1
-        retrievedRecords1.head shouldBe scheduleRecord
+        retrievedRecords1 should have size 2
+        retrievedRecords1.head.stanoxCode shouldBe StanoxCode("1234")
+        retrievedRecords1(1).stanoxCode shouldBe StanoxCode("4567")
 
         fixture.scheduleTable.deleteAllRecords().unsafeRunSync()
 
-        val retrievedRecords2 = fixture.scheduleTable.retrieveAllScheduleRecords().unsafeRunSync()
-        retrievedRecords2 should have size 1
-        retrievedRecords2.head shouldBe scheduleRecord
+        val retrievedRecords2 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+        retrievedRecords2 should have size 2
 
         Thread.sleep(2000)
 
-        val retrievedRecords3 = fixture.scheduleTable.retrieveAllScheduleRecords().unsafeRunSync()
+        val retrievedRecords3 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
         retrievedRecords3 should have size 0
       }
     }
@@ -106,8 +106,8 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val retrievedRecords = withInitialState(config)(
       AppInitialState(
-        tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
-                             TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)),
+        stanoxRecords = List(StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
+                             StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       for {
@@ -127,16 +127,18 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val retrievedRecords =
       withInitialState(config)(
         AppInitialState(
-          tiplocRecords = List(TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
-                               TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)),
+          stanoxRecords = List(StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
+                               StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)),
           scheduleRecords = List(scheduleRecord1, scheduleRecord2)
         )) { fixture =>
-        fixture.scheduleTable.retrieveAllScheduleRecords()
+        fixture.scheduleTable.retrieveAllRecords()
       }
 
-    retrievedRecords should have size 2
-    retrievedRecords.head shouldBe scheduleRecord1
-    retrievedRecords(1) shouldBe scheduleRecord2
+    retrievedRecords should have size 4
+    retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
+    retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
+    retrievedRecords(2).stanoxCode shouldBe StanoxCode("12345")
+    retrievedRecords(3).stanoxCode shouldBe StanoxCode("23456")
   }
 
   it should "preserve order of location records when retrieved from DB" in {
@@ -159,46 +161,20 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val retrievedRecords =
       withInitialState(config)(
         AppInitialState(
-          tiplocRecords = List(
-            TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
-            TipLocRecord(TipLocCode("MERSTHAM"), Stanox("3456"), CRS("MER"), None),
-            TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None)
+          stanoxRecords = List(
+            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
+            StanoxRecord(StanoxCode("3456"), TipLocCode("MERSTHAM"), CRS("MER"), None),
+            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)
           ),
           scheduleRecords = List(scheduleRecord)
         )) { fixture =>
-        fixture.scheduleTable.retrieveAllScheduleRecords()
+        fixture.scheduleTable.retrieveAllRecords()
       }
 
-    retrievedRecords should have size 1
-    retrievedRecords.head shouldBe scheduleRecord
-
-  }
-
-  it should "retrieve distinct tip loc codes from the database (which are memoized)" in {
-
-    val scheduleRecord1 = createScheduleRecord(scheduleTrainId = ScheduleTrainId("123456"))
-    val scheduleRecord2 = createScheduleRecord(scheduleTrainId = ScheduleTrainId("234567"))
-
-    withInitialState(config)(
-      AppInitialState(
-        tiplocRecords = List(
-          TipLocRecord(TipLocCode("REIGATE"), Stanox("12345"), CRS("REI"), None),
-          TipLocRecord(TipLocCode("REDHILL"), Stanox("23456"), CRS("RED"), None),
-          TipLocRecord(TipLocCode("MERSTHAM"), Stanox("34566"), CRS("MER"), None)
-        ),
-        scheduleRecords = List(scheduleRecord1, scheduleRecord2)
-      )) { fixture =>
-      IO {
-        val retrievedRecords1 = fixture.scheduleTable.retrieveDistinctTipLocCodes().unsafeRunSync()
-        retrievedRecords1 should have size 2
-        retrievedRecords1 shouldBe List(TipLocCode("REDHILL"), TipLocCode("REIGATE"))
-
-        fixture.scheduleTable.deleteAllRecords().unsafeRunSync()
-
-        val retrievedRecords2 = fixture.scheduleTable.retrieveDistinctTipLocCodes().unsafeRunSync()
-        retrievedRecords2 should have size 2
-      }
-    }
+    retrievedRecords should have size 3
+    retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
+    retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
+    retrievedRecords(2).stanoxCode shouldBe StanoxCode("3456")
 
   }
 
