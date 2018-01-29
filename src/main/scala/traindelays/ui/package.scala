@@ -1,34 +1,45 @@
 package traindelays
 
-import java.time.{LocalDate, LocalTime}
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
-import io.circe.Encoder
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto._
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.{CRS, ServiceCode, StanoxCode}
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId, StanoxRecord}
-import io.circe.generic.semiauto._
+import traindelays.networkrail.subscribers.UserId
 import traindelays.networkrail.tocs.tocs
+import traindelays.networkrail.{CRS, StanoxCode}
 
 package object ui {
 
-  case class ScheduleQueryResponse(scheduleTrainId: ScheduleTrainId,
+  val dateFormatter = DateTimeFormatter.ofPattern("dd-MMM-yyyy")
+  val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+  case class ScheduleQueryResponse(id: Int,
+                                   scheduleTrainId: ScheduleTrainId,
                                    atocCode: AtocCode,
                                    tocName: String,
                                    fromStanoxCode: StanoxCode,
                                    fromCRS: CRS,
-                                   departureTime: LocalTime,
+                                   departureTime: String,
                                    toStanoxCode: StanoxCode,
                                    toCRS: CRS,
-                                   arrivalTime: LocalTime,
+                                   arrivalTime: String,
                                    daysRunPattern: DaysRunPattern,
-                                   scheduleStart: LocalDate,
-                                   scheduleEnd: LocalDate)
+                                   scheduleStart: String,
+                                   scheduleEnd: String)
 
   object ScheduleQueryResponse {
-
-    import io.circe.java8.time._
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
+  }
+
+  case class SubscribeRequest(id: Int, userId: String)
+
+  object SubscribeRequest {
+    implicit val decoder: Decoder[SubscribeRequest] = deriveDecoder[SubscribeRequest]
+    implicit val encoder: Encoder[SubscribeRequest] = deriveEncoder[SubscribeRequest]
   }
 
   //TODO test this
@@ -37,6 +48,7 @@ package object ui {
                          stanoxRecords: List[StanoxRecord]): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
+        id            <- log.id
         departureTime <- log.departureTime
         tocName       <- tocs.mapping.get(log.atocCode)
         indexOfArrivalStopOpt = log.subsequentStanoxCodes.indexWhere(_ == toStanoxCode)
@@ -44,6 +56,7 @@ package object ui {
         arrivalTime = log.subsequentArrivalTimes(indexOfArrivalStop)
       } yield {
         ScheduleQueryResponse(
+          id,
           log.scheduleTrainId,
           log.atocCode,
           tocName,
@@ -52,17 +65,23 @@ package object ui {
             .find(rec => rec.stanoxCode == log.stanoxCode && rec.crs.isDefined)
             .flatMap(_.crs)
             .getOrElse(CRS("N/A")),
-          departureTime,
+          departureTime.format(timeFormatter),
           toStanoxCode,
           stanoxRecords
             .find(rec => rec.stanoxCode == toStanoxCode && rec.crs.isDefined)
             .flatMap(_.crs)
             .getOrElse(CRS("N/A")),
-          arrivalTime,
+          arrivalTime.format(timeFormatter),
           log.daysRunPattern,
-          log.scheduleStart,
-          log.scheduleEnd
+          scheduleStartFormat(log.scheduleStart),
+          log.scheduleEnd.format(dateFormatter)
         )
       }
     }
+
+  private def scheduleStartFormat(scheduleStart: LocalDate): String = {
+    val now = LocalDate.now()
+    if (scheduleStart.isBefore(now) || scheduleStart.isEqual(now)) "Current"
+    else scheduleStart.format(dateFormatter)
+  }
 }

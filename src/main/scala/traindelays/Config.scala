@@ -41,13 +41,16 @@ case class TrainDelaysConfig(networkRailConfig: NetworkRailConfig,
                              databaseConfig: DatabaseConfig,
                              redisConfig: RedisConfig,
                              emailerConfig: EmailerConfig,
-                             httpConfig: HttpConfig)
+                             httpConfig: HttpConfig,
+                             uIConfig: UIConfig)
 
 case class DatabaseConfig(driverClassName: String,
                           url: String,
                           username: String,
                           password: String,
                           maximumPoolSize: Int = 2)
+
+case class UIConfig(minimumDaysScheduleDuration: Int)
 
 case class RedisConfig(host: String, port: Int, dbIndex: Int)
 
@@ -105,6 +108,9 @@ object ConfigLoader {
       ),
       HttpConfig(
         defaultConfigFactory.getInt("http-server.port")
+      ),
+      UIConfig(
+        defaultConfigFactory.getInt("ui.minimumDaysScheduleDuration")
       )
     )
   }

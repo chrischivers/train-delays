@@ -2,43 +2,51 @@
 <head>
     <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"/>
     <link href="https://cdn.datatables.net/1.10.16/css/dataTables.bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/buttons/1.5.1/css/buttons.bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/select/1.2.5/css/select.dataTables.min.css" rel="stylesheet"/>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/buttons/1.5.1/css/buttons.dataTables.min.css" rel="stylesheet"/>
     <link href="/route-selector.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
     <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
     <script src="https://cdn.datatables.net/1.10.16/js/dataTables.bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/select/1.2.5/js/dataTables.select.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.5.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.5.1/js/buttons.bootstrap.min.js"></script>
 </head>
 <body>
 
 
 <div class="col-md-12">
     <form id="route-selector-form">
-        <div class="col-md-6 form-group">
-            <label for="fromStation">Traveling From</label>
-            <input type="text" id="fromStation" class="form-control" autocomplete="off"/>
-            <input  type="text" name= "fromStationStanox" id="fromStationStanox"/>
+        <div class="col-md-3 form-group">
+            <label for="fromStationInput">Traveling From</label>
+            <input type="text" id="fromStationInput" class="form-control" autocomplete="off" disabled/>
+            <input type="text" name="fromStationStanox" id="fromStationStanox"/>
         </div>
 
-        <div class="col-md-6 form-group">
-            <label for="toStation">Traveling To</label>
-            <input type="text" id="toStation" class="form-control" autocomplete="off"/>
-            <input  type="text" name= "toStationStanox" id="toStationStanox"/>
+        <div class="col-md-3 form-group">
+            <label for="toStationInput">Traveling To</label>
+            <input type="text" id="toStationInput" class="form-control" autocomplete="off" disabled/>
+            <input type="text" name="toStationStanox" id="toStationStanox"/>
+        </div>
+        <div class="col-md-6 form-group lowered">
+            <label class="radio-inline"><input type="radio" id="weekdaysRadio" name="weekdaysSatSun" value="Weekdays"
+                                               checked disabled>Weekdays</label>
+            <label class="radio-inline"><input type="radio" id="saturdaysRadio" name="weekdaysSatSun" value="Saturdays"
+                                               disabled>Saturdays</label>
+            <label class="radio-inline"><input type="radio" id="sundaysRadio" name="weekdaysSatSun"
+                                               value="Sundays" disabled>Sundays</label>
         </div>
         <div class="col-md-12 form-group">
-            <label class="radio-inline"><input type="radio" id="weekdays" name="weekdaysSatSun" value="weekdays" checked>Weekdays</label>
-            <label class="radio-inline"><input type="radio" id="saturdays" name="weekdaysSatSun" value="saturdays">Saturdays</label>
-            <label class="radio-inline"><input type="radio" id="sundays" name="weekdaysSatSun"
-                                               value="sundays">Sundays</label>
-        </div>
-        <div class="col-md-12 form-group">
-            <button type="submit" class="btn btn-primary">Submit</button>
+            <button type="submit" class="btn btn-primary">Search</button>
         </div>
     </form>
 </div>
 <div class="col-md-12">
-    <table class="table table-sm" id="query-results" width="100%"></table>
+        <table class="table table-hover" id="query-results" width="100%"></table>
 </div>
 
 </body>
@@ -50,8 +58,14 @@
 
     function setUpDataTable() {
         dataTable = $('#query-results').DataTable({
+            dom: 'frtipB',
+            scrollY: '65vh',
+            scrollX: true,
+            scrollCollapse: true,
             columns: [
-                {title: "TrainId"},
+                {title: ""},
+                {title: "id"},
+                {title: "Train Id"},
                 {title: "AtocCode"},
                 {title: "Operator Name"},
                 {title: "FromStanox"},
@@ -60,21 +74,65 @@
                 {title: "To"},
                 {title: "Departs at"},
                 {title: "Arrives at"},
-                {title: "DaysRunPattern"},
-                {title: "ScheduleStart"},
-                {title: "ScheduleEnd"}
+                {title: "Running pattern"},
+                {title: "Schedule valid from"},
+                {title: "Schedule valid to"}
             ],
-            order: [[5, "asc"]],
+            order: [[9, "asc"]],
             searching: false,
             paging: false,
             columnDefs: [
+                {
+                    orderable: false,
+                    className: 'select-checkbox',
+                    targets: 0
+                },
                 {
                     "targets": [1, 3, 5, 7],
                     "visible": false,
                     "searchable": false
                 }
+            ],
+            select: {
+                style: 'multi'
+            },
+            buttons: [
+                {
+                    className: 'btn btn-primary',
+                    text: 'Subscribe to selected trains',
+                    action: function () {
+                        submitSelectedTrains(dataTable.rows({selected: true}).data().toArray());
+                    }
+                }
             ]
         });
+    }
+
+    function submitSelectedTrains(rowData) {
+        if (rowData.length > 0) {
+            var toSend = [];
+            for (var i = 0; i < rowData.length; i++) {
+                toSend.push({
+                    id: rowData[i][1],
+                    userId: "testUserId"
+                });
+            }
+            alert(JSON.stringify(toSend));
+                $.ajax({
+                    type: "POST",
+                    url: "subscribe",
+                    data: JSON.stringify(toSend)
+                }); //TODO handle errors
+
+        }
+    }
+
+    function enableFormInput() {
+        $("#fromStationInput").prop("disabled", false);
+        $("#toStationInput").prop("disabled", false);
+        $("#weekdaysRadio").prop("disabled", false);
+        $("#saturdaysRadio").prop("disabled", false);
+        $("#sundaysRadio").prop("disabled", false);
     }
 
     function getStationDataList() {
@@ -82,23 +140,25 @@
             type: "GET",
             url: "stations",
             success: function (data) {
+
                 stations = JSON.parse(data);
-                $( "#fromStation" ).autocomplete({
+                $("#fromStationInput").autocomplete({
                     source: stations,
                     select: function (event, ui) {
-                        $( "#fromStation" ).val( ui.item.value );
-                        $( "#fromStationStanox" ).val( ui.item.key );
+                        $("#fromStationInput").val(ui.item.value);
+                        $("#fromStationStanox").val(ui.item.key);
                         return false;
                     }
                 });
-                $( "#toStation" ).autocomplete({
+                $("#toStationInput").autocomplete({
                     source: stations,
                     select: function (event, ui) {
-                        $( "#toStation" ).val( ui.item.value );
-                        $( "#toStationStanox" ).val( ui.item.key );
+                        $("#toStationInput").val(ui.item.value);
+                        $("#toStationStanox").val(ui.item.key);
                         return false;
                     }
                 });
+                enableFormInput();
             }
         });
     }
@@ -119,26 +179,31 @@
                         data: $(this).serialize(),
                         success: function (data) {
                             var json = JSON.parse(data);
-                            var rowArray = [];
-                            for (var i = 0; i < json.length; i++) {
-                                var scheduleTrainId = json[i].scheduleTrainId.value;
-                                var atocCode = json[i].atocCode.value;
-                                var tocName = json[i].tocName;
-                                var fromStanoxCode = json[i].fromStanoxCode.value;
-                                var fromCRS = json[i].fromCRS.value;
-                                var departureTime = json[i].departureTime;
-                                var toStanoxCode = json[i].toStanoxCode.value;
-                                var toCRS = json[i].toCRS.value;
-                                var arrivalTime = json[i].arrivalTime;
-                                var daysRunPattern = json[i].daysRunPattern;
-                                var scheduleStart = json[i].scheduleStart;
-                                var scheduleEnd = json[i].scheduleEnd;
-                                var row = [scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
-                                rowArray.push(row);
-                            }
+                            if (json.length > 0) {
+                                var rowArray = [];
+                                for (var i = 0; i < json.length; i++) {
+                                    var id = json[i].id;
+                                    var scheduleTrainId = json[i].scheduleTrainId.value;
+                                    var atocCode = json[i].atocCode.value;
+                                    var tocName = json[i].tocName;
+                                    var fromStanoxCode = json[i].fromStanoxCode.value;
+                                    var fromCRS = json[i].fromCRS.value;
+                                    var departureTime = json[i].departureTime;
+                                    var toStanoxCode = json[i].toStanoxCode.value;
+                                    var toCRS = json[i].toCRS.value;
+                                    var arrivalTime = json[i].arrivalTime;
+                                    var daysRunPattern = json[i].daysRunPattern;
+                                    var scheduleStart = json[i].scheduleStart;
+                                    var scheduleEnd = json[i].scheduleEnd;
+                                    var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
+                                    rowArray.push(row);
+                                }
 
-                            dataTable.clear();
-                            dataTable.rows.add(rowArray).draw();
+                                dataTable.clear();
+                                dataTable.rows.add(rowArray).draw();
+                            } else {
+                                alert("No schedule results found for your query");
+                            }
                         }
                     });
                     return false;

@@ -8,14 +8,10 @@ import io.circe.{Decoder, Encoder, Json}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
-import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.scheduledata.{AtocCode, ScheduleRecord, ScheduleTrainId}
+import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
 import traindelays.networkrail.{ServiceCode, StanoxCode}
 
 import scala.concurrent.duration.FiniteDuration
-import scalacache.Cache
-import scalacache.guava.GuavaCache
-import scalacache.memoization.memoizeF
 
 trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
@@ -24,6 +20,8 @@ trait ScheduleTable extends MemoizedTable[ScheduleLog] {
   def addRecords(records: List[ScheduleLog]): IO[Unit]
 
   def retrieveScheduleLogRecordsFor(from: StanoxCode, to: StanoxCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
+
+  def retrieveRecordBy(id: Int): IO[ScheduleLog]
 
   val dbWriterMultiple: fs2.Sink[IO, List[ScheduleLog]] = fs2.Sink { records =>
     addRecords(records)
@@ -35,8 +33,7 @@ object ScheduleTable extends StrictLogging {
   import cats.instances.list._
   import doobie._
   import doobie.implicits._
-  import doobie.postgres._, doobie.postgres.implicits._
-  import io.circe.java8.time._
+  import doobie.postgres.implicits._
 
   implicit val localTimeMeta: doobie.Meta[LocalTime] = doobie
     .Meta[java.sql.Time]
@@ -85,19 +82,19 @@ object ScheduleTable extends StrictLogging {
     object DaysRunPattern {
 
       case object Weekdays extends DaysRunPattern {
-        override val string: String = "weekdays"
+        override val string: String = "Weekdays"
       }
       case object Saturdays extends DaysRunPattern {
-        override val string: String = "saturdays"
+        override val string: String = "Saturdays"
       }
       case object Sundays extends DaysRunPattern {
-        override val string: String = "sundays"
+        override val string: String = "Sundays"
       }
 
       import doobie.util.meta.Meta
 
       def fromString(str: String): Option[DaysRunPattern] =
-        str.toLowerCase match {
+        str match {
           case Weekdays.string  => Some(Weekdays)
           case Saturdays.string => Some(Saturdays)
           case Sundays.string   => Some(Sundays)
@@ -206,6 +203,15 @@ object ScheduleTable extends StrictLogging {
          WHERE days_run_pattern = ${daysRunPattern} AND stanox_code = ${fromStation} AND ${toStation} = ANY(subsequent_stanox_codes)
           """.query[ScheduleLog]
 
+  def scheduleRecordFor(id: Int) =
+    sql"""
+         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+                subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
+                schedule_start, schedule_end, location_type, arrival_time, departure_time
+         FROM schedule
+         WHERE id = ${id}
+          """.query[ScheduleLog]
+
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
 
@@ -238,6 +244,7 @@ object ScheduleTable extends StrictLogging {
                                                  pattern: DaysRunPattern): IO[List[ScheduleLog]] =
         ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
 
+      override def retrieveRecordBy(id: Int): IO[ScheduleLog] = ScheduleTable.scheduleRecordFor(id).unique.transact(db)
     }
 
 }
