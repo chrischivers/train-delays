@@ -34,9 +34,14 @@ object Service extends StrictLogging {
           weekdaysSatSun <- m.getFirst("weekdaysSatSun").flatMap(DaysRunPattern.fromString)
         } yield {
           //TODO check if tiploc valid?
-          scheduleTable.retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun).map { scheduleLogs =>
-            queryResponsesFrom(scheduleLogs, toStation)
-          }
+          for {
+            stanoxRecords <- stanoxTable.retrieveAllRecords()
+            queryResponses <- scheduleTable
+              .retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun)
+              .map { scheduleLogs =>
+                queryResponsesFrom(scheduleLogs, toStation, stanoxRecords)
+              }
+          } yield queryResponses
         }
         result.fold(BadRequest())(lst => Ok(lst.map(_.asJson.noSpaces)))
       }
@@ -58,9 +63,20 @@ object Service extends StrictLogging {
     }
   }
 
-  private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]) =
-    Json.arr(
-      stanoxRecords.map(rec =>
-        Json.obj("key"   -> Json.fromString(rec.stanoxCode.value),
-                 "value" -> Json.fromString(s"${rec.description.getOrElse("")} [${rec.crs.value}]"))): _*)
+  //TODO use cats NEL for GroupBy
+  private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]) = {
+    val records = stanoxRecords
+      .filter(_.crs.isDefined)
+      .groupBy(_.stanoxCode)
+      .map {
+        case (stanoxCode, rec) =>
+          Json.obj(
+            "key" -> Json.fromString(stanoxCode.value),
+            "value" -> Json.fromString(
+              s"${rec.head.description.getOrElse("")} [${rec.head.crs.map(_.value).getOrElse("")}]")
+          )
+      }
+      .toSeq
+    Json.arr(records: _*)
+  }
 }

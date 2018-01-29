@@ -82,7 +82,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
 
   def getStanoxRecord(stanoxCode: StanoxCode = StanoxCode("87722"),
                       tipLocCode: TipLocCode = TipLocCode("REDHILL"),
-                      crs: CRS = CRS("RDH"),
+                      crs: Option[CRS] = Some(CRS("RDH")),
                       description: Option[String] = Some("REDHILL")) =
     StanoxRecord(stanoxCode, tipLocCode, crs, description)
 

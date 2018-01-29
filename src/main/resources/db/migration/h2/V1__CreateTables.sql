@@ -25,9 +25,9 @@ CREATE TABLE IF NOT EXISTS schedule (
 CREATE TABLE IF NOT EXISTS stanox (
   stanox_code VARCHAR(10) NOT NULL,
   tiploc_code VARCHAR(10) NOT NULL,
-  crs VARCHAR(10) NOT NULL,
+  crs VARCHAR(10) NULL,
   description VARCHAR(50) NULL,
-  PRIMARY KEY (stanox_code)
+  PRIMARY KEY (stanox_code, tipLoc_code)
 );
 
 CREATE TABLE IF NOT EXISTS movement_log (

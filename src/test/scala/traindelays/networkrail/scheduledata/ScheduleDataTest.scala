@@ -86,10 +86,10 @@ class ScheduleDataTest extends FlatSpec with TestFeatures {
     val scheduleRecord =
       createScheduleRecord(locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
 
-    val stanoxRecord1 = StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None)
-    val stanoxRecord2 = StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RDH"), None)
-    val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), CRS("MER"), None)
-    val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDON"), CRS("ECD"), None)
+    val stanoxRecord1 = StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None)
+    val stanoxRecord2 = StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RDH")), None)
+    val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
+    val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDON"), Some(CRS("ECD")), None)
 
     val scheduleLogs = scheduleRecord.toScheduleLogs(List(stanoxRecord1, stanoxRecord2, stanoxRecord3, stanoxRecord4))
     scheduleLogs should have size 4

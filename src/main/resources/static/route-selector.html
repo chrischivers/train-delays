@@ -54,7 +54,9 @@
                 {title: "TrainId"},
                 {title: "AtocCode"},
                 {title: "Operator Name"},
+                {title: "FromStanox"},
                 {title: "From"},
+                {title: "ToStanox"},
                 {title: "To"},
                 {title: "Departs at"},
                 {title: "Arrives at"},
@@ -67,7 +69,7 @@
             paging: false,
             columnDefs: [
                 {
-                    "targets": [1, 7, 8, 9],
+                    "targets": [1, 3, 5, 7],
                     "visible": false,
                     "searchable": false
                 }
@@ -123,13 +125,15 @@
                                 var atocCode = json[i].atocCode.value;
                                 var tocName = json[i].tocName;
                                 var fromStanoxCode = json[i].fromStanoxCode.value;
+                                var fromCRS = json[i].fromCRS.value;
                                 var departureTime = json[i].departureTime;
                                 var toStanoxCode = json[i].toStanoxCode.value;
+                                var toCRS = json[i].toCRS.value;
                                 var arrivalTime = json[i].arrivalTime;
                                 var daysRunPattern = json[i].daysRunPattern;
                                 var scheduleStart = json[i].scheduleStart;
                                 var scheduleEnd = json[i].scheduleEnd;
-                                var row = [scheduleTrainId, atocCode, tocName, fromStanoxCode, toStanoxCode, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
+                                var row = [scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
                                 rowArray.push(row);
                             }
 

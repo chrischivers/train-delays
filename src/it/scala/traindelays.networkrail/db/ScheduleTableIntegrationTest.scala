@@ -37,10 +37,10 @@ class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTes
     val scheduleRecord =
       createScheduleRecord(locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
 
-    val stanoxRecord1 = StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None)
-    val stanoxRecord2 = StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)
-    val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), CRS("MER"), None)
-    val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDN"), CRS("ECD"), None)
+    val stanoxRecord1 = StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None)
+    val stanoxRecord2 = StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
+    val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDN"), Some(CRS("ECD")), None)
 
     withInitialState(config)(
       AppInitialState(

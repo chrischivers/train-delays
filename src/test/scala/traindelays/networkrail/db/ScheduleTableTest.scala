@@ -54,8 +54,10 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val retrievedRecords = withInitialState(config)(
       AppInitialState(
-        stanoxRecords = List(StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
-                             StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)),
+        stanoxRecords = List(
+          StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+          StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+        ),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       fixture.scheduleTable.retrieveAllRecords()
@@ -76,8 +78,10 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                      scheduleDataConfig =
                        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
       AppInitialState(
-        stanoxRecords = List(StanoxRecord(StanoxCode("1234"), TipLocCode("REIGATE"), CRS("REI"), None),
-                             StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), CRS("RED"), None)),
+        stanoxRecords = List(
+          StanoxRecord(StanoxCode("1234"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+          StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+        ),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       IO {
@@ -106,8 +110,10 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val retrievedRecords = withInitialState(config)(
       AppInitialState(
-        stanoxRecords = List(StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
-                             StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)),
+        stanoxRecords = List(
+          StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+          StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+        ),
         scheduleRecords = List(scheduleRecord)
       )) { fixture =>
       for {
@@ -127,8 +133,10 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val retrievedRecords =
       withInitialState(config)(
         AppInitialState(
-          stanoxRecords = List(StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
-                               StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)),
+          stanoxRecords = List(
+            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+          ),
           scheduleRecords = List(scheduleRecord1, scheduleRecord2)
         )) { fixture =>
         fixture.scheduleTable.retrieveAllRecords()
@@ -162,9 +170,9 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       withInitialState(config)(
         AppInitialState(
           stanoxRecords = List(
-            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), CRS("REI"), None),
-            StanoxRecord(StanoxCode("3456"), TipLocCode("MERSTHAM"), CRS("MER"), None),
-            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), CRS("RED"), None)
+            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+            StanoxRecord(StanoxCode("3456"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None),
+            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
           ),
           scheduleRecords = List(scheduleRecord)
         )) { fixture =>

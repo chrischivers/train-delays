@@ -53,9 +53,6 @@ package object scheduledata {
                             scheduleEndDate: LocalDate,
                             locationRecords: List[ScheduleLocationRecord]) {
 
-//    def toScheduleLogs(tipLocTable: TipLocTable): IO[List[ScheduleLog]] =
-//      ScheduleRecord.scheduleRecordToScheduleLogs(this, tipLocTable)
-
     def toScheduleLogs(stanoxRecords: List[StanoxRecord]): List[ScheduleLog] =
       ScheduleRecord.scheduleRecordToScheduleLogs(this, stanoxRecords)
   }
@@ -263,14 +260,14 @@ package object scheduledata {
     }
   }
 
-  case class StanoxRecord(stanoxCode: StanoxCode, tipLocCode: TipLocCode, crs: CRS, description: Option[String])
+  case class StanoxRecord(stanoxCode: StanoxCode, tipLocCode: TipLocCode, crs: Option[CRS], description: Option[String])
 
   object StanoxRecord {
 
     implicit case object JsonFilter extends JsonFilter[StanoxRecord] {
       override implicit val jsonFilter: Json => Boolean = json =>
         json.hcursor.downField("TiplocV1").downField("stanox").as[String].isRight &&
-          json.hcursor.downField("TiplocV1").downField("crs_code").as[String].isRight
+          json.hcursor.downField("TiplocV1").downField("tiploc_code").as[String].isRight
     }
 
     implicit case object StanoxRecordTransformer extends Transformer[StanoxRecord] {
@@ -289,7 +286,7 @@ package object scheduledata {
         for {
           stanoxCode  <- tipLocObject.downField("stanox").as[StanoxCode]
           tipLocCode  <- tipLocObject.downField("tiploc_code").as[TipLocCode]
-          crs         <- tipLocObject.downField("crs_code").as[CRS]
+          crs         <- tipLocObject.downField("crs_code").as[Option[CRS]]
           description <- tipLocObject.downField("tps_description").as[Option[String]]
         } yield {
           StanoxRecord(stanoxCode, tipLocCode, crs, description)

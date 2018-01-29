@@ -5,8 +5,8 @@ import java.time.{LocalDate, LocalTime}
 import io.circe.Encoder
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.{ServiceCode, StanoxCode}
-import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
+import traindelays.networkrail.{CRS, ServiceCode, StanoxCode}
+import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId, StanoxRecord}
 import io.circe.generic.semiauto._
 import traindelays.networkrail.tocs.tocs
 
@@ -16,8 +16,10 @@ package object ui {
                                    atocCode: AtocCode,
                                    tocName: String,
                                    fromStanoxCode: StanoxCode,
+                                   fromCRS: CRS,
                                    departureTime: LocalTime,
                                    toStanoxCode: StanoxCode,
+                                   toCRS: CRS,
                                    arrivalTime: LocalTime,
                                    daysRunPattern: DaysRunPattern,
                                    scheduleStart: LocalDate,
@@ -30,7 +32,9 @@ package object ui {
   }
 
   //TODO test this
-  def queryResponsesFrom(scheduleLogs: List[ScheduleLog], toStanoxCode: StanoxCode): List[ScheduleQueryResponse] =
+  def queryResponsesFrom(scheduleLogs: List[ScheduleLog],
+                         toStanoxCode: StanoxCode,
+                         stanoxRecords: List[StanoxRecord]): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
         departureTime <- log.departureTime
@@ -44,8 +48,16 @@ package object ui {
           log.atocCode,
           tocName,
           log.stanoxCode,
+          stanoxRecords
+            .find(rec => rec.stanoxCode == log.stanoxCode && rec.crs.isDefined)
+            .flatMap(_.crs)
+            .getOrElse(CRS("N/A")),
           departureTime,
           toStanoxCode,
+          stanoxRecords
+            .find(rec => rec.stanoxCode == toStanoxCode && rec.crs.isDefined)
+            .flatMap(_.crs)
+            .getOrElse(CRS("N/A")),
           arrivalTime,
           log.daysRunPattern,
           log.scheduleStart,

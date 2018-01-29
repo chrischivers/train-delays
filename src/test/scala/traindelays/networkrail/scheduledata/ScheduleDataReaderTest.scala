@@ -55,8 +55,8 @@ class ScheduleDataReaderTest extends FlatSpec {
 
     val result = reader.readData[StanoxRecord].runLog.unsafeRunSync().toList
     result should have size 2
-    result.head shouldBe StanoxRecord(StanoxCode("87722"), TipLocCode("REDHILL"), CRS("RDH"), Some("REDHILL"))
-    result(1) shouldBe StanoxRecord(StanoxCode("87089"), TipLocCode("REIGATE"), CRS("REI"), Some("REIGATE"))
+    result.head shouldBe StanoxRecord(StanoxCode("87722"), TipLocCode("REDHILL"), Some(CRS("RDH")), Some("REDHILL"))
+    result(1) shouldBe StanoxRecord(StanoxCode("87089"), TipLocCode("REIGATE"), Some(CRS("REI")), Some("REIGATE"))
 
   }
 

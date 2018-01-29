@@ -45,7 +45,11 @@ object PopulateScheduleTable extends App with StrictLogging {
       existingStanoxRecords <- stanoxTable.retrieveAllRecords(forceRefresh = true)
       _ <- scheduleDataReader
         .readData[StanoxRecord]
-        .filter(rec => !existingStanoxRecords.exists(existingRec => existingRec.stanoxCode == rec.stanoxCode))
+        .filter(
+          rec =>
+            !(existingStanoxRecords
+              .exists(existingRec => existingRec.stanoxCode == rec.stanoxCode) && existingStanoxRecords.exists(
+              existingRec => existingRec.tipLocCode == rec.tipLocCode)))
         .to(stanoxTable.dbWriter)
         .run
     } yield ()
