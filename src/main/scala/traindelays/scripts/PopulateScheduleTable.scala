@@ -1,5 +1,7 @@
 package traindelays.scripts
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import fs2.Pipe
@@ -54,7 +56,8 @@ object PopulateScheduleTable extends App with StrictLogging {
         .run
     } yield ()
 
-  private def writeScheduleRecords(stanoxTable: StanoxTable, scheduleTable: ScheduleTable) =
+  private def writeScheduleRecords(stanoxTable: StanoxTable, scheduleTable: ScheduleTable) = {
+    val counter = new AtomicInteger(0) //TODO remove
     for {
       existingStanoxRecords   <- stanoxTable.retrieveAllRecords(forceRefresh = true)
       existingScheduleRecords <- scheduleTable.retrieveAllRecords(forceRefresh = true)
@@ -72,9 +75,17 @@ object PopulateScheduleTable extends App with StrictLogging {
       _ <- scheduleDataReader
         .readData[ScheduleRecord]
         .through(recordsToLogsPipe)
+        .observe1(_ =>
+          IO {
+            val count = counter.incrementAndGet()
+            if (count % 1000 == 0) println(count)
+        })
         .through(removeExistingLogsPipe)
+        .filter(_.nonEmpty)
+        .observe1(x => IO(println(x)))
         .to(scheduleTable.dbWriterMultiple)
         .run
     } yield ()
 
+  }
 }
