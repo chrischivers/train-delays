@@ -1,0 +1,253 @@
+<html>
+<head>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/1.10.16/css/dataTables.bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/buttons/1.5.1/css/buttons.bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/select/1.2.5/css/select.dataTables.min.css" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/buttons/1.5.1/css/buttons.dataTables.min.css" rel="stylesheet"/>
+    <link href="/train-selector.css" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/dataTables.bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/select/1.2.5/js/dataTables.select.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.5.1/js/dataTables.buttons.min.js"></script>
+    <script src="https://cdn.datatables.net/buttons/1.5.1/js/buttons.bootstrap.min.js"></script>
+</head>
+<body>
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">TrainDelayStats</a>
+        </div>
+        <ul class="nav navbar-nav">
+            <li><a href="#">Home</a></li>
+            <li class="active"><a href="#">Train delay notifications</a></li>
+            <li><a href="#">Train history search</a></li>
+            <li><a href="#">Schedules</a></li>
+        </ul>
+    </div>
+</nav>
+
+<div class="container">
+
+    <table class="table table-hover" id="query-results" width="100%"></table>
+
+</div>
+
+<!-- Modal -->
+<div id="train-selection-modal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Search for trains</h4>
+            </div>
+            <div class="modal-body">
+                <form id="train-selector-form">
+                    <div class="form-group">
+                        <label for="fromStationInput">Traveling From</label>
+                        <input type="text" id="fromStationInput" class="form-control" autocomplete="off" disabled/>
+                        <input type="text" name="fromStationStanox" id="fromStationStanox"/>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="toStationInput">Traveling To</label>
+                        <input type="text" id="toStationInput" class="form-control" autocomplete="off" disabled/>
+                        <input type="text" name="toStationStanox" id="toStationStanox"/>
+                    </div>
+                    <div class="form-group">
+                        <label class="radio-inline"><input type="radio" id="weekdaysRadio" name="weekdaysSatSun"
+                                                           value="Weekdays"
+                                                           checked disabled>Weekdays</label>
+                        <label class="radio-inline"><input type="radio" id="saturdaysRadio" name="weekdaysSatSun"
+                                                           value="Saturdays"
+                                                           disabled>Saturdays</label>
+                        <label class="radio-inline"><input type="radio" id="sundaysRadio" name="weekdaysSatSun"
+                                                           value="Sundays" disabled>Sundays</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+
+                <button type="button" id="train-selection-button" class="btn btn-primary" data-dismiss="modal">Search
+                </button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+</body>
+
+<script>
+
+    var dataTable;
+    var stations = [];
+
+    function setUpDataTable() {
+        dataTable = $('#query-results').DataTable({
+            dom: 'frtipB',
+            scrollY: '65vh',
+            scrollX: true,
+            scrollCollapse: true,
+            columns: [
+                {title: ""},
+                {title: "id"},
+                {title: "Train Id"},
+                {title: "AtocCode"},
+                {title: "Operator Name"},
+                {title: "FromStanox"},
+                {title: "From"},
+                {title: "ToStanox"},
+                {title: "To"},
+                {title: "Departs at"},
+                {title: "Arrives at"},
+                {title: "Running pattern"},
+                {title: "Schedule valid from"},
+                {title: "Schedule valid to"}
+            ],
+            order: [[9, "asc"]],
+            searching: false,
+            paging: false,
+            columnDefs: [
+                {
+                    orderable: false,
+                    className: 'select-checkbox',
+                    targets: 0
+                },
+                {
+                    "targets": [1, 3, 5, 7],
+                    "visible": false,
+                    "searchable": false
+                }
+            ],
+            select: {
+                style: 'multi'
+            },
+            buttons: [
+                {
+                    className: 'btn btn-primary',
+                    text: 'Subscribe to selected trains',
+                    action: function () {
+                        submitSelectedTrains(dataTable.rows({selected: true}).data().toArray());
+                    }
+                },
+                {
+                    className: 'btn btn-default',
+                    text: 'Search again',
+                    action: function () {
+                        $('#train-selection-modal').modal('show');
+                    }
+                }
+            ]
+        });
+    }
+
+    function submitSelectedTrains(rowData) {
+        if (rowData.length > 0) {
+            var toSend = [];
+            for (var i = 0; i < rowData.length; i++) {
+                toSend.push({
+                    id: rowData[i][1],
+                    userId: "testUserId"
+                });
+            }
+            $.ajax({
+                type: "POST",
+                url: "subscribe",
+                data: JSON.stringify(toSend)
+            }); //TODO handle errors
+
+        }
+    }
+
+    function enableFormInput() {
+        $("#fromStationInput").prop("disabled", false);
+        $("#toStationInput").prop("disabled", false);
+        $("#weekdaysRadio").prop("disabled", false);
+        $("#saturdaysRadio").prop("disabled", false);
+        $("#sundaysRadio").prop("disabled", false);
+    }
+
+    function getStationDataList() {
+        $.ajax({
+            type: "GET",
+            url: "stations",
+            success: function (data) {
+
+                stations = JSON.parse(data);
+                $("#fromStationInput").autocomplete({
+                    source: stations,
+                    appendTo: "#train-selection-modal",
+                    select: function (event, ui) {
+                        $("#fromStationInput").val(ui.item.value);
+                        $("#fromStationStanox").val(ui.item.key);
+                        return false;
+                    }
+                });
+                $("#toStationInput").autocomplete({
+                    source: stations,
+                    appendTo: "#train-selection-modal",
+                    select: function (event, ui) {
+                        $("#toStationInput").val(ui.item.value);
+                        $("#toStationStanox").val(ui.item.key);
+                        return false;
+                    }
+                });
+                enableFormInput();
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        setUpDataTable();
+        getStationDataList();
+        $('#train-selection-modal').modal('show');
+
+        $(function () {
+            $('#train-selection-button').on('click', function (e) {
+
+                $.ajax({
+                    type: "POST",
+                    url: "schedule-query",
+                    data: $('#train-selector-form').serialize(),
+                    success: function (data) {
+                        var json = JSON.parse(data);
+                        if (json.length > 0) {
+                            var rowArray = [];
+                            for (var i = 0; i < json.length; i++) {
+                                var id = json[i].id;
+                                var scheduleTrainId = json[i].scheduleTrainId.value;
+                                var atocCode = json[i].atocCode.value;
+                                var tocName = json[i].tocName;
+                                var fromStanoxCode = json[i].fromStanoxCode.value;
+                                var fromCRS = json[i].fromCRS.value;
+                                var departureTime = json[i].departureTime;
+                                var toStanoxCode = json[i].toStanoxCode.value;
+                                var toCRS = json[i].toCRS.value;
+                                var arrivalTime = json[i].arrivalTime;
+                                var daysRunPattern = json[i].daysRunPattern;
+                                var scheduleStart = json[i].scheduleStart;
+                                var scheduleEnd = json[i].scheduleEnd;
+                                var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
+                                rowArray.push(row);
+                            }
+
+                            dataTable.clear();
+                            dataTable.rows.add(rowArray).draw();
+                        } else {
+                            alert("No schedule results found for your query");
+                        }
+                    }
+                });
+            })
+        });
+    });
+</script>
+</html>

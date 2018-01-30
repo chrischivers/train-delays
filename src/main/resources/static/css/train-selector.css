@@ -1,6 +1,9 @@
-.lowered {
-    margin-top: 25px;
-}
+
 #fromStationStanox, #toStationStanox {
     display: none;
+}
+
+.dataTables_info {
+    width: auto;
+    float: right;
 }

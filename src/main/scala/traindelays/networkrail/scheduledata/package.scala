@@ -77,7 +77,9 @@ package object scheduledata {
 
     def scheduleRecordToScheduleLogs(scheduleRecord: ScheduleRecord,
                                      stanoxRecords: List[StanoxRecord]): List[ScheduleLog] = {
-      val locationRecordsWithIndex = scheduleRecord.locationRecords.zipWithIndex
+      val locationRecordsWithIndex = scheduleRecord.locationRecords
+        .filter(locRec => stanoxRecords.exists(_.tipLocCode == locRec.tipLocCode))
+        .zipWithIndex
       locationRecordsWithIndex.flatMap {
         case (locationRecord, index) =>
           stanoxRecords
@@ -113,8 +115,10 @@ package object scheduledata {
             stanoxRecord
               .getOrElse(throw new IllegalStateException(
                 s"Unable to find stanox record for tiplocCode ${scheduleLocationRecord.tipLocCode}")) //TODO do this in a better way
-              .stanoxCode -> scheduleLocationRecord.arrivalTime.getOrElse(throw new IllegalStateException(
-              "Arrival time optional for subsequent stops")) //TODO do this in a better way
+              .stanoxCode -> scheduleLocationRecord.arrivalTime
+              .orElse(scheduleLocationRecord.departureTime)
+              .getOrElse(throw new IllegalStateException(
+                s"Arrival time and departure time not included for a subsequent stops [$scheduleLocationRecord]")) //TODO do this in a better way
         }
 
     private def createScheduleLogFrom(scheduleRecord: ScheduleRecord,

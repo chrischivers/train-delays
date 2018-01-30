@@ -24,13 +24,13 @@ object PopulateScheduleTable extends App with StrictLogging {
 
     fs2.Stream.eval {
       for {
-        _ <- networkRailClient.deleteTmpFiles()
-        _ <- IO.pure(logger.info("Downloading schedule data"))
-        _ <- networkRailClient.downloadScheduleData
-        _ <- IO.pure(logger.info("Unpacking schedule data"))
-        _ <- networkRailClient.unpackScheduleData
-        _ <- IO.pure(logger.info("Writing stanox records"))
-        _ <- writeStanoxRecords(stanoxTable)
+//        _ <- networkRailClient.deleteTmpFiles()
+//        _ <- IO.pure(logger.info("Downloading schedule data"))
+//        _ <- networkRailClient.downloadScheduleData
+//        _ <- IO.pure(logger.info("Unpacking schedule data"))
+//        _ <- networkRailClient.unpackScheduleData
+//        _ <- IO.pure(logger.info("Writing stanox records"))
+//        _ <- writeStanoxRecords(stanoxTable)
         _ <- IO.pure(logger.info("Writing schedule records"))
         _ <- writeScheduleRecords(stanoxTable, scheduleTable)
         _ <- IO.pure(logger.info("Schedule Table population complete"))

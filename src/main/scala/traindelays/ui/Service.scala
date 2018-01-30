@@ -53,8 +53,8 @@ object Service extends StrictLogging {
             queryResponses <- scheduleTable
               .retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun)
               .map { scheduleLogs =>
-                //                scheduleLogs.filter(x =>
-                //                  DAYS.between(x.scheduleStart, x.scheduleEnd) > uIConfig.minimumDaysScheduleDuration)
+                scheduleLogs.filter(x =>
+                  DAYS.between(x.scheduleStart, x.scheduleEnd) > uiConfig.minimumDaysScheduleDuration)
                 queryResponsesFrom(scheduleLogs, toStation, stanoxRecords)
               }
           } yield queryResponses
