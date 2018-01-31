@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import fs2.Pipe
 import org.http4s.client.blaze.PooledHttp1Client
 import traindelays.ConfigLoader
-import traindelays.networkrail.NetworkRailClient
+import traindelays.networkrail.{NetworkRailClient, StanoxCode, TipLocCode}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.{ScheduleTable, _}
 import traindelays.networkrail.scheduledata._
@@ -59,17 +59,18 @@ object PopulateScheduleTable extends App with StrictLogging {
   private def writeScheduleRecords(stanoxTable: StanoxTable, scheduleTable: ScheduleTable) = {
     val counter = new AtomicInteger(0) //TODO remove
     for {
-      existingStanoxRecords   <- stanoxTable.retrieveAllRecords(forceRefresh = true)
-      existingScheduleRecords <- scheduleTable.retrieveAllRecords(forceRefresh = true)
+      existingStanoxRecords <- stanoxTable.retrieveAllRecords(forceRefresh = true)
+      existingStanoxRecordsMap = StanoxRecord.stanoxRecordsToMap(existingStanoxRecords)
+      existingScheduleLogRecords <- scheduleTable.retrieveAllRecords(forceRefresh = true)
+      existingScheduleLogRecordsMap = ScheduleLog.toKeyFieldsMap(existingScheduleLogRecords)
 
       recordsToLogsPipe: Pipe[IO, ScheduleRecord, List[ScheduleLog]] = (in: fs2.Stream[IO, ScheduleRecord]) => {
-        in.map(_.toScheduleLogs(existingStanoxRecords))
+        in.map(_.toScheduleLogs(existingStanoxRecordsMap))
       }
 
       removeExistingLogsPipe: Pipe[IO, List[ScheduleLog], List[ScheduleLog]] = (in: fs2.Stream[IO,
                                                                                                List[ScheduleLog]]) => {
-        in.map(_.filterNot(scheduleLog =>
-          existingScheduleRecords.exists(existingLog => scheduleLog.matchesKeyFields(existingLog))))
+        in.map(_.filterNot(scheduleLog => existingScheduleLogRecordsMap.get(scheduleLog.keyFields).isDefined))
       }
 
       _ <- scheduleDataReader

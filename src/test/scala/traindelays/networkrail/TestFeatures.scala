@@ -122,7 +122,7 @@ trait TestFeatures {
             for {
               existingStanoxRecords <- stanoxTable.retrieveAllRecords()
               x <- record
-                .toScheduleLogs(existingStanoxRecords)
+                .toScheduleLogs(StanoxRecord.stanoxRecordsToMap(existingStanoxRecords))
                 .map { scheduleLog =>
                   ScheduleTable
                     .addScheduleLogRecord(scheduleLog)

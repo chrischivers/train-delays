@@ -53,7 +53,7 @@ package object scheduledata {
                             scheduleEndDate: LocalDate,
                             locationRecords: List[ScheduleLocationRecord]) {
 
-    def toScheduleLogs(stanoxRecords: List[StanoxRecord]): List[ScheduleLog] =
+    def toScheduleLogs(stanoxRecords: Map[TipLocCode, StanoxCode]): List[ScheduleLog] =
       ScheduleRecord.scheduleRecordToScheduleLogs(this, stanoxRecords)
   }
 
@@ -76,14 +76,14 @@ package object scheduledata {
     }
 
     def scheduleRecordToScheduleLogs(scheduleRecord: ScheduleRecord,
-                                     stanoxRecords: List[StanoxRecord]): List[ScheduleLog] = {
+                                     stanoxRecords: Map[TipLocCode, StanoxCode]): List[ScheduleLog] = {
       val locationRecordsWithIndex = scheduleRecord.locationRecords
-        .filter(locRec => stanoxRecords.exists(_.tipLocCode == locRec.tipLocCode))
+        .filter(locRec => stanoxRecords.get(locRec.tipLocCode).isDefined)
         .zipWithIndex
       locationRecordsWithIndex.flatMap {
         case (locationRecord, index) =>
           stanoxRecords
-            .find(rec => rec.tipLocCode == locationRecord.tipLocCode)
+            .get(locationRecord.tipLocCode)
             .flatMap { stanoxRecord =>
               scheduleRecord.daysRun.toDaysRunPattern.map { daysRunPattern =>
                 {
@@ -106,16 +106,15 @@ package object scheduledata {
     private def subsequentStanoxCodesAndArrivalTimes(
         locationRecordsWithIndex: List[(ScheduleLocationRecord, Int)],
         index: Int,
-        existingStanoxRecords: List[StanoxRecord]): List[(StanoxCode, LocalTime)] =
+        existingStanoxRecords: Map[TipLocCode, StanoxCode]): List[(StanoxCode, LocalTime)] =
       locationRecordsWithIndex
         .dropWhile(_._2 < index + 1)
         .map {
           case (scheduleLocationRecord, _) =>
-            val stanoxRecord = existingStanoxRecords.find(_.tipLocCode == scheduleLocationRecord.tipLocCode)
-            stanoxRecord
-              .getOrElse(throw new IllegalStateException(
-                s"Unable to find stanox record for tiplocCode ${scheduleLocationRecord.tipLocCode}")) //TODO do this in a better way
-              .stanoxCode -> scheduleLocationRecord.arrivalTime
+            existingStanoxRecords.getOrElse(
+              scheduleLocationRecord.tipLocCode,
+              throw new IllegalStateException(
+                s"Unable to find stanox record for tiplocCode ${scheduleLocationRecord.tipLocCode}")) -> scheduleLocationRecord.arrivalTime
               .orElse(scheduleLocationRecord.departureTime)
               .getOrElse(throw new IllegalStateException(
                 s"Arrival time and departure time not included for a subsequent stops [$scheduleLocationRecord]")) //TODO do this in a better way
@@ -124,7 +123,7 @@ package object scheduledata {
     private def createScheduleLogFrom(scheduleRecord: ScheduleRecord,
                                       index: Int,
                                       locationRecord: ScheduleLocationRecord,
-                                      stanoxRecord: StanoxRecord,
+                                      stanoxCode: StanoxCode,
                                       subsequentStanoxCodes: List[StanoxCode],
                                       subsequentArrivalTimes: List[LocalTime],
                                       daysRunPattern: DaysRunPattern) =
@@ -134,7 +133,7 @@ package object scheduledata {
         scheduleRecord.trainServiceCode,
         scheduleRecord.atocCode,
         index + 1,
-        stanoxRecord.stanoxCode,
+        stanoxCode,
         subsequentStanoxCodes,
         subsequentArrivalTimes,
         scheduleRecord.daysRun.monday,
@@ -297,6 +296,9 @@ package object scheduledata {
         }
       }
     }
+
+    def stanoxRecordsToMap(stanoxRecords: List[StanoxRecord]): Map[TipLocCode, StanoxCode] =
+      stanoxRecords.map(rec => rec.tipLocCode -> rec.stanoxCode).toMap
   }
 
 }
