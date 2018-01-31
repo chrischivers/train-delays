@@ -65,10 +65,10 @@ object ScheduleTable extends StrictLogging {
                          arrivalTime: Option[LocalTime],
                          departureTime: Option[LocalTime]) {
 
-    val keyFields =
+    val primaryKeyFields =
       ScheduleLog.KeyFields(scheduleTrainId, serviceCode, stanoxCode, stopSequence, scheduleStart, scheduleEnd)
     def matchesKeyFields(that: ScheduleLog): Boolean =
-      that.keyFields == this.keyFields
+      that.primaryKeyFields == this.primaryKeyFields
   }
   object ScheduleLog {
 
@@ -79,8 +79,8 @@ object ScheduleTable extends StrictLogging {
                          scheduleStart: LocalDate,
                          scheduleEnd: LocalDate)
 
-    def toKeyFieldsMap(scheduleLogs: List[ScheduleLog]): Map[KeyFields, ScheduleLog] =
-      scheduleLogs.map(rec => rec.keyFields -> rec).toMap
+    def toKeyFields(scheduleLogs: List[ScheduleLog]): Set[KeyFields] =
+      scheduleLogs.map(rec => rec.primaryKeyFields).toSet
 
     sealed trait DaysRunPattern {
       val string: String

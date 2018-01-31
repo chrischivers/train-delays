@@ -62,7 +62,7 @@ object PopulateScheduleTable extends App with StrictLogging {
       existingStanoxRecords <- stanoxTable.retrieveAllRecords(forceRefresh = true)
       existingStanoxRecordsMap = StanoxRecord.stanoxRecordsToMap(existingStanoxRecords)
       existingScheduleLogRecords <- scheduleTable.retrieveAllRecords(forceRefresh = true)
-      existingScheduleLogRecordsMap = ScheduleLog.toKeyFieldsMap(existingScheduleLogRecords)
+      existingScheduleLogKeyFields = ScheduleLog.toKeyFields(existingScheduleLogRecords)
 
       recordsToLogsPipe: Pipe[IO, ScheduleRecord, List[ScheduleLog]] = (in: fs2.Stream[IO, ScheduleRecord]) => {
         in.map(_.toScheduleLogs(existingStanoxRecordsMap))
@@ -70,7 +70,7 @@ object PopulateScheduleTable extends App with StrictLogging {
 
       removeExistingLogsPipe: Pipe[IO, List[ScheduleLog], List[ScheduleLog]] = (in: fs2.Stream[IO,
                                                                                                List[ScheduleLog]]) => {
-        in.map(_.filterNot(scheduleLog => existingScheduleLogRecordsMap.get(scheduleLog.keyFields).isDefined))
+        in.map(_.filterNot(scheduleLog => existingScheduleLogKeyFields.apply(scheduleLog.primaryKeyFields)))
       }
 
       _ <- scheduleDataReader
