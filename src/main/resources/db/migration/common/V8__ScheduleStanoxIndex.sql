@@ -1,0 +1,1 @@
+CREATE INDEX schedule_stanox_ix ON schedule (stanox_code);

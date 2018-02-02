@@ -7,3 +7,12 @@
     width: auto;
     float: right;
 }
+
+.table-buttons {
+    margin-top: 15px;
+}
+
+.g-signin2 {
+    margin-top: 7px;
+    margin-right: 12px;
+}

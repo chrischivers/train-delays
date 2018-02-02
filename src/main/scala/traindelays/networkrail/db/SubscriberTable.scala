@@ -1,7 +1,6 @@
 package traindelays.networkrail.db
 
 import cats.effect.IO
-import traindelays.SubscribersConfig
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.SubscriberRecord
 import traindelays.networkrail.{ServiceCode, StanoxCode}
@@ -24,8 +23,8 @@ object SubscriberTable {
   def addSubscriberRecord(record: SubscriberRecord): Update0 =
     sql"""
       INSERT INTO subscribers
-      (user_id, email, schedule_train_id, service_code, stanox_code)
-      VALUES(${record.userId}, ${record.email}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanoxCode})
+      (user_id, email, schedule_train_id, service_code, stanox_code, subscribe_timestamp)
+      VALUES(${record.userId}, ${record.email}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanoxCode}, now())
      """.update
 
   protected def allSubscriberRecords(): Query0[SubscriberRecord] =

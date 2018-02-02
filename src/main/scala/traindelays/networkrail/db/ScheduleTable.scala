@@ -23,6 +23,8 @@ trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
   def retrieveRecordBy(id: Int): IO[ScheduleLog]
 
+  def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]]
+
   val dbWriterMultiple: fs2.Sink[IO, List[ScheduleLog]] = fs2.Sink { records =>
     addRecords(records)
   }
@@ -207,7 +209,7 @@ object ScheduleTable extends StrictLogging {
          subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
-         WHERE days_run_pattern = ${daysRunPattern} AND stanox_code = ${fromStation} AND ${toStation} = ANY(subsequent_stanox_codes)
+         WHERE stanox_code = ${fromStation} AND days_run_pattern = ${daysRunPattern} AND ${toStation} = ANY(subsequent_stanox_codes)
           """.query[ScheduleLog]
 
   def scheduleRecordFor(id: Int) =
@@ -218,6 +220,12 @@ object ScheduleTable extends StrictLogging {
          FROM schedule
          WHERE id = ${id}
           """.query[ScheduleLog]
+
+  def distinctStanoxCodes =
+    sql"""
+         SELECT DISTINCT stanox_code
+         FROM schedule
+          """.query[StanoxCode]
 
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
@@ -252,6 +260,9 @@ object ScheduleTable extends StrictLogging {
         ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
 
       override def retrieveRecordBy(id: Int): IO[ScheduleLog] = ScheduleTable.scheduleRecordFor(id).unique.transact(db)
+
+      override def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]] =
+        ScheduleTable.distinctStanoxCodes.list.transact(db)
     }
 
 }

@@ -263,7 +263,11 @@ package object scheduledata {
     }
   }
 
-  case class StanoxRecord(stanoxCode: StanoxCode, tipLocCode: TipLocCode, crs: Option[CRS], description: Option[String])
+  case class StanoxRecord(stanoxCode: StanoxCode,
+                          tipLocCode: TipLocCode,
+                          crs: Option[CRS],
+                          description: Option[String],
+                          primary: Option[Boolean] = None)
 
   object StanoxRecord {
 

@@ -15,12 +15,15 @@
     <script src="https://cdn.datatables.net/select/1.2.5/js/dataTables.select.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/1.5.1/js/dataTables.buttons.min.js"></script>
     <script src="https://cdn.datatables.net/buttons/1.5.1/js/buttons.bootstrap.min.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id"
+          content="687239019355-9116qecl38jplk8uv82b5r44hqaqbiu0.apps.googleusercontent.com">
 </head>
 <body>
 <nav class="navbar navbar-default">
     <div class="container-fluid">
         <div class="navbar-header">
-            <a class="navbar-brand" href="#">TrainDelayStats</a>
+            <a class="navbar-brand" href="#">TrainDelayHelper</a>
         </div>
         <ul class="nav navbar-nav">
             <li><a href="#">Home</a></li>
@@ -28,14 +31,19 @@
             <li><a href="#">Train history search</a></li>
             <li><a href="#">Schedules</a></li>
         </ul>
+        <ul class="nav navbar-nav navbar-right">
+            <div class="g-signin2" data-onsuccess="onSignIn"></div>
+        </ul>
     </div>
 </nav>
 
 <div class="container">
-
-    <table class="table table-hover" id="query-results" width="100%"></table>
-
+    <div class="alert-placeholder"></div>
 </div>
+<div class="container">
+    <table class="table table-hover" id="query-results" width="100%"></table>
+</div>
+
 
 <!-- Modal -->
 <div id="train-selection-modal" class="modal fade" role="dialog">
@@ -48,6 +56,7 @@
                 <h4 class="modal-title">Search for trains</h4>
             </div>
             <div class="modal-body">
+                <div class="modal-alert-placeholder"></div>
                 <form id="train-selector-form">
                     <div class="form-group">
                         <label for="fromStationInput">Traveling From</label>
@@ -89,6 +98,7 @@
 
     var dataTable;
     var stations = [];
+    var userEmail;
 
     function setUpDataTable() {
         dataTable = $('#query-results').DataTable({
@@ -122,7 +132,7 @@
                     targets: 0
                 },
                 {
-                    "targets": [1, 3, 5, 7],
+                    "targets": [1, 3, 5, 7, 12, 13],
                     "visible": false,
                     "searchable": false
                 }
@@ -132,14 +142,14 @@
             },
             buttons: [
                 {
-                    className: 'btn btn-primary',
+                    className: 'btn btn-primary table-buttons',
                     text: 'Subscribe to selected trains',
                     action: function () {
-                        submitSelectedTrains(dataTable.rows({selected: true}).data().toArray());
+                        subscribeToSelectedTrains(dataTable.rows({selected: true}).data().toArray());
                     }
                 },
                 {
-                    className: 'btn btn-default',
+                    className: 'btn btn-default table-buttons',
                     text: 'Search again',
                     action: function () {
                         $('#train-selection-modal').modal('show');
@@ -149,19 +159,36 @@
         });
     }
 
-    function submitSelectedTrains(rowData) {
+    function onSignIn(googleUser) {
+        var profile = googleUser.getBasicProfile();
+        var id_token = googleUser.getAuthResponse().id_token; //TODO
+        userEmail = profile.getEmail();
+    }
+
+    function subscribeToSelectedTrains(rowData) {
+        $('.alert-placeholder').empty();
         if (rowData.length > 0) {
-            var toSend = [];
+            var idArray = [];
             for (var i = 0; i < rowData.length; i++) {
-                toSend.push({
-                    id: rowData[i][1],
-                    userId: "testUserId"
-                });
+                idArray.push(rowData[i][1]);
             }
+            var toSend = {
+                email: userEmail,
+                ids: idArray
+            };
             $.ajax({
                 type: "POST",
                 url: "subscribe",
-                data: JSON.stringify(toSend)
+                contentType: 'application/json; charset=utf-8',
+                data: JSON.stringify(toSend),
+                success: function() { showSuccessfulSubscribeAlert(idArray.length) },
+                error: function(response) {
+                    if (response.status === 409) {
+                        showDuplicateSubscribeAlert()
+                    } else {
+                        showUnsuccessfulSubscribeAlert()
+                    }
+                }
             }); //TODO handle errors
 
         }
@@ -201,8 +228,36 @@
                     }
                 });
                 enableFormInput();
+            },
+            error: function () {
+                showErrorObtainingStationDataAlert();
+
             }
+
         });
+    }
+
+    function showSuccessfulSubscribeAlert(numberSubscribed) {
+        $('.alert-placeholder').empty().append("<div class='alert alert-success alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>Successfully subscribed to " + numberSubscribed + " route(s)</div>")
+    }
+
+    function showUnsuccessfulSubscribeAlert() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem subscribing to routes</div>")
+    }
+
+    function showDuplicateSubscribeAlert() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-warning alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>Can not subscribe to routes as user " + userEmail + " is already subscribed to one or more of the selected routes</div>")
+    }
+
+    function showNoRoutesFoundAlert() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-warning alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>No routes found in schedule for stations specified</div>")
+    }
+
+    function showErrorObtainingScheduleDataAlert() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching schedule data</div>")
+    }
+    function showErrorObtainingStationDataAlert() {
+        $('.modal-alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching the station list</div>")
     }
 
     $(document).ready(function () {
@@ -242,8 +297,11 @@
                             dataTable.clear();
                             dataTable.rows.add(rowArray).draw();
                         } else {
-                            alert("No schedule results found for your query");
+                            showNoRoutesFoundAlert()
                         }
+                    },
+                    error: function() {
+                        showErrorObtainingScheduleDataAlert()
                     }
                 });
             })

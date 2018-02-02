@@ -56,6 +56,7 @@ object PopulateScheduleTable extends App with StrictLogging {
         .run
     } yield ()
 
+  //TODO do this in another way without requiring existing records to be pulled.
   private def writeScheduleRecords(stanoxTable: StanoxTable, scheduleTable: ScheduleTable) = {
     val counter = new AtomicInteger(0) //TODO remove
     for {

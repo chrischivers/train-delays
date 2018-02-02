@@ -1,0 +1,1 @@
+CREATE INDEX schedule_lookup_idx ON schedule (stanox_code, days_run_pattern, subsequent_stanox_codes);

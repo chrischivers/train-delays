@@ -5,6 +5,9 @@ import traindelays.networkrail.StanoxCode
 import traindelays.networkrail.scheduledata.StanoxRecord
 
 import scala.concurrent.duration.FiniteDuration
+import scalacache.{Cache, Flags}
+import scalacache.guava.GuavaCache
+import scalacache.memoization.memoizeF
 
 trait StanoxTable extends MemoizedTable[StanoxRecord] {
   def stanoxRecordFor(stanoxCode: StanoxCode): IO[Option[StanoxRecord]]
@@ -12,6 +15,8 @@ trait StanoxTable extends MemoizedTable[StanoxRecord] {
   def addStanoxRecords(records: List[StanoxRecord]): IO[Unit]
 
   def deleteAllRecords(): IO[Unit]
+
+  def retrieveAllRecordsWithCRS(forceRefesh: Boolean = false): IO[List[StanoxRecord]]
 
 }
 
@@ -32,8 +37,8 @@ object StanoxTable {
     val sql =
       s"""
          |    INSERT INTO stanox
-         |      (stanox_code, tiploc_code, crs, description)
-         |      VALUES(?, ?, ?, ?)
+         |      (stanox_code, tiploc_code, crs, description, primary_entry)
+         |      VALUES(?, ?, ?, ?, ?)
   """.stripMargin
 
     Update[StanoxRecord](sql).updateMany(records)
@@ -41,13 +46,20 @@ object StanoxTable {
 
   def allStanoxRecords(): Query0[StanoxRecord] =
     sql"""
-      SELECT stanox_code, tiploc_code, crs, description
+      SELECT stanox_code, tiploc_code, crs, description, primary_entry
       FROM stanox
+      """.query[StanoxRecord]
+
+  def allStanoxRecordsWithCRS(): Query0[StanoxRecord] =
+    sql"""
+      SELECT stanox_code, tiploc_code, crs, description, primary_entry
+      FROM stanox
+      WHERE crs IS NOT NULL
       """.query[StanoxRecord]
 
   def stanoxRecordFor(stanoxCode: StanoxCode) =
     sql"""
-    SELECT stanox_code, tiploc_code, crs, description
+    SELECT stanox_code, tiploc_code, crs, description, primary_entry
     FROM stanox
     WHERE stanox_code = ${stanoxCode.value}
       """.query[StanoxRecord]
@@ -85,5 +97,21 @@ object StanoxTable {
       override def deleteAllRecords(): IO[Unit] =
         StanoxTable.deleteAllStanoxRecords().run.transact(db).map(_ => ())
 
+      private val memoizeCacheWithCRS: Cache[List[StanoxRecord]] = GuavaCache[List[StanoxRecord]]
+
+      override def retrieveAllRecordsWithCRS(forceRefresh: Boolean = false): IO[List[StanoxRecord]] =
+        if (forceRefresh) {
+          StanoxTable
+            .allStanoxRecordsWithCRS()
+            .list
+            .transact(db)
+        } else {
+          memoizeF(Some(memoizeFor))(
+            StanoxTable
+              .allStanoxRecordsWithCRS()
+              .list
+              .transact(db)
+          )(memoizeCacheWithCRS, scalacache.CatsEffect.modes.io, Flags.defaultFlags)
+        }
     }
 }

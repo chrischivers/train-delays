@@ -35,7 +35,7 @@ package object ui {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
   }
 
-  case class SubscribeRequest(id: Int, userId: String)
+  case class SubscribeRequest(email: String, ids: List[Int])
 
   object SubscribeRequest {
     implicit val decoder: Decoder[SubscribeRequest] = deriveDecoder[SubscribeRequest]
@@ -45,7 +45,7 @@ package object ui {
   //TODO test this
   def queryResponsesFrom(scheduleLogs: List[ScheduleLog],
                          toStanoxCode: StanoxCode,
-                         stanoxRecords: List[StanoxRecord]): List[ScheduleQueryResponse] =
+                         stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]]): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
         id            <- log.id
@@ -61,16 +61,10 @@ package object ui {
           log.atocCode,
           tocName,
           log.stanoxCode,
-          stanoxRecords
-            .find(rec => rec.stanoxCode == log.stanoxCode && rec.crs.isDefined)
-            .flatMap(_.crs)
-            .getOrElse(CRS("N/A")),
+          cRSFrom(log.stanoxCode, stanoxRecordsWithCRS).getOrElse(CRS("N/A")),
           departureTime.format(timeFormatter),
           toStanoxCode,
-          stanoxRecords
-            .find(rec => rec.stanoxCode == toStanoxCode && rec.crs.isDefined)
-            .flatMap(_.crs)
-            .getOrElse(CRS("N/A")),
+          cRSFrom(toStanoxCode, stanoxRecordsWithCRS).getOrElse(CRS("N/A")),
           arrivalTime.format(timeFormatter),
           log.daysRunPattern,
           scheduleStartFormat(log.scheduleStart),
@@ -78,6 +72,12 @@ package object ui {
         )
       }
     }
+
+  private def cRSFrom(stanoxCode: StanoxCode, stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]]): Option[CRS] =
+    stanoxRecordsWithCRS
+      .get(stanoxCode)
+      .map(x => x.find(_.primary.contains(true)).getOrElse(x.head))
+      .flatMap(_.crs)
 
   private def scheduleStartFormat(scheduleStart: LocalDate): String = {
     val now = LocalDate.now()

@@ -13,16 +13,27 @@ import traindelays.networkrail.{StanoxCode, TipLocCode}
 import traindelays.networkrail.scheduledata.StanoxRecord
 import java.time.temporal.ChronoUnit.DAYS
 
+import scalacache.memoization._
+import scalacache.CatsEffect.modes._
+import cats.kernel.Order
+import org.postgresql.util.PSQLException
 import traindelays.UIConfig
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
+
+import scala.concurrent.duration.FiniteDuration
+import scalacache.Cache
+import scalacache.guava.GuavaCache
 
 object Service extends StrictLogging {
 
   import cats.instances.list._
   import cats.syntax.traverse._
 
-  implicit val subscribeRequestEntityDecoder: EntityDecoder[IO, List[SubscribeRequest]] =
-    jsonOf[IO, List[SubscribeRequest]]
+  implicit val subscribeRequestEntityDecoder: EntityDecoder[IO, SubscribeRequest] =
+    jsonOf[IO, SubscribeRequest]
+
+  implicit protected val memoizeRoutesCache: Cache[String] = GuavaCache[String]
 
   def apply(scheduleTable: ScheduleTable,
             stanoxTable: StanoxTable,
@@ -33,11 +44,7 @@ object Service extends StrictLogging {
       static(path, request)
 
     case request @ GET -> Root / "stations" =>
-      Ok(
-        stanoxTable
-          .retrieveAllRecords()
-          //TODO filter out those not in schedule table?
-          .map(stanoxRecords => jsonStationsFrom(stanoxRecords).noSpaces))
+      Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTable))
 
     case request @ POST -> Root / "schedule-query" =>
       request.decode[UrlForm] { m =>
@@ -49,52 +56,64 @@ object Service extends StrictLogging {
         } yield {
           //TODO check if tiploc valid?
           for {
-            stanoxRecords <- stanoxTable.retrieveAllRecords()
+            stanoxRecordsWithCRS <- stanoxTable.retrieveAllRecordsWithCRS()
             queryResponses <- scheduleTable
               .retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun)
               .map { scheduleLogs =>
-                scheduleLogs.filter(x =>
-                  DAYS.between(x.scheduleStart, x.scheduleEnd) > uiConfig.minimumDaysScheduleDuration)
-                queryResponsesFrom(scheduleLogs, toStation, stanoxRecords)
+                queryResponsesFrom(filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
+                                   toStation,
+                                   stanoxRecordsWithCRS.groupBy(_.stanoxCode))
               }
           } yield queryResponses
         }
         result.fold(BadRequest())(lst => Ok(lst.map(_.asJson.noSpaces)))
       }
 
-    //TODO handle users properly
-    //TODO include dates in subscriber request?
     case request @ POST -> Root / "subscribe" =>
-      println("Recieved subscribe request")
-      request.as[List[SubscribeRequest]].flatMap { subscriberRequests =>
-        val insertRecords = subscriberRequests
-          .map { subscriberRequest =>
-            processSubscriberRequest(subscriberRequest, scheduleTable, subscriberTable)
-          }
-          .sequence[IO, Unit]
-        insertRecords.attempt.flatMap {
-          case Left(e) =>
-            logger.error(s"Bad subscriber request received", e)
+      request
+        .as[SubscribeRequest]
+        .attempt
+        .flatMap {
+          case Right(subscriberRequest) =>
+            logger.info(s"Recieved subscribe request [$subscriberRequest]")
+            processSubscriberRequest(subscriberRequest, scheduleTable, subscriberTable).attempt.flatMap {
+              case Left(e)
+                  if e.isInstanceOf[PSQLException] && e
+                    .asInstanceOf[PSQLException]
+                    .getMessage
+                    .contains("duplicate key value") =>
+                logger.info(s"Subscriber already subscribed to route")
+                Conflict("Already subscribed")
+              case Left(e) =>
+                logger.error(s"Unable to process subscriber request received", e)
+                InternalServerError()
+              case Right(_) =>
+                logger.info("Subscriber request successful")
+                Ok()
+            }
+          case Left(err) =>
+            logger.error(s"Unable to decode ${request.toString()}", err)
             BadRequest()
-          case Right(_) => Ok()
         }
-      }
   }
 
   private def processSubscriberRequest(subscribeRequest: SubscribeRequest,
                                        scheduleTable: ScheduleTable,
-                                       subscriberTable: SubscriberTable): IO[Unit] =
-    for {
-      scheduleRec <- scheduleTable.retrieveRecordBy(subscribeRequest.id)
-      _ = println("schedule rec: " + scheduleRec)
-      subscriberRecord = SubscriberRecord(None,
-                                          UserId(subscribeRequest.userId),
-                                          "test@test.com",
-                                          scheduleRec.scheduleTrainId,
-                                          scheduleRec.serviceCode,
-                                          scheduleRec.stanoxCode)
-      _ <- subscriberTable.addRecord(subscriberRecord)
-    } yield ()
+                                       subscriberTable: SubscriberTable): IO[List[Unit]] =
+    subscribeRequest.ids
+      .map { id =>
+        for {
+          scheduleRec <- scheduleTable.retrieveRecordBy(id)
+          subscriberRecord = SubscriberRecord(None,
+                                              UserId(subscribeRequest.email),
+                                              subscribeRequest.email,
+                                              scheduleRec.scheduleTrainId,
+                                              scheduleRec.serviceCode,
+                                              scheduleRec.stanoxCode)
+          _ <- subscriberTable.addRecord(subscriberRecord)
+        } yield ()
+      }
+      .sequence[IO, Unit]
 
   private def static(file: String, request: Request[IO]) = {
     println(file)
@@ -112,20 +131,43 @@ object Service extends StrictLogging {
     }
   }
 
-  //TODO use cats NEL for GroupBy
-  private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]) = {
+  private def filterOutInvalidOrDuplicates(scheduleLogs: List[ScheduleLog], minimumDaysScheduleDuration: Int) =
+    scheduleLogs
+      .filter(x => DAYS.between(x.scheduleStart, x.scheduleEnd) > minimumDaysScheduleDuration)
+      .groupBy(x => (x.scheduleTrainId, x.serviceCode, x.stanoxCode, x.daysRunPattern))
+      .values
+      .map(_.head)
+      .toList
+
+  private def stationsList(memoizeRouteListFor: FiniteDuration,
+                           stanoxTable: StanoxTable,
+                           scheduleTable: ScheduleTable): IO[String] =
+    memoizeF(Some(memoizeRouteListFor)) {
+      for {
+        stanoxRecords      <- stanoxTable.retrieveAllRecords()
+        distinctInSchedule <- scheduleTable.retrieveAllDistinctStanoxCodes
+      } yield jsonStationsFrom(stanoxRecords.filter(x => distinctInSchedule.contains(x.stanoxCode))).noSpaces
+    }
+
+  private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]): Json = {
+    import cats.implicits._
+
+    implicit val ordering: Order[StanoxCode] = cats.Order.by[StanoxCode, String](_.value)
+
     val records = stanoxRecords
       .filter(_.crs.isDefined)
-      .groupBy(_.stanoxCode)
+      .groupByNel(_.stanoxCode)
       .map {
         case (stanoxCode, rec) =>
+          val firstValidRecord = rec.find(_.primary.contains(true)).getOrElse(rec.head)
           Json.obj(
             "key" -> Json.fromString(stanoxCode.value),
             "value" -> Json.fromString(
-              s"${rec.head.description.getOrElse("")} [${rec.head.crs.map(_.value).getOrElse("")}]")
+              s"${firstValidRecord.description.getOrElse("")} [${firstValidRecord.crs.map(_.value).getOrElse("")}]")
           )
       }
       .toSeq
     Json.arr(records: _*)
   }
+
 }
