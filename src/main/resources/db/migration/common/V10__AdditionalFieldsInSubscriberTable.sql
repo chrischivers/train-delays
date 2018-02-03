@@ -1,14 +1,14 @@
 ALTER TABLE subscribers
-ADD COLUMN email_verified BOOLEAN NULL AFTER `email`;
+ADD COLUMN email_verified BOOLEAN NULL;
 
 ALTER TABLE subscribers
-ADD COLUMN name VARCHAR(100) NULL AFTER `email_verified`;
+ADD COLUMN name VARCHAR(100) NULL;
 
 ALTER TABLE subscribers
-ADD COLUMN first_name VARCHAR(100) NULL AFTER `name`;
+ADD COLUMN first_name VARCHAR(100) NULL;
 
 ALTER TABLE subscribers
-ADD COLUMN family_name VARCHAR(100) NULL AFTER `first_name`;
+ADD COLUMN family_name VARCHAR(100) NULL;
 
 ALTER TABLE subscribers
-ADD COLUMN locale VARCHAR(10) NULL AFTER `family_name`;
+ADD COLUMN locale VARCHAR(10) NULL;
