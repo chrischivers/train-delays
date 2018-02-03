@@ -25,16 +25,18 @@ object StartMovementListener extends App {
     trainCancellationQueue <- async.unboundedQueue[IO, TrainCancellationRecord]
     movementMessageHandler = MovementMessageHandler(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
     _ <- stompClient.subscribe(config.networkRailConfig.movements.topic, movementMessageHandler)
-    _ <- createMovementMessageProcessor(trainMovementQueue, trainActivationQueue).run
+    _ <- createMovementMessageProcessor(trainMovementQueue, trainActivationQueue, trainCancellationQueue).run
   } yield ()
 
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
-                                             trainActivationMessageQueue: Queue[IO, TrainActivationRecord]) =
+                                             trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
+                                             trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord]) =
     withTransactor(config.databaseConfig)() { db =>
-      val movementLogTable  = MovementLogTable(db)
-      val subscriberTable   = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
-      val emailer           = Emailer(config.emailerConfig)
-      val subscriberFetcher = SubscriberHandler(movementLogTable, subscriberTable, emailer)
+      val movementLogTable     = MovementLogTable(db)
+      val cancellationLogTable = CancellationLogTable(db)
+      val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
+      val emailer              = Emailer(config.emailerConfig)
+      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, emailer)
 
       val redisClient =
         RedisClient(config.redisConfig.host, config.redisConfig.port, password = None, Some(config.redisConfig.dbIndex))
@@ -42,11 +44,16 @@ object StartMovementListener extends App {
 
       val trainActivationProcessor = TrainActivationProcessor(trainActivationMessageQueue, trainActivationCache)
       val trainMovementProcessor =
-        TrainMovementProcessor(trainMovementMessageQueue, movementLogTable, subscriberFetcher, trainActivationCache)
+        TrainMovementProcessor(trainMovementMessageQueue, movementLogTable, subscriberHandler, trainActivationCache)
+      val trainCancellationProcessor =
+        TrainCancellationProcessor(trainCancellationMessageQueue,
+                                   subscriberHandler,
+                                   cancellationLogTable,
+                                   trainActivationCache)
 
-      trainActivationProcessor.stream.concurrently {
-        trainMovementProcessor.stream
-      }
+      trainActivationProcessor.stream
+        .concurrently(trainMovementProcessor.stream)
+        .concurrently(trainCancellationProcessor.stream)
     }
 
   app.unsafeRunSync()

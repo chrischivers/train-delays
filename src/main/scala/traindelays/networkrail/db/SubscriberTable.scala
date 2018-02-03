@@ -23,13 +23,13 @@ object SubscriberTable {
   def addSubscriberRecord(record: SubscriberRecord): Update0 =
     sql"""
       INSERT INTO subscribers
-      (user_id, email, schedule_train_id, service_code, stanox_code, subscribe_timestamp)
-      VALUES(${record.userId}, ${record.email}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanoxCode}, now())
+      (user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, stanox_code, subscribe_timestamp)
+      VALUES(${record.userId}, ${record.email}, ${record.emailVerified}, ${record.name}, ${record.firstName}, ${record.familyName}, ${record.locale}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanoxCode}, now())
      """.update
 
   protected def allSubscriberRecords(): Query0[SubscriberRecord] =
     sql"""
-      SELECT id, user_id, email, schedule_train_id, service_code, stanox_code
+      SELECT id, user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, stanox_code
       FROM subscribers
       """.query[SubscriberRecord]
 
@@ -49,7 +49,7 @@ object SubscriberTable {
                                         serviceCode: ServiceCode,
                                         stanoxCode: StanoxCode): IO[List[SubscriberRecord]] =
         sql"""
-          SELECT id, user_id, email, schedule_train_id, service_code, stanox_code
+          SELECT id, user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, stanox_code
           FROM subscribers
           WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode} AND stanox_code = ${stanoxCode}
       """.query[SubscriberRecord].list.transact(db)

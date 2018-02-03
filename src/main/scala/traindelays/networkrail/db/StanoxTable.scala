@@ -12,7 +12,7 @@ import scalacache.memoization.memoizeF
 trait StanoxTable extends MemoizedTable[StanoxRecord] {
   def stanoxRecordFor(stanoxCode: StanoxCode): IO[Option[StanoxRecord]]
 
-  def addStanoxRecords(records: List[StanoxRecord]): IO[Unit]
+  def addRecords(records: List[StanoxRecord]): IO[Unit]
 
   def deleteAllRecords(): IO[Unit]
 
@@ -85,7 +85,7 @@ object StanoxTable {
           .option
           .transact(db)
 
-      override def addStanoxRecords(records: List[StanoxRecord]): IO[Unit] =
+      override def addRecords(records: List[StanoxRecord]): IO[Unit] =
         StanoxTable.addStanoxRecords(records).transact(db).map(_ => ())
 
       override protected def retrieveAll(): IO[List[StanoxRecord]] =

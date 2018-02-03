@@ -21,7 +21,7 @@ trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
   def retrieveScheduleLogRecordsFor(from: StanoxCode, to: StanoxCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
 
-  def retrieveRecordBy(id: Int): IO[ScheduleLog]
+  def retrieveRecordBy(id: Int): IO[Option[ScheduleLog]]
 
   def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]]
 
@@ -259,7 +259,8 @@ object ScheduleTable extends StrictLogging {
                                                  pattern: DaysRunPattern): IO[List[ScheduleLog]] =
         ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
 
-      override def retrieveRecordBy(id: Int): IO[ScheduleLog] = ScheduleTable.scheduleRecordFor(id).unique.transact(db)
+      override def retrieveRecordBy(id: Int): IO[Option[ScheduleLog]] =
+        ScheduleTable.scheduleRecordFor(id).option.transact(db)
 
       override def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]] =
         ScheduleTable.distinctStanoxCodes.list.transact(db)

@@ -94,9 +94,24 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
   def getSubscriberRecord(userId: UserId = UserId("ABCDEFG"),
                           email: String = "test@test.com",
+                          emailVerified: Option[Boolean] = Some(true),
+                          name: Option[String] = Some("joebloggs"),
+                          firstName: Option[String] = Some("Joe"),
+                          familyName: Option[String] = Some("Bloggs"),
+                          locale: Option[String] = Some("GB"),
                           scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
                           serviceCode: ServiceCode = ServiceCode("24745000"),
                           stanoxCode: StanoxCode = StanoxCode("REDHILL")) =
-    SubscriberRecord(None, userId, email, scheduleTrainId, serviceCode, stanoxCode)
+    SubscriberRecord(None,
+                     userId,
+                     email,
+                     emailVerified,
+                     name,
+                     firstName,
+                     familyName,
+                     locale,
+                     scheduleTrainId,
+                     serviceCode,
+                     stanoxCode)
 
 }

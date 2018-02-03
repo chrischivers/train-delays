@@ -18,6 +18,11 @@ package object subscribers {
   case class SubscriberRecord(id: Option[Int],
                               userId: UserId,
                               email: String,
+                              emailVerified: Option[Boolean],
+                              name: Option[String],
+                              firstName: Option[String],
+                              familyName: Option[String],
+                              locale: Option[String],
                               scheduleTrainId: ScheduleTrainId,
                               serviceCode: ServiceCode,
                               stanoxCode: StanoxCode)

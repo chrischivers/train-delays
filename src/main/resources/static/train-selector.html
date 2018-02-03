@@ -99,6 +99,7 @@
     var dataTable;
     var stations = [];
     var userEmail;
+    var userIdToken;
 
     function setUpDataTable() {
         dataTable = $('#query-results').DataTable({
@@ -161,7 +162,7 @@
 
     function onSignIn(googleUser) {
         var profile = googleUser.getBasicProfile();
-        var id_token = googleUser.getAuthResponse().id_token; //TODO
+        userIdToken = googleUser.getAuthResponse().id_token;;
         userEmail = profile.getEmail();
     }
 
@@ -174,6 +175,7 @@
             }
             var toSend = {
                 email: userEmail,
+                idToken: userIdToken,
                 ids: idArray
             };
             $.ajax({
@@ -189,8 +191,7 @@
                         showUnsuccessfulSubscribeAlert()
                     }
                 }
-            }); //TODO handle errors
-
+            });
         }
     }
 

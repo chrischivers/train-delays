@@ -50,7 +50,7 @@ case class DatabaseConfig(driverClassName: String,
                           password: String,
                           maximumPoolSize: Int = 2)
 
-case class UIConfig(minimumDaysScheduleDuration: Int, memoizeRouteListFor: FiniteDuration = 24 hours)
+case class UIConfig(minimumDaysScheduleDuration: Int, memoizeRouteListFor: FiniteDuration, clientId: String)
 
 case class RedisConfig(host: String, port: Int, dbIndex: Int)
 
@@ -110,7 +110,9 @@ object ConfigLoader {
         defaultConfigFactory.getInt("http-server.port")
       ),
       UIConfig(
-        defaultConfigFactory.getInt("ui.minimumDaysScheduleDuration")
+        defaultConfigFactory.getInt("ui.minimumDaysScheduleDuration"),
+        FiniteDuration(defaultConfigFactory.getDuration("ui.memoizeRouteListFor").toMillis, TimeUnit.MILLISECONDS),
+        defaultConfigFactory.getString("ui.clientId")
       )
     )
   }

@@ -17,13 +17,24 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
 
   it should "produce report for a single subscribed route and single movement record" in {
 
-    val movementRecord   = createMovementRecord()
-    val userID           = UserId(UUID.randomUUID().toString)
-    val scheduleTrainId  = ScheduleTrainId("AXgGH")
-    val email            = "test@test.com"
-    val serviceCode      = movementRecord.trainServiceCode
-    val stanoxCode       = movementRecord.stanoxCode.get
-    val subscriberRecord = SubscriberRecord(None, userID, email, scheduleTrainId, serviceCode, stanoxCode)
+    val movementRecord  = createMovementRecord()
+    val userID          = UserId(UUID.randomUUID().toString)
+    val scheduleTrainId = ScheduleTrainId("AXgGH")
+    val email           = "test@test.com"
+    val serviceCode     = movementRecord.trainServiceCode
+    val stanoxCode      = movementRecord.stanoxCode.get
+    val subscriberRecord =
+      SubscriberRecord(None,
+                       userID,
+                       email,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId,
+                       serviceCode,
+                       stanoxCode)
 
     withInitialState(config)(
       AppInitialState(subscriberRecords = List(subscriberRecord),
@@ -45,16 +56,27 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
 
   it should "produce report for a single subscribed route and multiple movement records" in {
 
-    val movementRecord1  = createMovementRecord()
-    val movementRecord2  = createMovementRecord(eventType = Departure)
-    val movementRecord3  = createMovementRecord(trainId = TrainId("ANOTHER_ID"))
-    val userID           = UserId(UUID.randomUUID().toString)
-    val scheduleTrainId  = ScheduleTrainId("AXgGH")
-    val email            = "test@test.com"
-    val trainID          = movementRecord1.trainId
-    val serviceCode      = movementRecord1.trainServiceCode
-    val stanoxCode       = movementRecord1.stanoxCode.get
-    val subscriberRecord = SubscriberRecord(None, userID, email, scheduleTrainId, serviceCode, stanoxCode)
+    val movementRecord1 = createMovementRecord()
+    val movementRecord2 = createMovementRecord(eventType = Departure)
+    val movementRecord3 = createMovementRecord(trainId = TrainId("ANOTHER_ID"))
+    val userID          = UserId(UUID.randomUUID().toString)
+    val scheduleTrainId = ScheduleTrainId("AXgGH")
+    val email           = "test@test.com"
+    val trainID         = movementRecord1.trainId
+    val serviceCode     = movementRecord1.trainServiceCode
+    val stanoxCode      = movementRecord1.stanoxCode.get
+    val subscriberRecord =
+      SubscriberRecord(None,
+                       userID,
+                       email,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId,
+                       serviceCode,
+                       stanoxCode)
 
     withInitialState(config)(
       AppInitialState(
@@ -101,9 +123,42 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     val serviceCode3     = activationRecord.trainServiceCode
     val stanox3          = movementRecord1.stanoxCode.get
 
-    val subscriberRecord1 = SubscriberRecord(None, userID1, email1, scheduleTrainId1, serviceCode1, stanox1)
-    val subscriberRecord2 = SubscriberRecord(None, userID2, email2, scheduleTrainId2, serviceCode2, stanox2)
-    val subscriberRecord3 = SubscriberRecord(None, userID3, email3, scheduleTrainId3, serviceCode3, stanox3)
+    val subscriberRecord1 =
+      SubscriberRecord(None,
+                       userID1,
+                       email1,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId1,
+                       serviceCode1,
+                       stanox1)
+    val subscriberRecord2 =
+      SubscriberRecord(None,
+                       userID2,
+                       email2,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId2,
+                       serviceCode2,
+                       stanox2)
+    val subscriberRecord3 =
+      SubscriberRecord(None,
+                       userID3,
+                       email3,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId3,
+                       serviceCode3,
+                       stanox3)
 
     val emailer = StubEmailer()
 
@@ -156,9 +211,42 @@ class SubscriberHandlerTest extends FlatSpec with TestFeatures {
     val serviceCode3     = activationRecord.trainServiceCode
     val stanox3          = cancellationRecord.stanoxCode
 
-    val subscriberRecord1 = SubscriberRecord(None, userID1, email1, scheduleTrainId1, serviceCode1, stanox1)
-    val subscriberRecord2 = SubscriberRecord(None, userID2, email2, scheduleTrainId2, serviceCode2, stanox2)
-    val subscriberRecord3 = SubscriberRecord(None, userID3, email3, scheduleTrainId3, serviceCode3, stanox3)
+    val subscriberRecord1 =
+      SubscriberRecord(None,
+                       userID1,
+                       email1,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId1,
+                       serviceCode1,
+                       stanox1)
+    val subscriberRecord2 =
+      SubscriberRecord(None,
+                       userID2,
+                       email2,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId2,
+                       serviceCode2,
+                       stanox2)
+    val subscriberRecord3 =
+      SubscriberRecord(None,
+                       userID3,
+                       email3,
+                       Some(true),
+                       None,
+                       None,
+                       None,
+                       None,
+                       scheduleTrainId3,
+                       serviceCode3,
+                       stanox3)
 
     val emailer = StubEmailer()
 

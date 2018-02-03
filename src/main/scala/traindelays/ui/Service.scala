@@ -38,7 +38,8 @@ object Service extends StrictLogging {
   def apply(scheduleTable: ScheduleTable,
             stanoxTable: StanoxTable,
             subscriberTable: SubscriberTable,
-            uiConfig: UIConfig) = HttpService[IO] {
+            uiConfig: UIConfig,
+            googleAuthenticator: GoogleAuthenticator) = HttpService[IO] {
 
     case request @ GET -> Root / path if List(".js", ".css", ".html").exists(path.endsWith) =>
       static(path, request)
@@ -75,22 +76,23 @@ object Service extends StrictLogging {
         .attempt
         .flatMap {
           case Right(subscriberRequest) =>
-            logger.info(s"Recieved subscribe request [$subscriberRequest]")
-            processSubscriberRequest(subscriberRequest, scheduleTable, subscriberTable).attempt.flatMap {
-              case Left(e)
-                  if e.isInstanceOf[PSQLException] && e
-                    .asInstanceOf[PSQLException]
-                    .getMessage
-                    .contains("duplicate key value") =>
-                logger.info(s"Subscriber already subscribed to route")
-                Conflict("Already subscribed")
-              case Left(e) =>
-                logger.error(s"Unable to process subscriber request received", e)
-                InternalServerError()
-              case Right(_) =>
-                logger.info("Subscriber request successful")
-                Ok()
-            }
+            logger.info(s"Received subscribe request [$subscriberRequest]")
+            processSubscriberRequest(subscriberRequest, scheduleTable, subscriberTable, googleAuthenticator).attempt
+              .flatMap {
+                case Left(e)
+                    if e.isInstanceOf[PSQLException] && e
+                      .asInstanceOf[PSQLException]
+                      .getMessage
+                      .contains("duplicate key value") =>
+                  logger.info(s"Subscriber already subscribed to route")
+                  Conflict("Already subscribed")
+                case Left(e) =>
+                  logger.error(s"Unable to process subscriber request received", e)
+                  InternalServerError()
+                case Right(_) =>
+                  logger.info("Subscriber request successful")
+                  Ok()
+              }
           case Left(err) =>
             logger.error(s"Unable to decode ${request.toString()}", err)
             BadRequest()
@@ -99,21 +101,35 @@ object Service extends StrictLogging {
 
   private def processSubscriberRequest(subscribeRequest: SubscribeRequest,
                                        scheduleTable: ScheduleTable,
-                                       subscriberTable: SubscriberTable): IO[List[Unit]] =
-    subscribeRequest.ids
-      .map { id =>
-        for {
-          scheduleRec <- scheduleTable.retrieveRecordBy(id)
-          subscriberRecord = SubscriberRecord(None,
-                                              UserId(subscribeRequest.email),
-                                              subscribeRequest.email,
-                                              scheduleRec.scheduleTrainId,
-                                              scheduleRec.serviceCode,
-                                              scheduleRec.stanoxCode)
-          _ <- subscriberTable.addRecord(subscriberRecord)
-        } yield ()
-      }
-      .sequence[IO, Unit]
+                                       subscriberTable: SubscriberTable,
+                                       googleAuthenticator: GoogleAuthenticator): IO[Unit] =
+    for {
+      authenticatedDetails <- googleAuthenticator.verifyToken(subscribeRequest.idToken)
+      _ <- subscribeRequest.ids
+        .map { id =>
+          for {
+            scheduleRec <- scheduleTable.retrieveRecordBy(id)
+            maybeSubscriberRecord = scheduleRec.map { scheduleRec =>
+              SubscriberRecord(
+                None,
+                authenticatedDetails.userId,
+                authenticatedDetails.email,
+                authenticatedDetails.emailVerified,
+                authenticatedDetails.name,
+                authenticatedDetails.firstName,
+                authenticatedDetails.familyName,
+                authenticatedDetails.locale,
+                scheduleRec.scheduleTrainId,
+                scheduleRec.serviceCode,
+                scheduleRec.stanoxCode
+              )
+            }
+            _ <- maybeSubscriberRecord.fold[IO[Unit]](IO.raiseError(new RuntimeException(s"Invalid schedule ID $id")))(
+              subscriberRec => subscriberTable.addRecord(subscriberRec))
+          } yield ()
+        }
+        .sequence[IO, Unit]
+    } yield ()
 
   private def static(file: String, request: Request[IO]) = {
     println(file)
