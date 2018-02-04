@@ -3,9 +3,11 @@ package traindelays.networkrail.cache
 import akka.util.ByteString
 import cats.Eval
 import cats.effect.IO
+import io.circe.{Decoder, Encoder}
 import redis.{ByteStringDeserializer, ByteStringSerializer, RedisClient}
 import traindelays.networkrail.movementdata.{TrainActivationRecord, TrainId}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
+import io.circe.generic.semiauto._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.parser._
@@ -21,14 +23,21 @@ trait TrainActivationCache {
 
 object TrainActivationCache {
 
+  private val trainActivationRecordSimpleDecoder: Decoder[TrainActivationRecord] = deriveDecoder[TrainActivationRecord]
+  private val trainActivationRecordSimpleEncoder: Encoder[TrainActivationRecord] = deriveEncoder[TrainActivationRecord]
+
   implicit val byteStringSerializer = new ByteStringSerializer[TrainActivationRecord] {
-    override def serialize(data: TrainActivationRecord): ByteString = ByteString(data.asJson.noSpaces)
+    override def serialize(data: TrainActivationRecord): ByteString =
+      ByteString(data.asJson(trainActivationRecordSimpleEncoder).noSpaces)
   }
 
   implicit val byteStringDeserializer = new ByteStringDeserializer[TrainActivationRecord] {
     override def deserialize(bs: ByteString): TrainActivationRecord =
-      decode[TrainActivationRecord](bs.utf8String)
-        .fold(err => throw err, identity)
+      (for {
+        json    <- parse(bs.utf8String)
+        decoded <- trainActivationRecordSimpleDecoder.decodeJson(json)
+      } yield decoded).fold(err => throw err, identity)
+
   }
 
   def apply(redisClient: RedisClient, expiry: FiniteDuration)(implicit executionContext: ExecutionContext) =

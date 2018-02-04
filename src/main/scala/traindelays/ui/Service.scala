@@ -54,9 +54,11 @@ object Service extends StrictLogging {
       request.as[ScheduleQueryRequest].attempt.flatMap {
         case Right(req) =>
           (for {
-            authenticatedDetails      <- googleAuthenticator.verifyToken(req.idToken)
-            stanoxRecordsWithCRS      <- stanoxTable.retrieveAllRecordsWithCRS()
-            existingSubscriberRecords <- subscriberTable.subscriberRecordsFor(authenticatedDetails.userId)
+            maybeAuthenticatedDetails <- req.idToken.fold[IO[Option[AuthenticatedDetails]]](IO.pure(None))(token =>
+              googleAuthenticator.verifyToken(token).map(Some(_)))
+            stanoxRecordsWithCRS <- stanoxTable.retrieveAllRecordsWithCRS()
+            maybeExistingSubscriberRecords <- maybeAuthenticatedDetails.fold[IO[Option[List[SubscriberRecord]]]](
+              IO.pure(None))(details => subscriberTable.subscriberRecordsFor(details.userId).map(Some(_)))
             queryResponses <- scheduleTable
               .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern)
               .map { scheduleLogs =>
@@ -64,7 +66,7 @@ object Service extends StrictLogging {
                   filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
                   req.toStanox,
                   stanoxRecordsWithCRS.groupBy(_.stanoxCode),
-                  existingSubscriberRecords
+                  maybeExistingSubscriberRecords
                 )
               }
 

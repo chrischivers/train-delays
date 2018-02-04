@@ -17,7 +17,7 @@ package object ui {
   val dateFormatter = DateTimeFormatter.ofPattern("dd-MMM-yyyy")
   val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
 
-  case class ScheduleQueryRequest(idToken: String,
+  case class ScheduleQueryRequest(idToken: Option[String],
                                   fromStanox: StanoxCode,
                                   toStanox: StanoxCode,
                                   daysRunPattern: DaysRunPattern)
@@ -62,7 +62,7 @@ package object ui {
   def queryResponsesFrom(scheduleLogs: List[ScheduleLog],
                          toStanoxCode: StanoxCode,
                          stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]],
-                         existingSubscriberRecords: List[SubscriberRecord]): List[ScheduleQueryResponse] =
+                         existingSubscriberRecords: Option[List[SubscriberRecord]]): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
         id            <- log.id
@@ -86,13 +86,14 @@ package object ui {
           log.daysRunPattern,
           scheduleStartFormat(log.scheduleStart),
           log.scheduleEnd.format(dateFormatter),
-          existingSubscriberRecords.exists(
-            rec =>
-              rec.scheduleTrainId == log.scheduleTrainId &&
-                rec.fromStanoxCode == log.stanoxCode &&
-                rec.toStanoxCode == toStanoxCode &&
-                rec.serviceCode == log.serviceCode &&
-                rec.daysRunPattern == log.daysRunPattern)
+          existingSubscriberRecords.fold(false)(
+            _.exists(
+              rec =>
+                rec.scheduleTrainId == log.scheduleTrainId &&
+                  rec.fromStanoxCode == log.stanoxCode &&
+                  rec.toStanoxCode == toStanoxCode &&
+                  rec.serviceCode == log.serviceCode &&
+                  rec.daysRunPattern == log.daysRunPattern))
         )
       }
     }
