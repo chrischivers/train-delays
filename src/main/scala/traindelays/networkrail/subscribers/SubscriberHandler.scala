@@ -29,31 +29,25 @@ object SubscriberHandler {
         //TODO only notify in particular circumstances (e.g. late)
 
         for {
-          affected <- affectedSubscribersFor(log.scheduleTrainId, log.serviceCode, log.stanoxCode)
-          _        <- affected.traverse(subscriber => emailSubscriberWithMovementUpdate(subscriber, log, emailer))
+          subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
+          affected           <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
+          _                  <- affected.traverse(subscriber => emailSubscriberWithMovementUpdate(subscriber, log, emailer))
         } yield ()
       }
 
       override def cancellationNotifier: fs2.Sink[IO, CancellationLog] = fs2.Sink[IO, CancellationLog] { log =>
         for {
-          affected <- affectedSubscribersFor(log.scheduleTrainId, log.serviceCode, log.stanoxCode)
-          _        <- affected.traverse(subscriber => emailSubscriberWithCancellationUpdate(subscriber, log, emailer))
+          subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
+          //For cancellation on a route all subscribers are notified
+          //TODO is this assumption correct
+          _ <- subscribersOnRoute.traverse(subscriber =>
+            emailSubscriberWithCancellationUpdate(subscriber, log, emailer))
         } yield ()
       }
 
-      private def affectedSubscribersFor(scheduleTrainId: ScheduleTrainId,
-                                         serviceCode: ServiceCode,
-                                         stanoxCode: StanoxCode): IO[List[SubscriberRecord]] =
-        for {
-          subscribersOnRoute <- subscriberTable.subscriberRecordsFor(scheduleTrainId, serviceCode)
-          _ = println("subs on route: " + subscribersOnRoute)
-          affected <- affectedSubscribers(subscribersOnRoute, stanoxCode, scheduleTable)
-          _ = println("affected: " + affected)
-        } yield affected
-
-      private def affectedSubscribers(subscribersOnRoute: List[SubscriberRecord],
-                                      affectedStanoxCode: StanoxCode,
-                                      scheduleTable: ScheduleTable): IO[List[SubscriberRecord]] =
+      private def filterSubscribersOnStanoxRange(subscribersOnRoute: List[SubscriberRecord],
+                                                 affectedStanoxCode: StanoxCode,
+                                                 scheduleTable: ScheduleTable): IO[List[SubscriberRecord]] =
         subscribersOnRoute
           .map { subscriber =>
             scheduleTable
