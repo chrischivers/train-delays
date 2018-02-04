@@ -3,7 +3,8 @@ package traindelays.networkrail.cache
 import akka.util.ByteString
 import cats.Eval
 import cats.effect.IO
-import io.circe.{Decoder, Encoder}
+import io.circe.Decoder.Result
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import redis.{ByteStringDeserializer, ByteStringSerializer, RedisClient}
 import traindelays.networkrail.movementdata.{TrainActivationRecord, TrainId}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
@@ -11,6 +12,7 @@ import io.circe.generic.semiauto._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.parser._
+import traindelays.networkrail.{ServiceCode, StanoxCode}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
@@ -23,8 +25,24 @@ trait TrainActivationCache {
 
 object TrainActivationCache {
 
-  private val trainActivationRecordSimpleDecoder: Decoder[TrainActivationRecord] = deriveDecoder[TrainActivationRecord]
-  private val trainActivationRecordSimpleEncoder: Encoder[TrainActivationRecord] = deriveEncoder[TrainActivationRecord]
+  private val trainActivationRecordSimpleDecoder: Decoder[TrainActivationRecord] = (c: HCursor) =>
+    for {
+      scheduleTrainId          <- c.downField("scheduleTrainId").as[String].map(ScheduleTrainId(_))
+      trainServiceCode         <- c.downField("trainServiceCode").as[String].map(ServiceCode(_))
+      trainId                  <- c.downField("trainId").as[String].map(TrainId(_))
+      originStanox             <- c.downField("originStanox").as[String].map(StanoxCode(_))
+      originDepartureTimestamp <- c.downField("originDepartureTimestamp").as[Long]
+    } yield {
+      new TrainActivationRecord(scheduleTrainId, trainServiceCode, trainId, originStanox, originDepartureTimestamp)
+  }
+  private val trainActivationRecordSimpleEncoder: Encoder[TrainActivationRecord] = (a: TrainActivationRecord) =>
+    Json.obj(
+      ("scheduleTrainId", Json.fromString(a.scheduleTrainId.value)),
+      ("trainServiceCode", Json.fromString(a.trainServiceCode.value)),
+      ("trainId", Json.fromString(a.trainId.value)),
+      ("originStanox", Json.fromString(a.originStanox.value)),
+      ("originDepartureTimestamp", Json.fromLong(a.originDepartureTimestamp))
+  )
 
   implicit val byteStringSerializer = new ByteStringSerializer[TrainActivationRecord] {
     override def serialize(data: TrainActivationRecord): ByteString =
