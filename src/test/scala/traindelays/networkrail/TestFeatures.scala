@@ -212,16 +212,21 @@ trait TestFeatures {
   def createActivationRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G123456"),
                              trainServiceCode: ServiceCode = ServiceCode("23456"),
                              trainId: TrainId = TrainId("12345"),
-  ) =
+                             originStanox: StanoxCode = StanoxCode("74895"),
+                             originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000) =
     TrainActivationRecord(
       scheduleTrainId,
       trainServiceCode,
-      trainId
+      trainId,
+      originStanox,
+      originDepartureTimestamp
     )
 
   def movementRecordToMovementLog(movementRecord: TrainMovementRecord,
                                   id: Option[Int],
-                                  scheduleTrainId: ScheduleTrainId): MovementLog =
+                                  scheduleTrainId: ScheduleTrainId,
+                                  originStanoxCode: StanoxCode,
+                                  originDepartureTimestamp: Long): MovementLog =
     MovementLog(
       id,
       movementRecord.trainId,
@@ -230,6 +235,8 @@ trait TestFeatures {
       movementRecord.eventType,
       movementRecord.toc,
       movementRecord.stanoxCode.get,
+      originStanoxCode,
+      originDepartureTimestamp,
       movementRecord.plannedPassengerTimestamp.get,
       movementRecord.actualTimestamp,
       movementRecord.actualTimestamp - movementRecord.plannedPassengerTimestamp.get,
@@ -238,7 +245,9 @@ trait TestFeatures {
 
   def cancellationRecordToCancellationLog(cancellationRecord: TrainCancellationRecord,
                                           id: Option[Int],
-                                          scheduleTrainId: ScheduleTrainId) =
+                                          scheduleTrainId: ScheduleTrainId,
+                                          originStanoxCode: StanoxCode,
+                                          originDepartureTimestamp: Long) =
     CancellationLog(
       id,
       cancellationRecord.trainId,
@@ -246,6 +255,8 @@ trait TestFeatures {
       cancellationRecord.trainServiceCode,
       cancellationRecord.toc,
       cancellationRecord.stanoxCode,
+      originStanoxCode,
+      originDepartureTimestamp,
       cancellationRecord.cancellationType,
       cancellationRecord.cancellationReasonCode
     )
@@ -282,27 +293,27 @@ trait TestFeatures {
       locationRecords
     )
 
-  def createScheduleLogRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
-                              trainServiceCode: ServiceCode = ServiceCode("24745000"),
-                              atocCode: AtocCode = AtocCode("SN"),
-                              monday: Boolean = true,
-                              tuesday: Boolean = true,
-                              wednesday: Boolean = true,
-                              thursday: Boolean = true,
-                              friday: Boolean = true,
-                              saturday: Boolean = false,
-                              sunday: Boolean = false,
-                              daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
-                              index: Int = 1,
-                              stanoxCode: StanoxCode = StanoxCode("12345"),
-                              subsequentStanoxCodes: List[StanoxCode] = List(StanoxCode("23456"), StanoxCode("34567")),
-                              subsequentArrivalTimes: List[LocalTime] =
-                                List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
-                              scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
-                              scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
-                              locationType: LocationType = OriginatingLocation,
-                              arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
-                              departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter))) =
+  def createScheduleLog(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+                        trainServiceCode: ServiceCode = ServiceCode("24745000"),
+                        atocCode: AtocCode = AtocCode("SN"),
+                        monday: Boolean = true,
+                        tuesday: Boolean = true,
+                        wednesday: Boolean = true,
+                        thursday: Boolean = true,
+                        friday: Boolean = true,
+                        saturday: Boolean = false,
+                        sunday: Boolean = false,
+                        daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
+                        index: Int = 1,
+                        stanoxCode: StanoxCode = StanoxCode("12345"),
+                        subsequentStanoxCodes: List[StanoxCode] = List(StanoxCode("23456"), StanoxCode("34567")),
+                        subsequentArrivalTimes: List[LocalTime] =
+                          List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
+                        scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+                        scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+                        locationType: LocationType = OriginatingLocation,
+                        arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
+                        departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter))) =
     ScheduleLog(
       None,
       scheduleTrainId,
@@ -325,6 +336,55 @@ trait TestFeatures {
       locationType,
       arrivalTime,
       departureTime
+    )
+
+  def createCancellationLog(trainId: TrainId = TrainId("862F60MY30"),
+                            scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G12345"),
+                            serviceCode: ServiceCode = ServiceCode("24673605"),
+                            toc: TOC = TOC("SN"),
+                            stanoxCode: StanoxCode = StanoxCode("87214"),
+                            originStanoxCode: StanoxCode = StanoxCode("46754"),
+                            originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000,
+                            cancellationType: CancellationType = EnRoute,
+                            cancellationReasonCode: String = "YI") =
+    CancellationLog(
+      None,
+      trainId,
+      scheduleTrainId,
+      serviceCode,
+      toc,
+      stanoxCode,
+      originStanoxCode,
+      originDepartureTimestamp,
+      cancellationType,
+      cancellationReasonCode
+    )
+
+  def createMovementLog(trainId: TrainId = TrainId("862F60MY30"),
+                        scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G12345"),
+                        serviceCode: ServiceCode = ServiceCode("24673605"),
+                        eventType: EventType = Arrival,
+                        toc: TOC = TOC("SN"),
+                        stanoxCode: StanoxCode = StanoxCode("87214"),
+                        originStanoxCode: StanoxCode = StanoxCode("47353"),
+                        originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000,
+                        plannedPassengerTimestamp: Long = 1514663220000L,
+                        actualTimestamp: Long = 1514663160000L,
+                        variationStatus: VariationStatus = Early) =
+    MovementLog(
+      None,
+      trainId,
+      scheduleTrainId,
+      serviceCode,
+      eventType,
+      toc,
+      stanoxCode,
+      originStanoxCode,
+      originDepartureTimestamp,
+      plannedPassengerTimestamp,
+      actualTimestamp,
+      actualTimestamp - plannedPassengerTimestamp,
+      variationStatus
     )
 
   def createSubscriberRecord(userId: UserId = UserId("1234567abc"),

@@ -1,5 +1,8 @@
 package traindelays.networkrail.db
 
+import java.sql.Timestamp
+import java.time.Instant
+
 import cats.effect.IO
 import traindelays.networkrail.movementdata.MovementLog
 
@@ -13,14 +16,15 @@ object MovementLogTable {
   def addMovementLogRecord(record: MovementLog): Update0 =
     sql"""
       INSERT INTO movement_log
-      (train_id, schedule_train_id, service_code, event_type, toc, stanox_code, planned_passenger_timestamp, actual_timestamp, difference, variation_status)
-      VALUES(${record.trainId}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.eventType}, ${record.toc}, ${record.stanoxCode},
+      (train_id, schedule_train_id, service_code, event_type, toc, stanox_code, origin_stanox_code, origin_departure_timestamp, planned_passenger_timestamp, actual_timestamp, difference, variation_status)
+      VALUES(${record.trainId}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.eventType}, ${record.toc}, ${record.stanoxCode}, ${record.originStanoxCode}, ${record.originDepartureTimestamp},
       ${record.plannedPassengerTimestamp}, ${record.actualTimestamp}, ${record.difference}, ${record.variationStatus})
      """.update
 
   def allMovementLogRecords(): Query0[MovementLog] =
     sql"""
-      SELECT id, train_id, schedule_train_id, service_code, event_type, toc, stanox_code, planned_passenger_timestamp, actual_timestamp, difference, variation_status
+      SELECT id, train_id, schedule_train_id, service_code, event_type, toc, stanox_code, origin_stanox_code, origin_departure_timestamp,
+      planned_passenger_timestamp, actual_timestamp, difference, variation_status
       from movement_log
       """.query[MovementLog]
 

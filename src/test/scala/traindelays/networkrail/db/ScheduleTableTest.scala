@@ -22,7 +22,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   it should "insert and retrieve an inserted schedule log record from the database (single insertion)" in {
 
-    val scheduleLogRecord = createScheduleLogRecord()
+    val scheduleLogRecord = createScheduleLog()
 
     withInitialState(config)() { fixture =>
       fixture.scheduleTable.addRecord(scheduleLogRecord).unsafeRunSync()
@@ -35,8 +35,8 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   it should "insert and retrieve an inserted schedule log record from the database (multiple insertion)" in {
 
-    val log1 = createScheduleLogRecord()
-    val log2 = createScheduleLogRecord(scheduleTrainId = ScheduleTrainId("98742"))
+    val log1 = createScheduleLog()
+    val log2 = createScheduleLog(scheduleTrainId = ScheduleTrainId("98742"))
 
     withInitialState(config)() { fixture =>
       fixture.scheduleTable.addRecords(List(log1, log2)).unsafeRunSync()

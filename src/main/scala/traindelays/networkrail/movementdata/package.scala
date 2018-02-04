@@ -1,5 +1,7 @@
 package traindelays.networkrail
 
+import java.time.Instant
+
 import cats.effect.IO
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
@@ -118,7 +120,11 @@ package object movementdata {
 
   case class UnhandledTrainRecord(unhandledType: String) extends TrainMovements
 
-  case class TrainActivationRecord(scheduleTrainId: ScheduleTrainId, trainServiceCode: ServiceCode, trainId: TrainId)
+  case class TrainActivationRecord(scheduleTrainId: ScheduleTrainId,
+                                   trainServiceCode: ServiceCode,
+                                   trainId: TrainId,
+                                   originStanox: StanoxCode,
+                                   originalDepartureTimestamp: Long)
       extends TrainMovements
 
   object TrainActivationRecord {
@@ -129,12 +135,14 @@ package object movementdata {
       override def apply(c: HCursor): Result[TrainActivationRecord] = {
         val bodyObject = c.downField("body")
         for {
-          trainId          <- bodyObject.downField("train_id").as[TrainId]
-          trainServiceCode <- bodyObject.downField("train_service_code").as[ServiceCode]
-          scheduleTrainId  <- bodyObject.downField("train_uid").as[ScheduleTrainId]
+          trainId              <- bodyObject.downField("train_id").as[TrainId]
+          trainServiceCode     <- bodyObject.downField("train_service_code").as[ServiceCode]
+          scheduleTrainId      <- bodyObject.downField("train_uid").as[ScheduleTrainId]
+          originStanox         <- bodyObject.downField("tp_origin_stanox").as[StanoxCode]
+          originDepartTimstamp <- bodyObject.downField("origin_dep_timestamp").as[Long]
 
         } yield {
-          TrainActivationRecord(scheduleTrainId, trainServiceCode, trainId)
+          TrainActivationRecord(scheduleTrainId, trainServiceCode, trainId, originStanox, originDepartTimstamp)
         }
       }
     }
@@ -172,17 +180,19 @@ package object movementdata {
       }
     }
     def cancellationRecordToCancellationLog(cancellationRec: TrainCancellationRecord, cache: TrainActivationCache) =
-      cache.getFromCache(cancellationRec.trainId).map { scheduleTrainIdOpt =>
+      cache.getFromCache(cancellationRec.trainId).map { trainActivationRecordOpt =>
         for {
-          scheduleTrainId <- scheduleTrainIdOpt
+          trainActivationRecord <- trainActivationRecordOpt
         } yield {
           CancellationLog(
             None,
             cancellationRec.trainId,
-            scheduleTrainId,
+            trainActivationRecord.scheduleTrainId,
             cancellationRec.trainServiceCode,
             cancellationRec.toc,
             cancellationRec.stanoxCode,
+            trainActivationRecord.originStanox,
+            trainActivationRecord.originalDepartureTimestamp,
             cancellationRec.cancellationType,
             cancellationRec.cancellationReasonCode
           )
@@ -259,21 +269,23 @@ package object movementdata {
 
     private def movementRecordToMovementLog(movementRec: TrainMovementRecord,
                                             cache: TrainActivationCache): IO[Option[MovementLog]] =
-      cache.getFromCache(movementRec.trainId).map { scheduleTrainIdOpt =>
+      cache.getFromCache(movementRec.trainId).map { trainActivationRecordOpt =>
         for {
           stanoxCode                <- movementRec.stanoxCode
           plannedPassengerTimestamp <- movementRec.plannedPassengerTimestamp
           variationStatus           <- movementRec.variationStatus
-          scheduleTrainId           <- scheduleTrainIdOpt
+          trainActivationRecord     <- trainActivationRecordOpt
         } yield {
           MovementLog(
             None,
             movementRec.trainId,
-            scheduleTrainId,
+            trainActivationRecord.scheduleTrainId,
             movementRec.trainServiceCode,
             movementRec.eventType,
             movementRec.toc,
             stanoxCode,
+            trainActivationRecord.originStanox,
+            trainActivationRecord.originalDepartureTimestamp,
             plannedPassengerTimestamp,
             movementRec.actualTimestamp,
             movementRec.actualTimestamp - plannedPassengerTimestamp,
@@ -290,6 +302,8 @@ package object movementdata {
                          eventType: EventType,
                          toc: TOC,
                          stanoxCode: StanoxCode,
+                         originStanoxCode: StanoxCode,
+                         originDepartureTimestamp: Long,
                          plannedPassengerTimestamp: Long,
                          actualTimestamp: Long,
                          difference: Long,
@@ -301,6 +315,8 @@ package object movementdata {
                              serviceCode: ServiceCode,
                              toc: TOC,
                              stanoxCode: StanoxCode,
+                             originStanoxCode: StanoxCode,
+                             originDepartureTimestamp: Long,
                              cancellationType: CancellationType,
                              cancellationReasonCode: String)
 

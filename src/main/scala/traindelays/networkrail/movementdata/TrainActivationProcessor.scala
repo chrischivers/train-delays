@@ -10,7 +10,7 @@ object TrainActivationProcessor {
 
       private val cacheWriter: fs2.Sink[IO, TrainActivationRecord] = fs2.Sink { record =>
         //TODO what do we do with service code. Is it redundant?
-        trainActivationCache.addToCache(record.trainId, record.scheduleTrainId).map(_ => ())
+        trainActivationCache.addToCache(record).map(_ => ())
       }
 
       override def stream: fs2.Stream[IO, Unit] =

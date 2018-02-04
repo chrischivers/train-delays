@@ -44,7 +44,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                 retrievedRecords should have size 1
                 retrievedRecords.head shouldBe movementRecordToMovementLog(movementRecord,
                                                                            Some(1),
-                                                                           activationRecord.scheduleTrainId)
+                                                                           activationRecord.scheduleTrainId,
+                                                                           activationRecord.originStanox,
+                                                                           activationRecord.originalDepartureTimestamp)
               }
               .unsafeRunSync()
         }
@@ -86,7 +88,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                 retrievedRecords should have size 1
                 retrievedRecords.head shouldBe movementRecordToMovementLog(movementRecord2,
                                                                            Some(1),
-                                                                           activationRecord2.scheduleTrainId)
+                                                                           activationRecord2.scheduleTrainId,
+                                                                           activationRecord2.originStanox,
+                                                                           activationRecord2.originalDepartureTimestamp)
               }
               .unsafeRunSync()
         }
@@ -130,7 +134,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                 retrievedRecords should have size 1
                 retrievedRecords.head shouldBe movementRecordToMovementLog(movementRecord1,
                                                                            Some(1),
-                                                                           activationRecord1.scheduleTrainId)
+                                                                           activationRecord1.scheduleTrainId,
+                                                                           activationRecord1.originStanox,
+                                                                           activationRecord1.originalDepartureTimestamp)
               }
               .unsafeRunSync()
 
@@ -182,7 +188,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                 retrievedRecords should have size 1
                 retrievedRecords.head shouldBe movementRecordToMovementLog(movementRecord2,
                                                                            Some(1),
-                                                                           activationRecord1.scheduleTrainId)
+                                                                           activationRecord1.scheduleTrainId,
+                                                                           activationRecord1.originStanox,
+                                                                           activationRecord1.originalDepartureTimestamp)
               }
               .unsafeRunSync()
         }
@@ -214,9 +222,12 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
               .retrieveAllRecords()
               .map { retrievedRecords =>
                 retrievedRecords should have size 1
-                retrievedRecords.head shouldBe cancellationRecordToCancellationLog(cancellationRecord,
-                                                                                   Some(1),
-                                                                                   activationRecord.scheduleTrainId)
+                retrievedRecords.head shouldBe cancellationRecordToCancellationLog(
+                  cancellationRecord,
+                  Some(1),
+                  activationRecord.scheduleTrainId,
+                  activationRecord.originStanox,
+                  activationRecord.originalDepartureTimestamp)
               }
               .unsafeRunSync()
         }
