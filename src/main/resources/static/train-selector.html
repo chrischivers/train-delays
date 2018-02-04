@@ -101,6 +101,10 @@
     var userEmail;
     var userIdToken;
 
+    var fromStanoxCodeSelected;
+    var toStanoxCodeSelected;
+    var daysRunPatternSelected;
+
     function setUpDataTable() {
         dataTable = $('#query-results').DataTable({
             dom: 'frtipB',
@@ -176,6 +180,9 @@
             var toSend = {
                 email: userEmail,
                 idToken: userIdToken,
+                fromStanox: fromStanoxCodeSelected,
+                toStanox: toStanoxCodeSelected,
+                daysRunPattern: daysRunPatternSelected,
                 ids: idArray
             };
             $.ajax({
@@ -294,6 +301,10 @@
                                 var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
                                 rowArray.push(row);
                             }
+                            //TODO this is not very nice
+                            fromStanoxCodeSelected = rowArray[0][5];
+                            toStanoxCodeSelected = rowArray[0][7];
+                            daysRunPatternSelected = rowArray[0][11];
 
                             dataTable.clear();
                             dataTable.rows.add(rowArray).draw();

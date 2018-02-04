@@ -24,13 +24,12 @@ class CancellationLogTableTest extends FlatSpec with TestFeatures {
 
     val cancellationLog = getCancellationLog()
 
-    val retrievedRecords = withInitialState(config)(AppInitialState(cancellationLogs = List(cancellationLog))) {
-      fixture =>
-        fixture.cancellationLogTable.retrieveAllRecords()
+    withInitialState(config)(AppInitialState(cancellationLogs = List(cancellationLog))) { fixture =>
+      val retrievedRecords = fixture.cancellationLogTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 1
+      retrievedRecords.head shouldBe cancellationLog.copy(id = Some(1))
     }
 
-    retrievedRecords should have size 1
-    retrievedRecords.head shouldBe cancellationLog.copy(id = Some(1))
   }
 
   it should "retrieve multiple inserted cancellation log records from the database" in {
@@ -38,15 +37,14 @@ class CancellationLogTableTest extends FlatSpec with TestFeatures {
     val cancellationLogRecord1 = getCancellationLog()
     val cancellationLogRecord2 = getCancellationLog().copy(trainId = TrainId("862F60MY31"))
 
-    val retrievedRecords =
-      withInitialState(config)(AppInitialState(cancellationLogs = List(cancellationLogRecord1, cancellationLogRecord2))) {
-        fixture =>
-          fixture.cancellationLogTable.retrieveAllRecords()
-      }
+    withInitialState(config)(AppInitialState(cancellationLogs = List(cancellationLogRecord1, cancellationLogRecord2))) {
+      fixture =>
+        val retrievedRecords = fixture.cancellationLogTable.retrieveAllRecords().unsafeRunSync()
+        retrievedRecords should have size 2
+        retrievedRecords.head shouldBe cancellationLogRecord1.copy(id = Some(1))
+        retrievedRecords(1) shouldBe cancellationLogRecord2.copy(id = Some(2))
+    }
 
-    retrievedRecords should have size 2
-    retrievedRecords.head shouldBe cancellationLogRecord1.copy(id = Some(1))
-    retrievedRecords(1) shouldBe cancellationLogRecord2.copy(id = Some(2))
   }
 
   def getCancellationLog(trainId: TrainId = TrainId("862F60MY30"),

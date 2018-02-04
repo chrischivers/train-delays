@@ -27,8 +27,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
-            val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
-            val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+            val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+            val subscriberHandler =
+              SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, fixture.scheduleTable, emailer)
             TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
               .unsafeRunTimed(1 second)
             TrainMovementProcessor(trainMovementQueue,
@@ -66,8 +67,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
             trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
-            val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
-            val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+            val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+            val subscriberHandler =
+              SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, fixture.scheduleTable, emailer)
 
             TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
               .unsafeRunTimed(1 second)
@@ -107,8 +109,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
             trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
 
-            val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
-            val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+            val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+            val subscriberHandler =
+              SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, fixture.scheduleTable, emailer)
 
             TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
               .unsafeRunTimed(1 second)
@@ -160,8 +163,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
             trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
             trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
 
-            val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
-            val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+            val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+            val subscriberHandler =
+              SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, fixture.scheduleTable, emailer)
 
             TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
               .unsafeRunTimed(1 second)
@@ -195,8 +199,9 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
             trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
             trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
-            val emailer           = Emailer(ConfigLoader.defaultConfig.emailerConfig)
-            val subscriberHandler = SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, emailer)
+            val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+            val subscriberHandler =
+              SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, fixture.scheduleTable, emailer)
             TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run
               .unsafeRunTimed(1 second)
             TrainCancellationProcessor(trainCancellationQueue,

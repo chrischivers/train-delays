@@ -9,9 +9,7 @@ import scala.concurrent.duration.FiniteDuration
 import scalacache.memoization._
 
 trait SubscriberTable extends MemoizedTable[SubscriberRecord] {
-  def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
-                           serviceCode: ServiceCode,
-                           stanoxCode: StanoxCode): IO[List[SubscriberRecord]]
+  def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId, serviceCode: ServiceCode): IO[List[SubscriberRecord]]
   def deleteAllRecords(): IO[Unit]
 }
 
@@ -23,13 +21,14 @@ object SubscriberTable {
   def addSubscriberRecord(record: SubscriberRecord): Update0 =
     sql"""
       INSERT INTO subscribers
-      (user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, stanox_code, subscribe_timestamp)
-      VALUES(${record.userId}, ${record.email}, ${record.emailVerified}, ${record.name}, ${record.firstName}, ${record.familyName}, ${record.locale}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.stanoxCode}, now())
+      (user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, from_stanox_code, to_stanox_code, subscribe_timestamp)
+      VALUES(${record.userId}, ${record.emailAddress}, ${record.emailVerified}, ${record.name}, ${record.firstName}, ${record.familyName},
+      ${record.locale}, ${record.scheduleTrainId}, ${record.serviceCode}, ${record.fromStanoxCode}, ${record.toStanoxCode}, now())
      """.update
 
   protected def allSubscriberRecords(): Query0[SubscriberRecord] =
     sql"""
-      SELECT id, user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, stanox_code
+      SELECT id, user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, from_stanox_code, to_stanox_code
       FROM subscribers
       """.query[SubscriberRecord]
 
@@ -46,12 +45,11 @@ object SubscriberTable {
           .map(_ => ())
 
       override def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId,
-                                        serviceCode: ServiceCode,
-                                        stanoxCode: StanoxCode): IO[List[SubscriberRecord]] =
+                                        serviceCode: ServiceCode): IO[List[SubscriberRecord]] =
         sql"""
-          SELECT id, user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, stanox_code
+          SELECT id, user_id, email, email_verified, name, first_name, family_name, locale, schedule_train_id, service_code, from_stanox_code, to_stanox_code
           FROM subscribers
-          WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode} AND stanox_code = ${stanoxCode}
+          WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode}
       """.query[SubscriberRecord].list.transact(db)
 
       override def deleteAllRecords(): IO[Unit] =

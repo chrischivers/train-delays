@@ -2,6 +2,7 @@ package traindelays.networkrail
 
 import doobie.util.meta.Meta
 import io.circe.Decoder
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.movementdata.MovementLog
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
@@ -17,7 +18,7 @@ package object subscribers {
 
   case class SubscriberRecord(id: Option[Int],
                               userId: UserId,
-                              email: String,
+                              emailAddress: String,
                               emailVerified: Option[Boolean],
                               name: Option[String],
                               firstName: Option[String],
@@ -25,7 +26,8 @@ package object subscribers {
                               locale: Option[String],
                               scheduleTrainId: ScheduleTrainId,
                               serviceCode: ServiceCode,
-                              stanoxCode: StanoxCode)
+                              fromStanoxCode: StanoxCode,
+                              toStanoxCode: StanoxCode)
 
   case class SubscriberReport(subscriberRecord: SubscriberRecord, movementLogs: List[MovementLog])
 }

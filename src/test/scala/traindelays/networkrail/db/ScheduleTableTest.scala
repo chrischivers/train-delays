@@ -24,13 +24,13 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleLogRecord = createScheduleLogRecord()
 
-    val retrievedRecords = withInitialState(config)() { fixture =>
+    withInitialState(config)() { fixture =>
       fixture.scheduleTable.addRecord(scheduleLogRecord).unsafeRunSync()
-      fixture.scheduleTable.retrieveAllRecords()
+      val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 1
+      retrievedRecords.head shouldBe scheduleLogRecord.copy(id = Some(1))
     }
 
-    retrievedRecords should have size 1
-    retrievedRecords.head shouldBe scheduleLogRecord.copy(id = Some(1))
   }
 
   it should "insert and retrieve an inserted schedule log record from the database (multiple insertion)" in {
@@ -38,53 +38,56 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val log1 = createScheduleLogRecord()
     val log2 = createScheduleLogRecord(scheduleTrainId = ScheduleTrainId("98742"))
 
-    val retrievedRecords = withInitialState(config)() { fixture =>
+    withInitialState(config)() { fixture =>
       fixture.scheduleTable.addRecords(List(log1, log2)).unsafeRunSync()
-      fixture.scheduleTable.retrieveAllRecords()
+      val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 2
+      retrievedRecords.head shouldBe log1.copy(id = Some(1))
+      retrievedRecords(1) shouldBe log2.copy(id = Some(2))
     }
 
-    retrievedRecords should have size 2
-    retrievedRecords.head shouldBe log1.copy(id = Some(1))
-    retrievedRecords(1) shouldBe log2.copy(id = Some(2))
   }
 
   it should "insert a schedule record and retrieve a schedule log record from the database" in {
 
     val scheduleRecord = createScheduleRecord()
 
-    val retrievedRecords = withInitialState(config)(
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
+
+    withInitialState(config)(
       AppInitialState(
-        stanoxRecords = List(
-          StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-          StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-        ),
-        scheduleRecords = List(scheduleRecord)
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
-      fixture.scheduleTable.retrieveAllRecords()
+      val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 2
+      retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
+      retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
     }
 
-    retrievedRecords should have size 2
-    retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
-    retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
   }
 
   it should "retrieve inserted records from the database by id" in {
 
     val scheduleRecord = createScheduleRecord()
 
-    val retrievedRecord =
-      withInitialState(config)(
-        AppInitialState(
-          stanoxRecords = List(
-            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-          ),
-          scheduleRecords = List(scheduleRecord)
-        )) { fixture =>
-        fixture.scheduleTable.retrieveRecordBy(2)
-      }
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
 
-    retrievedRecord.get.stanoxCode shouldBe StanoxCode("23456")
+    withInitialState(config)(
+      AppInitialState(
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+      )) { fixture =>
+      val retrievedRecord = fixture.scheduleTable.retrieveRecordBy(2).unsafeRunSync()
+      retrievedRecord.get.stanoxCode shouldBe StanoxCode("23456")
+    }
+
   }
 
   ignore should "retrieve inserted records from the database by from, to and pattern" in {
@@ -106,35 +109,35 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleRecord = createScheduleRecord(locationRecords = List(slr1, slr2, slr3))
 
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None),
+      StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
+    )
+
     withInitialState(config)(
       AppInitialState(
-        stanoxRecords = List(
-          StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-          StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None),
-          StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
-        ),
-        scheduleRecords = List(scheduleRecord)
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
-      IO {
-        val retrieved1 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(StanoxCode("23456"), StanoxCode("34567"), Weekdays)
-          .unsafeRunSync()
-        retrieved1 should have size 1
-        retrieved1.head.stanoxCode shouldBe StanoxCode("23456")
-        retrieved1.head.subsequentStanoxCodes shouldBe List(StanoxCode("34567"))
+      val retrieved1 = fixture.scheduleTable
+        .retrieveScheduleLogRecordsFor(StanoxCode("23456"), StanoxCode("34567"), Weekdays)
+        .unsafeRunSync()
+      retrieved1 should have size 1
+      retrieved1.head.stanoxCode shouldBe StanoxCode("23456")
+      retrieved1.head.subsequentStanoxCodes shouldBe List(StanoxCode("34567"))
 
-        val retrieved2 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Weekdays)
-          .unsafeRunSync()
-        retrieved2 should have size 1
-        retrieved2.head.stanoxCode shouldBe StanoxCode("12345")
-        retrieved2.head.subsequentStanoxCodes shouldBe List(StanoxCode("23456"), StanoxCode("34567"))
+      val retrieved2 = fixture.scheduleTable
+        .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Weekdays)
+        .unsafeRunSync()
+      retrieved2 should have size 1
+      retrieved2.head.stanoxCode shouldBe StanoxCode("12345")
+      retrieved2.head.subsequentStanoxCodes shouldBe List(StanoxCode("23456"), StanoxCode("34567"))
 
-        val retrieved3 = fixture.scheduleTable
-          .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Saturdays)
-          .unsafeRunSync()
-        retrieved3 should have size 0
-      }
+      val retrieved3 = fixture.scheduleTable
+        .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Saturdays)
+        .unsafeRunSync()
+      retrieved3 should have size 0
     }
   }
 
@@ -143,20 +146,22 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val scheduleRecord1 = createScheduleRecord()
     val scheduleRecord2 = createScheduleRecord(scheduleTrainId = ScheduleTrainId("5653864"))
 
-    val distinctStanoxCodes =
-      withInitialState(config)(
-        AppInitialState(
-          stanoxRecords = List(
-            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-          ),
-          scheduleRecords = List(scheduleRecord1, scheduleRecord2)
-        )) { fixture =>
-        fixture.scheduleTable.retrieveAllDistinctStanoxCodes
-      }
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
 
-    distinctStanoxCodes should have size 2
-    distinctStanoxCodes should contain theSameElementsAs List(StanoxCode("12345"), StanoxCode("23456"))
+    withInitialState(config)(
+      AppInitialState(
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord1.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)) ++ scheduleRecord2
+          .toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+      )) { fixture =>
+      val distinctStanoxCodes = fixture.scheduleTable.retrieveAllDistinctStanoxCodes.unsafeRunSync()
+      distinctStanoxCodes should have size 2
+      distinctStanoxCodes should contain theSameElementsAs List(StanoxCode("12345"), StanoxCode("23456"))
+    }
+
   }
 
   it should "retrieve multiple inserted records from the database" in {
@@ -164,23 +169,25 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val scheduleRecord1 = createScheduleRecord()
     val scheduleRecord2 = createScheduleRecord().copy(scheduleTrainId = ScheduleTrainId("123456"))
 
-    val retrievedRecords =
-      withInitialState(config)(
-        AppInitialState(
-          stanoxRecords = List(
-            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-          ),
-          scheduleRecords = List(scheduleRecord1, scheduleRecord2)
-        )) { fixture =>
-        fixture.scheduleTable.retrieveAllRecords()
-      }
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
 
-    retrievedRecords should have size 4
-    retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
-    retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
-    retrievedRecords(2).stanoxCode shouldBe StanoxCode("12345")
-    retrievedRecords(3).stanoxCode shouldBe StanoxCode("23456")
+    withInitialState(config)(
+      AppInitialState(
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord1.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)) ++ scheduleRecord2
+          .toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+      )) { fixture =>
+      val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 4
+      retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
+      retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
+      retrievedRecords(2).stanoxCode shouldBe StanoxCode("12345")
+      retrievedRecords(3).stanoxCode shouldBe StanoxCode("23456")
+    }
+
   }
 
   it should "memoize retrieval of an inserted record from the database" in {
@@ -189,33 +196,33 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleRecord = createScheduleRecord()
 
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("1234"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
+
     withInitialState(config,
                      scheduleDataConfig =
                        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
       AppInitialState(
-        stanoxRecords = List(
-          StanoxRecord(StanoxCode("1234"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-          StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-        ),
-        scheduleRecords = List(scheduleRecord)
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
-      IO {
-        val retrievedRecords1 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      val retrievedRecords1 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
 
-        retrievedRecords1 should have size 2
-        retrievedRecords1.head.stanoxCode shouldBe StanoxCode("1234")
-        retrievedRecords1(1).stanoxCode shouldBe StanoxCode("4567")
+      retrievedRecords1 should have size 2
+      retrievedRecords1.head.stanoxCode shouldBe StanoxCode("1234")
+      retrievedRecords1(1).stanoxCode shouldBe StanoxCode("4567")
 
-        fixture.scheduleTable.deleteAllRecords().unsafeRunSync()
+      fixture.scheduleTable.deleteAllRecords().unsafeRunSync()
 
-        val retrievedRecords2 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
-        retrievedRecords2 should have size 2
+      val retrievedRecords2 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords2 should have size 2
 
-        Thread.sleep(2000)
+      Thread.sleep(2000)
 
-        val retrievedRecords3 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
-        retrievedRecords3 should have size 0
-      }
+      val retrievedRecords3 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords3 should have size 0
     }
   }
 
@@ -223,21 +230,24 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleRecord = createScheduleRecord()
 
-    val retrievedRecords = withInitialState(config)(
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
+
+    withInitialState(config)(
       AppInitialState(
-        stanoxRecords = List(
-          StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-          StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-        ),
-        scheduleRecords = List(scheduleRecord)
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
-      for {
+      val retrievedRecords = (for {
         _         <- fixture.scheduleTable.deleteAllRecords()
         retrieved <- fixture.scheduleTable.retrieveAllRecords()
-      } yield retrieved
+      } yield retrieved).unsafeRunSync()
+
+      retrievedRecords should have size 0
     }
 
-    retrievedRecords should have size 0
   }
 
   it should "preserve order of location records when retrieved from DB" in {
@@ -257,24 +267,23 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     val scheduleRecord = createScheduleRecord(locationRecords = List(slr1, slr2, slr3))
 
-    val retrievedRecords =
-      withInitialState(config)(
-        AppInitialState(
-          stanoxRecords = List(
-            StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-            StanoxRecord(StanoxCode("3456"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None),
-            StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
-          ),
-          scheduleRecords = List(scheduleRecord)
-        )) { fixture =>
-        fixture.scheduleTable.retrieveAllRecords()
-      }
+    val stanoxRecords = List(
+      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
+      StanoxRecord(StanoxCode("3456"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None),
+      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+    )
 
-    retrievedRecords should have size 3
-    retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
-    retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
-    retrievedRecords(2).stanoxCode shouldBe StanoxCode("3456")
+    withInitialState(config)(
+      AppInitialState(
+        stanoxRecords = stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+      )) { fixture =>
+      val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 3
+      retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
+      retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
+      retrievedRecords(2).stanoxCode shouldBe StanoxCode("3456")
+    }
 
   }
-
 }

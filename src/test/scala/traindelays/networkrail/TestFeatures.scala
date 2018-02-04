@@ -7,6 +7,7 @@ import akka.actor.ActorSystem
 import cats.effect.IO
 import doobie.hikari.HikariTransactor
 import fs2.Stream
+import fs2.async.mutable.Queue
 import org.http4s.Uri
 import org.scalatest.Matchers.fail
 import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
@@ -21,7 +22,7 @@ import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecor
 }
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.scheduledata._
-import traindelays.networkrail.subscribers.SubscriberRecord
+import traindelays.networkrail.subscribers._
 import traindelays.networkrail.{ServiceCode, StanoxCode, TOC, TipLocCode}
 
 import scala.concurrent.ExecutionContext
@@ -46,7 +47,7 @@ trait TestFeatures {
       } yield ()
   }
 
-  case class AppInitialState(scheduleRecords: List[ScheduleRecord] = List.empty,
+  case class AppInitialState(scheduleLogRecords: List[ScheduleLog] = List.empty,
                              stanoxRecords: List[StanoxRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
                              subscriberRecords: List[SubscriberRecord] = List.empty,
@@ -61,7 +62,9 @@ trait TestFeatures {
                                     movementLogTable: MovementLogTable,
                                     cancellationLogTable: CancellationLogTable,
                                     subscriberTable: SubscriberTable,
-                                    trainActivationCache: TrainActivationCache)
+                                    trainActivationCache: TrainActivationCache,
+                                    emailer: StubEmailer,
+                                    subscriberHandler: SubscriberHandler)
 
   def testDatabaseConfig() = {
     val databaseName = s"testdb-${System.currentTimeMillis()}-${Random.nextInt(Integer.MAX_VALUE)}"
@@ -100,11 +103,16 @@ trait TestFeatures {
       scheduleDataConfig: ScheduleDataConfig =
         ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 1 minute),
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
-      f: TrainDelaysTestFixture => IO[A])(implicit executionContext: ExecutionContext): A =
+      f: TrainDelaysTestFixture => A)(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
       val redisClient          = MockRedisClient()
       val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
       val stanoxTable          = StanoxTable(db, scheduleDataConfig.memoizeFor)
+      val movementLogTable     = MovementLogTable(db)
+      val subscriberTable      = SubscriberTable(db, subscribersConfig.memoizeFor)
+      val scheduleTable        = ScheduleTable(db, scheduleDataConfig.memoizeFor)
+      val emailer              = StubEmailer()
+      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, emailer)
 
       for {
         _ <- db.clean
@@ -117,23 +125,14 @@ trait TestFeatures {
           })
           .sequence[IO, Int]
 
-        _ <- initState.scheduleRecords
-          .map(record => {
-            for {
-              existingStanoxRecords <- stanoxTable.retrieveAllRecords()
-              x <- record
-                .toScheduleLogs(StanoxRecord.stanoxRecordsToMap(existingStanoxRecords))
-                .map { scheduleLog =>
-                  ScheduleTable
-                    .addScheduleLogRecord(scheduleLog)
-                    .run
-                    .transact(db)
-                }
-                .sequence[IO, Int]
-
-            } yield x
-          })
-          .sequence[IO, List[Int]]
+        _ <- initState.scheduleLogRecords
+          .map { scheduleLog =>
+            ScheduleTable
+              .addScheduleLogRecord(scheduleLog)
+              .run
+              .transact(db)
+          }
+          .sequence[IO, Int]
 
         z <- initState.movementLogs
           .map(record => {
@@ -161,16 +160,17 @@ trait TestFeatures {
               .transact(db)
           })
           .sequence[IO, Int]
-        result <- f(
-          TrainDelaysTestFixture(
-            ScheduleTable(db, scheduleDataConfig.memoizeFor),
-            stanoxTable,
-            MovementLogTable(db),
-            CancellationLogTable(db),
-            SubscriberTable(db, subscribersConfig.memoizeFor),
-            trainActivationCache
-          ))
-      } yield result
+
+      } yield
+        f(
+          TrainDelaysTestFixture(scheduleTable,
+                                 stanoxTable,
+                                 movementLogTable,
+                                 CancellationLogTable(db),
+                                 subscriberTable,
+                                 trainActivationCache,
+                                 emailer,
+                                 subscriberHandler))
     }
 
   def createMovementRecord(trainId: TrainId = TrainId("12345"),
@@ -180,7 +180,7 @@ trait TestFeatures {
                            actualTimestamp: Long = System.currentTimeMillis(),
                            plannedTimestamp: Long = System.currentTimeMillis() - 60000,
                            plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           stanoxCode: Option[StanoxCode] = Some(StanoxCode("REDHILL")),
+                           stanoxCode: Option[StanoxCode] = Some(StanoxCode("98765")),
                            variationStatus: Option[VariationStatus] = Some(Late)) =
     TrainMovementRecord(
       trainId,
@@ -197,7 +197,7 @@ trait TestFeatures {
   def createCancellationRecord(trainId: TrainId = TrainId("12345"),
                                trainServiceCode: ServiceCode = ServiceCode("23456"),
                                toc: TOC = TOC("SN"),
-                               stanoxCode: StanoxCode = StanoxCode("REDHILL"),
+                               stanoxCode: StanoxCode = StanoxCode("87654"),
                                cancellationType: CancellationType = EnRoute,
                                cancellationReasonCode: String = "YI") =
     TrainCancellationRecord(
@@ -326,4 +326,50 @@ trait TestFeatures {
       arrivalTime,
       departureTime
     )
+
+  def createSubscriberRecord(userId: UserId = UserId("1234567abc"),
+                             emailAddress: String = "test@test.com",
+                             emailVerified: Option[Boolean] = Some(true),
+                             name: Option[String] = Some("joebloggs"),
+                             firstName: Option[String] = Some("Joe"),
+                             familyName: Option[String] = Some("Bloggs"),
+                             locale: Option[String] = Some("GB"),
+                             scheduleTrainId: ScheduleTrainId = ScheduleTrainId("GB1234"),
+                             serviceCode: ServiceCode = ServiceCode("900002"),
+                             fromStanoxCode: StanoxCode = StanoxCode("73940"),
+                             toStanoxCode: StanoxCode = StanoxCode("29573")) =
+    SubscriberRecord(None,
+                     userId,
+                     emailAddress,
+                     emailVerified,
+                     name,
+                     firstName,
+                     familyName,
+                     locale,
+                     scheduleTrainId,
+                     serviceCode,
+                     fromStanoxCode,
+                     toStanoxCode)
+
+  def stanoxRecordsToMap(stanoxRecords: List[StanoxRecord]): Map[TipLocCode, StanoxCode] =
+    stanoxRecords.map(x => x.tipLocCode -> x.stanoxCode).toMap
+
+  def randomGen = Random.nextInt(9999999).toString
+
+  def runAllQueues(trainActivationQueue: Queue[IO, TrainActivationRecord],
+                   trainMovementQueue: Queue[IO, TrainMovementRecord],
+                   trainCancellationQueue: Queue[IO, TrainCancellationRecord],
+                   fixture: TrainDelaysTestFixture)(implicit executionContext: ExecutionContext) = {
+
+    TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
+    TrainMovementProcessor(trainMovementQueue,
+                           fixture.movementLogTable,
+                           fixture.subscriberHandler,
+                           fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
+    TrainCancellationProcessor(trainCancellationQueue,
+                               fixture.subscriberHandler,
+                               fixture.cancellationLogTable,
+                               fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
+
+  }
 }

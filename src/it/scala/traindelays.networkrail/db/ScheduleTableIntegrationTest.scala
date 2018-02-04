@@ -42,15 +42,17 @@ class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTes
     val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
     val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDN"), Some(CRS("ECD")), None)
 
+    val _stanoxRecords = List(
+      stanoxRecord1,
+      stanoxRecord2,
+      stanoxRecord3,
+      stanoxRecord4
+    )
+
     withInitialState(config)(
       AppInitialState(
-        stanoxRecords = List(
-          stanoxRecord1,
-          stanoxRecord2,
-          stanoxRecord3,
-          stanoxRecord4
-        ),
-        scheduleRecords = List(scheduleRecord)
+        stanoxRecords = _stanoxRecords,
+        scheduleLogRecords = scheduleRecord.toScheduleLogs(_stanoxRecords.map(x => x.tipLocCode -> x.stanoxCode).toMap)
       )) { fixture =>
       IO {
         val retrieved1 = fixture.scheduleTable

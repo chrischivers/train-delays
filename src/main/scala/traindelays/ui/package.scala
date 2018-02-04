@@ -35,7 +35,12 @@ package object ui {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
   }
 
-  case class SubscribeRequest(email: String, idToken: String, ids: List[Int])
+  case class SubscribeRequest(email: String,
+                              idToken: String,
+                              fromStanox: StanoxCode,
+                              toStanox: StanoxCode,
+                              daysRunPattern: DaysRunPattern,
+                              ids: List[Int])
 
   object SubscribeRequest {
     implicit val decoder: Decoder[SubscribeRequest] = deriveDecoder[SubscribeRequest]

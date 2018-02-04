@@ -121,7 +121,8 @@ object Service extends StrictLogging {
                 authenticatedDetails.locale,
                 scheduleRec.scheduleTrainId,
                 scheduleRec.serviceCode,
-                scheduleRec.stanoxCode
+                subscribeRequest.fromStanox,
+                subscribeRequest.toStanox
               )
             }
             _ <- maybeSubscriberRecord.fold[IO[Unit]](IO.raiseError(new RuntimeException(s"Invalid schedule ID $id")))(

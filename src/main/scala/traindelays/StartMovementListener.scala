@@ -35,8 +35,9 @@ object StartMovementListener extends App {
       val movementLogTable     = MovementLogTable(db)
       val cancellationLogTable = CancellationLogTable(db)
       val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
+      val scheduleTable        = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val emailer              = Emailer(config.emailerConfig)
-      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, emailer)
+      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, emailer)
 
       val redisClient =
         RedisClient(config.redisConfig.host, config.redisConfig.port, password = None, Some(config.redisConfig.dbIndex))

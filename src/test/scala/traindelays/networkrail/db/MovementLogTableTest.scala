@@ -24,12 +24,12 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
 
     val movementLog = getMovementLog()
 
-    val retrievedRecords = withInitialState(config)(AppInitialState(movementLogs = List(movementLog))) { fixture =>
-      fixture.movementLogTable.retrieveAllRecords()
+    withInitialState(config)(AppInitialState(movementLogs = List(movementLog))) { fixture =>
+      val retrievedRecords = fixture.movementLogTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 1
+      retrievedRecords.head shouldBe movementLog.copy(id = Some(1))
     }
 
-    retrievedRecords should have size 1
-    retrievedRecords.head shouldBe movementLog.copy(id = Some(1))
   }
 
   it should "retrieve multiple inserted movement log records from the database" in {
@@ -37,15 +37,13 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
     val movementLogRecord1 = getMovementLog()
     val movementLogRecord2 = getMovementLog().copy(trainId = TrainId("862F60MY31"))
 
-    val retrievedRecords =
-      withInitialState(config)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
-        fixture =>
-          fixture.movementLogTable.retrieveAllRecords()
-      }
+    withInitialState(config)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) { fixture =>
+      val retrievedRecords = fixture.movementLogTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 2
+      retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
+      retrievedRecords(1) shouldBe movementLogRecord2.copy(id = Some(2))
+    }
 
-    retrievedRecords should have size 2
-    retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
-    retrievedRecords(1) shouldBe movementLogRecord2.copy(id = Some(2))
   }
 
   def getMovementLog(trainId: TrainId = TrainId("862F60MY30"),
