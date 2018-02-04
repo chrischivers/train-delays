@@ -110,9 +110,9 @@ package object movementdata {
       for {
         messageType <- c.downField("header").downField("msg_type").as[String]
         decoded <- messageType match {
-          case "0001"  => c.as[TrainActivationRecord]
-          case "0002"  => c.as[TrainCancellationRecord]
-          case "0003"  => c.as[TrainMovementRecord]
+          case "0001"  => c.as[TrainActivationRecord](TrainActivationRecord.trainActivationDecoder)
+          case "0002"  => c.as[TrainCancellationRecord](TrainCancellationRecord.trainCancellationDecoder)
+          case "0003"  => c.as[TrainMovementRecord](TrainMovementRecord.movementRecordDecoder)
           case unknown => Right(UnhandledTrainRecord(unknown))
         }
       } yield decoded
@@ -124,11 +124,13 @@ package object movementdata {
                                    trainServiceCode: ServiceCode,
                                    trainId: TrainId,
                                    originStanox: StanoxCode,
-                                   originalDepartureTimestamp: Long)
+                                   originDepartureTimestamp: Long)
       extends TrainMovements
 
   object TrainActivationRecord {
-    implicit val trainActivationDecoder: Decoder[TrainActivationRecord] {
+
+    //Not implicit due to decoder conflict on redis activation cache
+    val trainActivationDecoder: Decoder[TrainActivationRecord] {
       def apply(c: HCursor): Result[TrainActivationRecord]
     } = new Decoder[TrainActivationRecord] {
 
@@ -160,7 +162,7 @@ package object movementdata {
   }
 
   object TrainCancellationRecord {
-    implicit val trainCancellationDecoder: Decoder[TrainCancellationRecord] {
+    val trainCancellationDecoder: Decoder[TrainCancellationRecord] {
       def apply(c: HCursor): Result[TrainCancellationRecord]
     } = new Decoder[TrainCancellationRecord] {
 
@@ -192,7 +194,7 @@ package object movementdata {
             cancellationRec.toc,
             cancellationRec.stanoxCode,
             trainActivationRecord.originStanox,
-            trainActivationRecord.originalDepartureTimestamp,
+            trainActivationRecord.originDepartureTimestamp,
             cancellationRec.cancellationType,
             cancellationRec.cancellationReasonCode
           )
@@ -218,7 +220,7 @@ package object movementdata {
 
   object TrainMovementRecord {
 
-    implicit val movementRecordDecoder: Decoder[TrainMovementRecord] {
+    val movementRecordDecoder: Decoder[TrainMovementRecord] {
       def apply(c: HCursor): Result[TrainMovementRecord]
     } = new Decoder[TrainMovementRecord] {
 
@@ -285,7 +287,7 @@ package object movementdata {
             movementRec.toc,
             stanoxCode,
             trainActivationRecord.originStanox,
-            trainActivationRecord.originalDepartureTimestamp,
+            trainActivationRecord.originDepartureTimestamp,
             plannedPassengerTimestamp,
             movementRec.actualTimestamp,
             movementRec.actualTimestamp - plannedPassengerTimestamp,

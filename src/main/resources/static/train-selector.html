@@ -170,6 +170,8 @@
         userIdToken = googleUser.getAuthResponse().id_token;
         $('.table-button-subscribe').prop('disabled', false);
         userEmail = profile.getEmail();
+        runScheduleQuery();
+        dataTable.column(14).visible(true); //Show subscribed column
     }
 
     function subscribeToSelectedTrains(rowData) {
@@ -210,6 +212,55 @@
         $("#weekdaysRadio").prop("disabled", false);
         $("#saturdaysRadio").prop("disabled", false);
         $("#sundaysRadio").prop("disabled", false);
+    }
+
+    function runScheduleQuery() {
+        $.ajax({
+            type: "POST",
+            url: "schedule-query",
+            data: JSON.stringify({
+                idToken: userIdToken,
+                fromStanox: $('#fromStationStanox').val(),
+                toStanox: $('#toStationStanox').val(),
+                daysRunPattern: $('input:radio:checked').val()
+            }),
+            success: function (data) {
+                var json = JSON.parse(data);
+                if (json.length > 0) {
+                    var rowArray = [];
+                    for (var i = 0; i < json.length; i++) {
+                        var id = json[i].id;
+                        var scheduleTrainId = json[i].scheduleTrainId.value;
+                        var atocCode = json[i].atocCode.value;
+                        var tocName = json[i].tocName;
+                        var fromStanoxCode = json[i].fromStanoxCode.value;
+                        var fromCRS = json[i].fromCRS.value;
+                        var departureTime = json[i].departureTime;
+                        var toStanoxCode = json[i].toStanoxCode.value;
+                        var toCRS = json[i].toCRS.value;
+                        var arrivalTime = json[i].arrivalTime;
+                        var daysRunPattern = json[i].daysRunPattern;
+                        var scheduleStart = json[i].scheduleStart;
+                        var scheduleEnd = json[i].scheduleEnd;
+                        var subscribed = json[i].subscribed;
+                        var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd, subscribed];
+                        rowArray.push(row);
+                    }
+                    //TODO this is not very nice
+                    fromStanoxCodeSelected = rowArray[0][5];
+                    toStanoxCodeSelected = rowArray[0][7];
+                    daysRunPatternSelected = rowArray[0][11];
+
+                    dataTable.clear();
+                    dataTable.rows.add(rowArray).draw();
+                } else {
+                    showNoRoutesFoundAlert()
+                }
+            },
+            error: function() {
+                showErrorObtainingScheduleDataAlert()
+            }
+        });
     }
 
     function getStationDataList() {
@@ -272,59 +323,14 @@
 
     $(document).ready(function () {
         setUpDataTable();
+        dataTable.column(14).visible(false); //Hide subscribed column
         $('.table-button-subscribe').prop('disabled', true);
         getStationDataList();
         $('#train-selection-modal').modal('show');
 
         $(function () {
             $('#train-selection-button').on('click', function (e) {
-
-                $.ajax({
-                    type: "POST",
-                    url: "schedule-query",
-                    data: JSON.stringify({
-                        idToken: userIdToken,
-                        fromStanox: $('#fromStationStanox').val(),
-                        toStanox: $('#toStationStanox').val(),
-                        daysRunPattern: $('input:radio:checked').val()
-                    }),
-                    success: function (data) {
-                        var json = JSON.parse(data);
-                        if (json.length > 0) {
-                            var rowArray = [];
-                            for (var i = 0; i < json.length; i++) {
-                                var id = json[i].id;
-                                var scheduleTrainId = json[i].scheduleTrainId.value;
-                                var atocCode = json[i].atocCode.value;
-                                var tocName = json[i].tocName;
-                                var fromStanoxCode = json[i].fromStanoxCode.value;
-                                var fromCRS = json[i].fromCRS.value;
-                                var departureTime = json[i].departureTime;
-                                var toStanoxCode = json[i].toStanoxCode.value;
-                                var toCRS = json[i].toCRS.value;
-                                var arrivalTime = json[i].arrivalTime;
-                                var daysRunPattern = json[i].daysRunPattern;
-                                var scheduleStart = json[i].scheduleStart;
-                                var scheduleEnd = json[i].scheduleEnd;
-                                var subscribed = json[i].subscribed;
-                                var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd, subscribed];
-                                rowArray.push(row);
-                            }
-                            //TODO this is not very nice
-                            fromStanoxCodeSelected = rowArray[0][5];
-                            toStanoxCodeSelected = rowArray[0][7];
-                            daysRunPatternSelected = rowArray[0][11];
-
-                            dataTable.clear();
-                            dataTable.rows.add(rowArray).draw();
-                        } else {
-                            showNoRoutesFoundAlert()
-                        }
-                    },
-                    error: function() {
-                        showErrorObtainingScheduleDataAlert()
-                    }
-                });
+                runScheduleQuery()
             })
         });
     });

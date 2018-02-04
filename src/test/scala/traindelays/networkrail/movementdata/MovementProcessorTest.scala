@@ -46,7 +46,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                                                                            Some(1),
                                                                            activationRecord.scheduleTrainId,
                                                                            activationRecord.originStanox,
-                                                                           activationRecord.originalDepartureTimestamp)
+                                                                           activationRecord.originDepartureTimestamp)
               }
               .unsafeRunSync()
         }
@@ -90,7 +90,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                                                                            Some(1),
                                                                            activationRecord2.scheduleTrainId,
                                                                            activationRecord2.originStanox,
-                                                                           activationRecord2.originalDepartureTimestamp)
+                                                                           activationRecord2.originDepartureTimestamp)
               }
               .unsafeRunSync()
         }
@@ -136,7 +136,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                                                                            Some(1),
                                                                            activationRecord1.scheduleTrainId,
                                                                            activationRecord1.originStanox,
-                                                                           activationRecord1.originalDepartureTimestamp)
+                                                                           activationRecord1.originDepartureTimestamp)
               }
               .unsafeRunSync()
 
@@ -190,7 +190,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                                                                            Some(1),
                                                                            activationRecord1.scheduleTrainId,
                                                                            activationRecord1.originStanox,
-                                                                           activationRecord1.originalDepartureTimestamp)
+                                                                           activationRecord1.originDepartureTimestamp)
               }
               .unsafeRunSync()
         }
@@ -227,7 +227,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                   Some(1),
                   activationRecord.scheduleTrainId,
                   activationRecord.originStanox,
-                  activationRecord.originalDepartureTimestamp)
+                  activationRecord.originDepartureTimestamp)
               }
               .unsafeRunSync()
         }
