@@ -19,13 +19,13 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
   it should "insert a watching record into the database" in {
 
     withInitialState(config)() { fixture =>
-      fixture.subscriberTable.addRecord(getSubscriberRecord())
+      fixture.subscriberTable.addRecord(createSubscriberRecord())
     }
   }
 
   it should "retrieve inserted watching records from the database" in {
 
-    val subscriberRecord = getSubscriberRecord()
+    val subscriberRecord = createSubscriberRecord()
 
     withInitialState(config)(AppInitialState(subscriberRecords = List(subscriberRecord))) { fixture =>
       val retrievedRecords = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
@@ -37,8 +37,8 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
   it should "retrieve multiple inserted watching records from the database" in {
 
-    val watchingRecord1 = getSubscriberRecord()
-    val watchingRecord2 = getSubscriberRecord().copy(userId = UserId("BCDEFGH"))
+    val watchingRecord1 = createSubscriberRecord()
+    val watchingRecord2 = createSubscriberRecord().copy(userId = UserId("BCDEFGH"))
 
     withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1, watchingRecord2))) { fixture =>
       val retrievedRecords = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
@@ -51,7 +51,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
   it should "retrieve a record based on a scheduleCode, train ID and stanox" in {
 
-    val watchingRecord1 = getSubscriberRecord()
+    val watchingRecord1 = createSubscriberRecord()
 
     withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
       val retrievedRecords = fixture.subscriberTable
@@ -60,14 +60,26 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe watchingRecord1.copy(id = Some(1))
     }
+  }
 
+  it should "retrieve a record based on a userID" in {
+
+    val watchingRecord1 = createSubscriberRecord()
+
+    withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
+      val retrievedRecords = fixture.subscriberTable
+        .subscriberRecordsFor(watchingRecord1.userId)
+        .unsafeRunSync()
+      retrievedRecords should have size 1
+      retrievedRecords.head shouldBe watchingRecord1.copy(id = Some(1))
+    }
   }
 
   it should "memoize retreival of records to minimize database calls" in {
 
     import scala.concurrent.duration._
 
-    val subscriberRecord = getSubscriberRecord()
+    val subscriberRecord = createSubscriberRecord()
 
     withInitialState(config, SubscribersConfig(3 seconds))(AppInitialState(subscriberRecords = List(subscriberRecord))) {
       fixture =>
@@ -88,29 +100,5 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
     }
 
   }
-
-  def getSubscriberRecord(userId: UserId = UserId("ABCDEFG"),
-                          email: String = "test@test.com",
-                          emailVerified: Option[Boolean] = Some(true),
-                          name: Option[String] = Some("joebloggs"),
-                          firstName: Option[String] = Some("Joe"),
-                          familyName: Option[String] = Some("Bloggs"),
-                          locale: Option[String] = Some("GB"),
-                          scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
-                          serviceCode: ServiceCode = ServiceCode("24745000"),
-                          fromStanoxCode: StanoxCode = StanoxCode("REDHILL"),
-                          toStanoxCode: StanoxCode = StanoxCode("REIGATE")) =
-    SubscriberRecord(None,
-                     userId,
-                     email,
-                     emailVerified,
-                     name,
-                     firstName,
-                     familyName,
-                     locale,
-                     scheduleTrainId,
-                     serviceCode,
-                     fromStanoxCode,
-                     toStanoxCode)
 
 }

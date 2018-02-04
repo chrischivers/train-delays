@@ -8,7 +8,7 @@ import io.circe.generic.semiauto._
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId, StanoxRecord}
-import traindelays.networkrail.subscribers.UserId
+import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
 import traindelays.networkrail.tocs.tocs
 import traindelays.networkrail.{CRS, StanoxCode}
 
@@ -16,6 +16,16 @@ package object ui {
 
   val dateFormatter = DateTimeFormatter.ofPattern("dd-MMM-yyyy")
   val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+
+  case class ScheduleQueryRequest(idToken: String,
+                                  fromStanox: StanoxCode,
+                                  toStanox: StanoxCode,
+                                  daysRunPattern: DaysRunPattern)
+
+  object ScheduleQueryRequest {
+    implicit val decoder: Decoder[ScheduleQueryRequest] = deriveDecoder[ScheduleQueryRequest]
+    implicit val encoder: Encoder[ScheduleQueryRequest] = deriveEncoder[ScheduleQueryRequest]
+  }
 
   case class ScheduleQueryResponse(id: Int,
                                    scheduleTrainId: ScheduleTrainId,
@@ -29,7 +39,8 @@ package object ui {
                                    arrivalTime: String,
                                    daysRunPattern: DaysRunPattern,
                                    scheduleStart: String,
-                                   scheduleEnd: String)
+                                   scheduleEnd: String,
+                                   subscribed: Boolean)
 
   object ScheduleQueryResponse {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
@@ -50,7 +61,8 @@ package object ui {
   //TODO test this
   def queryResponsesFrom(scheduleLogs: List[ScheduleLog],
                          toStanoxCode: StanoxCode,
-                         stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]]): List[ScheduleQueryResponse] =
+                         stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]],
+                         existingSubscriberRecords: List[SubscriberRecord]): List[ScheduleQueryResponse] =
     scheduleLogs.flatMap { log =>
       for {
         id            <- log.id
@@ -73,7 +85,14 @@ package object ui {
           arrivalTime.format(timeFormatter),
           log.daysRunPattern,
           scheduleStartFormat(log.scheduleStart),
-          log.scheduleEnd.format(dateFormatter)
+          log.scheduleEnd.format(dateFormatter),
+          existingSubscriberRecords.exists(
+            rec =>
+              rec.scheduleTrainId == log.scheduleTrainId &&
+                rec.fromStanoxCode == log.stanoxCode &&
+                rec.toStanoxCode == toStanoxCode &&
+                rec.serviceCode == log.serviceCode &&
+                rec.daysRunPattern == log.daysRunPattern)
         )
       }
     }

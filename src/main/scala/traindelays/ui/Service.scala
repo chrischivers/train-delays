@@ -30,6 +30,9 @@ object Service extends StrictLogging {
   import cats.instances.list._
   import cats.syntax.traverse._
 
+  implicit val scheduleRequestEntityDecoder: EntityDecoder[IO, ScheduleQueryRequest] =
+    jsonOf[IO, ScheduleQueryRequest]
+
   implicit val subscribeRequestEntityDecoder: EntityDecoder[IO, SubscribeRequest] =
     jsonOf[IO, SubscribeRequest]
 
@@ -48,27 +51,46 @@ object Service extends StrictLogging {
       Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTable))
 
     case request @ POST -> Root / "schedule-query" =>
-      request.decode[UrlForm] { m =>
-        println(m.values)
-        val result: Option[IO[List[ScheduleQueryResponse]]] = for {
-          fromStation    <- m.getFirst("fromStationStanox").map(str => StanoxCode(str))
-          toStation      <- m.getFirst("toStationStanox").map(str => StanoxCode(str))
-          weekdaysSatSun <- m.getFirst("weekdaysSatSun").flatMap(DaysRunPattern.fromString)
-        } yield {
-          //TODO check if tiploc valid?
-          for {
-            stanoxRecordsWithCRS <- stanoxTable.retrieveAllRecordsWithCRS()
+      request.as[ScheduleQueryRequest].attempt.flatMap {
+        case Right(req) =>
+          (for {
+            authenticatedDetails      <- googleAuthenticator.verifyToken(req.idToken)
+            stanoxRecordsWithCRS      <- stanoxTable.retrieveAllRecordsWithCRS()
+            existingSubscriberRecords <- subscriberTable.subscriberRecordsFor(authenticatedDetails.userId)
             queryResponses <- scheduleTable
-              .retrieveScheduleLogRecordsFor(fromStation, toStation, weekdaysSatSun)
+              .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern)
               .map { scheduleLogs =>
-                queryResponsesFrom(filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
-                                   toStation,
-                                   stanoxRecordsWithCRS.groupBy(_.stanoxCode))
+                queryResponsesFrom(
+                  filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
+                  req.toStanox,
+                  stanoxRecordsWithCRS.groupBy(_.stanoxCode),
+                  existingSubscriberRecords
+                )
               }
-          } yield queryResponses
-        }
-        result.fold(BadRequest())(lst => Ok(lst.map(_.asJson.noSpaces)))
+
+          } yield queryResponses).attempt.flatMap(_.fold(err => {
+            logger.error("Error processing schedule query request", err)
+            InternalServerError()
+          }, lst => Ok(lst.asJson.noSpaces)))
+        case Left(err) =>
+          logger.error(s"Unable to decode schedule-query ${request.toString()}", err)
+          BadRequest()
       }
+//        { r => r
+//          //TODO check if tiploc valid?
+//          for {
+//
+//            existingSubscriberRecords <- subscriberTable.subscriberRecordsFor()
+//
+//              .map { scheduleLogs =>
+//                queryResponsesFrom(filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
+//                                   toStation,
+//                                   stanoxRecordsWithCRS.groupBy(_.stanoxCode))
+//              }
+//          } yield queryResponses
+//        }
+//        result.fold(BadRequest())(lst => Ok(lst.map(_.asJson.noSpaces)))
+//      }
 
     case request @ POST -> Root / "subscribe" =>
       request
@@ -94,7 +116,7 @@ object Service extends StrictLogging {
                   Ok()
               }
           case Left(err) =>
-            logger.error(s"Unable to decode ${request.toString()}", err)
+            logger.error(s"Unable to decode subscribe request ${request.toString()}", err)
             BadRequest()
         }
   }
@@ -122,7 +144,8 @@ object Service extends StrictLogging {
                 scheduleRec.scheduleTrainId,
                 scheduleRec.serviceCode,
                 subscribeRequest.fromStanox,
-                subscribeRequest.toStanox
+                subscribeRequest.toStanox,
+                subscribeRequest.daysRunPattern
               )
             }
             _ <- maybeSubscriberRecord.fold[IO[Unit]](IO.raiseError(new RuntimeException(s"Invalid schedule ID $id")))(

@@ -27,7 +27,8 @@ package object subscribers {
                               scheduleTrainId: ScheduleTrainId,
                               serviceCode: ServiceCode,
                               fromStanoxCode: StanoxCode,
-                              toStanoxCode: StanoxCode)
+                              toStanoxCode: StanoxCode,
+                              daysRunPattern: DaysRunPattern)
 
   case class SubscriberReport(subscriberRecord: SubscriberRecord, movementLogs: List[MovementLog])
 }

@@ -125,7 +125,8 @@
                 {title: "Arrives at"},
                 {title: "Running pattern"},
                 {title: "Schedule valid from"},
-                {title: "Schedule valid to"}
+                {title: "Schedule valid to"},
+                {title: "Subscribed"}
             ],
             order: [[9, "asc"]],
             searching: false,
@@ -147,7 +148,7 @@
             },
             buttons: [
                 {
-                    className: 'btn btn-primary table-buttons',
+                    className: 'btn btn-primary table-buttons table-button-subscribe',
                     text: 'Subscribe to selected trains',
                     action: function () {
                         subscribeToSelectedTrains(dataTable.rows({selected: true}).data().toArray());
@@ -166,7 +167,8 @@
 
     function onSignIn(googleUser) {
         var profile = googleUser.getBasicProfile();
-        userIdToken = googleUser.getAuthResponse().id_token;;
+        userIdToken = googleUser.getAuthResponse().id_token;
+        $('.table-button-subscribe').prop('disabled', false);
         userEmail = profile.getEmail();
     }
 
@@ -270,6 +272,7 @@
 
     $(document).ready(function () {
         setUpDataTable();
+        $('.table-button-subscribe').prop('disabled', true);
         getStationDataList();
         $('#train-selection-modal').modal('show');
 
@@ -279,7 +282,12 @@
                 $.ajax({
                     type: "POST",
                     url: "schedule-query",
-                    data: $('#train-selector-form').serialize(),
+                    data: JSON.stringify({
+                        idToken: userIdToken,
+                        fromStanox: $('#fromStationStanox').val(),
+                        toStanox: $('#toStationStanox').val(),
+                        daysRunPattern: $('input:radio:checked').val()
+                    }),
                     success: function (data) {
                         var json = JSON.parse(data);
                         if (json.length > 0) {
@@ -298,7 +306,8 @@
                                 var daysRunPattern = json[i].daysRunPattern;
                                 var scheduleStart = json[i].scheduleStart;
                                 var scheduleEnd = json[i].scheduleEnd;
-                                var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd];
+                                var subscribed = json[i].subscribed;
+                                var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd, subscribed];
                                 rowArray.push(row);
                             }
                             //TODO this is not very nice

@@ -27,8 +27,8 @@ object TrainActivationCache {
 
   implicit val byteStringDeserializer = new ByteStringDeserializer[TrainActivationRecord] {
     override def deserialize(bs: ByteString): TrainActivationRecord =
-      decode[TrainActivationRecord](bs.toString())
-        .fold(throw new RuntimeException("Unable to decode trainactivationrecord from cache"), identity)
+      decode[TrainActivationRecord](bs.utf8String)
+        .fold(err => throw err, identity)
   }
 
   def apply(redisClient: RedisClient, expiry: FiniteDuration)(implicit executionContext: ExecutionContext) =

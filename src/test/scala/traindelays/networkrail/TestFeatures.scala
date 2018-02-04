@@ -13,6 +13,7 @@ import org.scalatest.Matchers.fail
 import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern.Weekdays
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, _}
 import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
@@ -397,7 +398,8 @@ trait TestFeatures {
                              scheduleTrainId: ScheduleTrainId = ScheduleTrainId("GB1234"),
                              serviceCode: ServiceCode = ServiceCode("900002"),
                              fromStanoxCode: StanoxCode = StanoxCode("73940"),
-                             toStanoxCode: StanoxCode = StanoxCode("29573")) =
+                             toStanoxCode: StanoxCode = StanoxCode("29573"),
+                             daysRunPattern: DaysRunPattern = Weekdays) =
     SubscriberRecord(None,
                      userId,
                      emailAddress,
@@ -409,7 +411,8 @@ trait TestFeatures {
                      scheduleTrainId,
                      serviceCode,
                      fromStanoxCode,
-                     toStanoxCode)
+                     toStanoxCode,
+                     daysRunPattern)
 
   def stanoxRecordsToMap(stanoxRecords: List[StanoxRecord]): Map[TipLocCode, StanoxCode] =
     stanoxRecords.map(x => x.tipLocCode -> x.stanoxCode).toMap
