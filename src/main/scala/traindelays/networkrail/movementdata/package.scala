@@ -36,19 +36,21 @@ package object movementdata {
   sealed trait VariationStatus {
     val string: String
   }
-  case object OnTime extends VariationStatus {
-    override val string: String = "ON TIME"
-  }
-  case object Early extends VariationStatus {
-    override val string: String = "EARLY"
-  }
-  case object Late extends VariationStatus {
-    override val string: String = "LATE"
-  }
-  case object OffRoute extends VariationStatus {
-    override val string: String = "OFF ROUTE"
-  }
+
   object VariationStatus {
+
+    case object OnTime extends VariationStatus {
+      override val string: String = "ON TIME"
+    }
+    case object Early extends VariationStatus {
+      override val string: String = "EARLY"
+    }
+    case object Late extends VariationStatus {
+      override val string: String = "LATE"
+    }
+    case object OffRoute extends VariationStatus {
+      override val string: String = "OFF ROUTE"
+    }
 
     def fromString(str: String): VariationStatus =
       str match {
@@ -129,8 +131,7 @@ package object movementdata {
 
   object TrainActivationRecord {
 
-    //Not implicit due to decoder conflict on redis activation cache
-    val trainActivationDecoder: Decoder[TrainActivationRecord] {
+    implicit val trainActivationDecoder: Decoder[TrainActivationRecord] {
       def apply(c: HCursor): Result[TrainActivationRecord]
     } = new Decoder[TrainActivationRecord] {
 
@@ -162,7 +163,7 @@ package object movementdata {
   }
 
   object TrainCancellationRecord {
-    val trainCancellationDecoder: Decoder[TrainCancellationRecord] {
+    implicit val trainCancellationDecoder: Decoder[TrainCancellationRecord] {
       def apply(c: HCursor): Result[TrainCancellationRecord]
     } = new Decoder[TrainCancellationRecord] {
 
@@ -220,7 +221,7 @@ package object movementdata {
 
   object TrainMovementRecord {
 
-    val movementRecordDecoder: Decoder[TrainMovementRecord] {
+    implicit val movementRecordDecoder: Decoder[TrainMovementRecord] {
       def apply(c: HCursor): Result[TrainMovementRecord]
     } = new Decoder[TrainMovementRecord] {
 

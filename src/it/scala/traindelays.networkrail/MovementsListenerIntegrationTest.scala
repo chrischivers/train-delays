@@ -58,7 +58,11 @@ class MovementsListenerIntegrationTest
             new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
           val emailer = Emailer(testconfig.emailerConfig)
           val subscriberFetcher =
-            SubscriberHandler(fixture.movementLogTable, fixture.subscriberTable, fixture.scheduleTable, emailer)
+            SubscriberHandler(fixture.movementLogTable,
+                              fixture.subscriberTable,
+                              fixture.scheduleTable,
+                              fixture.stanoxTable,
+                              emailer)
           subscribeToMovementsTopic(movementWatcher)
 
           TrainMovementProcessor(trainMovementQueue,

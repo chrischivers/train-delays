@@ -5,7 +5,6 @@ import java.util.concurrent.TimeUnit
 
 import com.typesafe.config.ConfigFactory
 import org.http4s.Uri
-import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
 case class NetworkRailConfig(host: String,

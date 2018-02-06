@@ -15,6 +15,7 @@ import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern.Weekdays
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, _}
+import traindelays.networkrail.movementdata.VariationStatus.{Early, Late}
 import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType.{
@@ -113,7 +114,7 @@ trait TestFeatures {
       val subscriberTable      = SubscriberTable(db, subscribersConfig.memoizeFor)
       val scheduleTable        = ScheduleTable(db, scheduleDataConfig.memoizeFor)
       val emailer              = StubEmailer()
-      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, emailer)
+      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
 
       for {
         _ <- db.clean

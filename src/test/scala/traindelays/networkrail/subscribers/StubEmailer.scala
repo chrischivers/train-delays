@@ -10,7 +10,10 @@ trait StubEmailer extends Emailer {
   val emailsSent = new ListBuffer[Email]
 
   override def sendEmail(email: Email): IO[Unit] =
-    IO(emailsSent += email)
+    IO {
+      println("IN HERE")
+      emailsSent += email
+    }
 }
 
 object StubEmailer {

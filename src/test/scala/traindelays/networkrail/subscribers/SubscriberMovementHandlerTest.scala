@@ -1,6 +1,6 @@
 package traindelays.networkrail.subscribers
 
-import java.time.LocalTime
+import java.time.{Instant, LocalTime, ZoneId, ZonedDateTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
@@ -32,11 +32,14 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(fromStanoxCode))
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(config)(
+      initialState.copy(
+        subscriberRecords = List(subscriberRecord)
+      )) { fixture =>
       withQueues
         .map {
           case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
@@ -47,10 +50,12 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
         }
         .unsafeRunSync()
       fixture.emailer.emailsSent should have size 1
-      fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
-      fixture.emailer.emailsSent.head.subject should include("TRAIN MOVEMENT UPDATE")
-    }
+      val email = fixture.emailer.emailsSent.head
+      email.to shouldBe subscriberRecord.emailAddress
+      email.subject should include("TRAIN MOVEMENT UPDATE")
+      validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
 
+    }
   }
 
   it should "email subscriber when movement log received relating to subscriber's TO STANOX" in {
@@ -67,7 +72,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(toStanoxCode))
 
@@ -82,8 +87,10 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
         }
         .unsafeRunSync()
       fixture.emailer.emailsSent should have size 1
-      fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
-      fixture.emailer.emailsSent.head.subject should include("TRAIN MOVEMENT UPDATE")
+      val email = fixture.emailer.emailsSent.head
+      email.to shouldBe subscriberRecord.emailAddress
+      email.subject should include("TRAIN MOVEMENT UPDATE")
+      validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
     }
   }
 
@@ -105,7 +112,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(midPointStanoxCode))
 
@@ -120,8 +127,9 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
         }
         .unsafeRunSync()
       fixture.emailer.emailsSent should have size 1
-      fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
-      fixture.emailer.emailsSent.head.subject should include("TRAIN MOVEMENT UPDATE")
+      val email = fixture.emailer.emailsSent.head
+      email.to shouldBe subscriberRecord.emailAddress
+      email.subject should include("TRAIN MOVEMENT UPDATE")
     }
   }
 
@@ -140,7 +148,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val movementRecord1 =
       createMovementRecord(trainId = trainId,
                            trainServiceCode = serviceCode,
@@ -179,7 +187,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(fromStanoxCode))
 
@@ -225,7 +233,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       toStanoxCode = toStanoxCode
     )
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val movementRecord =
       createMovementRecord(trainId = trainId,
                            trainServiceCode = serviceCode,
@@ -245,16 +253,24 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
         fixture.emailer.emailsSent should have size 2
         fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
                                                                                    subscriberRecord2.emailAddress)
+        fixture.emailer.emailsSent.foreach { email =>
+          validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
+        }
     }
   }
 
-  def createDefaultInitialState(scheduleTrainId: ScheduleTrainId, serviceCode: ServiceCode): AppInitialState = {
+  private def createDefaultInitialState(scheduleTrainId: ScheduleTrainId, serviceCode: ServiceCode): AppInitialState = {
 
-    val stanoxRecord1 = StanoxRecord(StanoxCode(randomGen), TipLocCode("REIGATE"), Some(CRS("REI")), None, None)
-    val stanoxRecord2 = StanoxRecord(StanoxCode(randomGen), TipLocCode("REDHILL"), Some(CRS("RDH")), None, None)
-    val stanoxRecord3 = StanoxRecord(StanoxCode(randomGen), TipLocCode("MERSTHAM"), Some(CRS("MER")), None, None)
-    val stanoxRecord4 = StanoxRecord(StanoxCode(randomGen), TipLocCode("EASTCRYD"), Some(CRS("ECR")), None, None)
-    val stanoxRecord5 = StanoxRecord(StanoxCode(randomGen), TipLocCode("LONVIC"), Some(CRS("VIC")), None, None)
+    val stanoxRecord1 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("REIGATE"), Some(CRS("REI")), Some("Reigate"), None)
+    val stanoxRecord2 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("REDHILL"), Some(CRS("RDH")), Some("Redhill"), None)
+    val stanoxRecord3 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("MERSTHAM"), Some(CRS("MER")), Some("Merstham"), None)
+    val stanoxRecord4 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("EASTCRYD"), Some(CRS("ECR")), Some("East Croydon"), None)
+    val stanoxRecord5 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("LONVIC"), Some(CRS("VIC")), Some("London Victoria"), None)
     val stanoxRecords = List(stanoxRecord1, stanoxRecord2, stanoxRecord3, stanoxRecord4, stanoxRecord5)
 
     val scheduleRecord = createScheduleRecord(
@@ -288,5 +304,25 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)),
       stanoxRecords = stanoxRecords
     )
+  }
+
+  private def validateEmailBody(body: String,
+                                movementRecord: TrainMovementRecord,
+                                activationRecord: TrainActivationRecord,
+                                stanoxRecords: List[StanoxRecord]) = {
+    body should include(s"Train ID: ${activationRecord.scheduleTrainId.value}")
+    val originStanox = stanoxRecords.find(_.stanoxCode == activationRecord.originStanox).get
+    body should include(s"Train originated from: [${originStanox.crs.get.value}] ${originStanox.description.get}")
+
+    val stanoxAffected = stanoxRecords.find(_.stanoxCode == movementRecord.stanoxCode.get).get
+    body should include(s"Station affected: [${stanoxAffected.crs.get.value}] ${stanoxAffected.description.get}")
+    body should include(s"Operator: ${movementRecord.toc.value}")
+    body should include(s"Event type: ${movementRecord.eventType.string}")
+    body should include(
+      s"Expected time: ${SubscriberHandler.timestampToFormattedDateTime(movementRecord.plannedPassengerTimestamp.get)}")
+    body should include(
+      s"Actual time: ${SubscriberHandler.timestampToFormattedDateTime(movementRecord.actualTimestamp)}")
+    body should include(
+      s"Status: ${SubscriberHandler.statusTextFrom(movementRecord.variationStatus.get, movementRecord.plannedPassengerTimestamp.get, movementRecord.actualTimestamp)}")
   }
 }

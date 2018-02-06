@@ -100,6 +100,7 @@
     var stations = [];
     var userEmail;
     var userIdToken;
+    var firstQueryRun = false;
 
     var fromStanoxCodeSelected;
     var toStanoxCodeSelected;
@@ -149,7 +150,7 @@
             buttons: [
                 {
                     className: 'btn btn-primary table-buttons table-button-subscribe',
-                    text: 'Subscribe to selected trains',
+                    text: 'Sign in to subscribe',
                     action: function () {
                         subscribeToSelectedTrains(dataTable.rows({selected: true}).data().toArray());
                     }
@@ -168,9 +169,13 @@
     function onSignIn(googleUser) {
         var profile = googleUser.getBasicProfile();
         userIdToken = googleUser.getAuthResponse().id_token;
-        $('.table-button-subscribe').prop('disabled', false);
         userEmail = profile.getEmail();
-        runScheduleQuery();
+        var subscribeButton = $('.table-button-subscribe');
+        subscribeButton.prop('disabled', false);
+        subscribeButton.text("Subscribe to selected trains");
+        if (firstQueryRun) {
+            runScheduleQuery();
+        }
         dataTable.column(14).visible(true); //Show subscribed column
     }
 
@@ -194,8 +199,10 @@
                 url: "subscribe",
                 contentType: 'application/json; charset=utf-8',
                 data: JSON.stringify(toSend),
-                success: function() { showSuccessfulSubscribeAlert(idArray.length) },
-                error: function(response) {
+                success: function () {
+                    showSuccessfulSubscribeAlert(idArray.length)
+                },
+                error: function (response) {
                     if (response.status === 409) {
                         showDuplicateSubscribeAlert()
                     } else {
@@ -225,6 +232,7 @@
                 daysRunPattern: $('input:radio:checked').val()
             }),
             success: function (data) {
+                firstQueryRun = true;
                 var json = JSON.parse(data);
                 if (json.length > 0) {
                     var rowArray = [];
@@ -257,7 +265,7 @@
                     showNoRoutesFoundAlert()
                 }
             },
-            error: function() {
+            error: function () {
                 showErrorObtainingScheduleDataAlert()
             }
         });
@@ -317,6 +325,7 @@
     function showErrorObtainingScheduleDataAlert() {
         $('.alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching schedule data</div>")
     }
+
     function showErrorObtainingStationDataAlert() {
         $('.modal-alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching the station list</div>")
     }
