@@ -6,7 +6,7 @@
     <link href="https://cdn.datatables.net/select/1.2.5/css/select.dataTables.min.css" rel="stylesheet"/>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css" rel="stylesheet"/>
     <link href="https://cdn.datatables.net/buttons/1.5.1/css/buttons.dataTables.min.css" rel="stylesheet"/>
-    <link href="/train-selector.css" rel="stylesheet">
+    <link href="/train-delay-notifications.css" rel="stylesheet">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
@@ -29,7 +29,6 @@
             <li><a href="#">Home</a></li>
             <li class="active"><a href="#">Train delay notifications</a></li>
             <li><a href="#">Train history search</a></li>
-            <li><a href="#">Schedules</a></li>
         </ul>
         <ul class="nav navbar-nav navbar-right">
             <div class="g-signin2" data-onsuccess="onSignIn"></div>
@@ -250,7 +249,7 @@
                         var daysRunPattern = json[i].daysRunPattern;
                         var scheduleStart = json[i].scheduleStart;
                         var scheduleEnd = json[i].scheduleEnd;
-                        var subscribed = json[i].subscribed;
+                        var subscribed = json[i].subscribed ? "Y" : "N";
                         var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd, subscribed];
                         rowArray.push(row);
                     }

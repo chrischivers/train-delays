@@ -78,21 +78,6 @@ object Service extends StrictLogging {
           logger.error(s"Unable to decode schedule-query ${request.toString()}", err)
           BadRequest()
       }
-//        { r => r
-//          //TODO check if tiploc valid?
-//          for {
-//
-//            existingSubscriberRecords <- subscriberTable.subscriberRecordsFor()
-//
-//              .map { scheduleLogs =>
-//                queryResponsesFrom(filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
-//                                   toStation,
-//                                   stanoxRecordsWithCRS.groupBy(_.stanoxCode))
-//              }
-//          } yield queryResponses
-//        }
-//        result.fold(BadRequest())(lst => Ok(lst.map(_.asJson.noSpaces)))
-//      }
 
     case request @ POST -> Root / "subscribe" =>
       request

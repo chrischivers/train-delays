@@ -41,9 +41,9 @@ object SubscriberHandler extends StrictLogging {
 
         for {
           subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
-          _ = println("subs on route: " + subscribersOnRoute)
+          _ = if (subscribersOnRoute.nonEmpty) println("Subscribers on route: " + subscribersOnRoute) else IO.unit
           affected <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
-          _ = println("affected: " + affected)
+          _ = if (affected.nonEmpty) println("Affected subscribers " + affected) else IO.unit
           _ <- if (affected.nonEmpty) createEmailAction(log, affected).value else IO.unit
         } yield ()
       }
@@ -82,6 +82,7 @@ object SubscriberHandler extends StrictLogging {
 
       def createEmailAction(movementLog: MovementLog,
                             affectedSubscribers: List[SubscriberRecord]): OptionT[IO, Unit] = {
+        println(s"Creating email for $movementLog and subscribers $affectedSubscribers")
         import cats.implicits._
         for {
           originatingStanoxOpt <- OptionT.liftF(stanoxTable.stanoxRecordFor(movementLog.originStanoxCode))
