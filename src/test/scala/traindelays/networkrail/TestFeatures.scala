@@ -25,7 +25,7 @@ import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecor
 import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers._
-import traindelays.networkrail.{ServiceCode, StanoxCode, TOC, TipLocCode}
+import traindelays.networkrail._
 
 import scala.concurrent.ExecutionContext
 import scala.util.Random
@@ -435,5 +435,53 @@ trait TestFeatures {
                                fixture.cancellationLogTable,
                                fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
 
+  }
+
+  def createDefaultInitialState(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("12345"),
+                                serviceCode: ServiceCode = ServiceCode("799984")): AppInitialState = {
+
+    val stanoxRecord1 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("REIGATE"), Some(CRS("REI")), Some("Reigate"), None)
+    val stanoxRecord2 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("REDHILL"), Some(CRS("RDH")), Some("Redhill"), None)
+    val stanoxRecord3 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("MERSTHAM"), Some(CRS("MER")), Some("Merstham"), None)
+    val stanoxRecord4 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("EASTCRYD"), Some(CRS("ECR")), Some("East Croydon"), None)
+    val stanoxRecord5 =
+      StanoxRecord(StanoxCode(randomGen), TipLocCode("LONVIC"), Some(CRS("VIC")), Some("London Victoria"), None)
+    val stanoxRecords = List(stanoxRecord1, stanoxRecord2, stanoxRecord3, stanoxRecord4, stanoxRecord5)
+
+    val scheduleRecord = createScheduleRecord(
+      trainServiceCode = serviceCode,
+      scheduleTrainId = scheduleTrainId,
+      locationRecords = List(
+        ScheduleLocationRecord(LocationType.OriginatingLocation,
+                               stanoxRecord1.tipLocCode,
+                               None,
+                               Some(LocalTime.parse("12:10"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord2.tipLocCode,
+                               Some(LocalTime.parse("12:14")),
+                               Some(LocalTime.parse("12:15"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord3.tipLocCode,
+                               Some(LocalTime.parse("12:24")),
+                               Some(LocalTime.parse("12:25"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord4.tipLocCode,
+                               Some(LocalTime.parse("12:35")),
+                               Some(LocalTime.parse("12:36"))),
+        ScheduleLocationRecord(LocationType.TerminatingLocation,
+                               stanoxRecord5.tipLocCode,
+                               Some(LocalTime.parse("12:45")),
+                               None)
+      )
+    )
+
+    AppInitialState(
+      scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)),
+      stanoxRecords = stanoxRecords
+    )
   }
 }

@@ -1,14 +1,16 @@
 package traindelays.ui
 
 import cats.effect.IO
+import io.circe.Json
 import org.http4s.{HttpService, Request, Status, Uri}
 import org.scalatest.FlatSpec
 import traindelays.networkrail.subscribers.UserId
 import traindelays.{DatabaseConfig, TestFeatures, UIConfig}
 import org.http4s.dsl.io._
 import org.scalatest.Matchers._
-import scala.concurrent.ExecutionContext.Implicits.global
+import org.http4s.circe._
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class ServiceTest extends FlatSpec with TestFeatures {
@@ -23,13 +25,22 @@ class ServiceTest extends FlatSpec with TestFeatures {
                                                          Some("Bloggs"),
                                                          Some("GB"))
 
+  val initialState = createDefaultInitialState()
+
   it should "fetch a list of stations from /stations" in {
 
-    withInitialState(config)() { fixture =>
+    withInitialState(config)(initialState) { fixture =>
       val service  = serviceFrom(fixture)
       val request  = Request[IO](method = GET, uri = Uri(path = "/stations"))
       val response = service.orNotFound(request).unsafeRunSync()
-      response.status shouldBe Status.Ok
+      val x        = response.as[Json].unsafeRunSync()
+      x shouldBe initialState.stanoxRecords.map { stanoxRecord =>
+        Json.obj(
+          "key" -> Json.fromString(stanoxRecord.stanoxCode.value),
+          "value" -> Json.fromString(
+            s"${stanoxRecord.description.getOrElse("")} [${stanoxRecord.crs.map(_.value).getOrElse("")}]")
+        )
+      }
     }
 
   }

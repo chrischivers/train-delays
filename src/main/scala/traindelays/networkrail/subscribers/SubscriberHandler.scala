@@ -44,7 +44,7 @@ object SubscriberHandler extends StrictLogging {
           _ = if (subscribersOnRoute.nonEmpty) println("Subscribers on route: " + subscribersOnRoute) else IO.unit
           affected <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
           _ = if (affected.nonEmpty) println("Affected subscribers " + affected) else IO.unit
-          _ <- if (affected.nonEmpty) createEmailAction(log, affected).value else IO.unit
+          _ <- if (affected.nonEmpty) createEmailAction(log, affected).value.map(_ => ()) else IO.unit
         } yield ()
       }
 
