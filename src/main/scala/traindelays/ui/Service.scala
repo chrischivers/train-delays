@@ -44,6 +44,9 @@ object Service extends StrictLogging {
             uiConfig: UIConfig,
             googleAuthenticator: GoogleAuthenticator) = HttpService[IO] {
 
+    case request @ GET -> Root =>
+      static("train-delay-notifications.html", request)
+
     case request @ GET -> Root / path if List(".js", ".css", ".html").exists(path.endsWith) =>
       static(path, request)
 
