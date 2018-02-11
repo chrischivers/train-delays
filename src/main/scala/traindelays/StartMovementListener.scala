@@ -15,7 +15,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 object StartMovementListener extends App {
 
-  val config               = ConfigLoader.defaultConfig
+  val config               = TrainDelaysConfig()
   val stompClient          = StompClient(config.networkRailConfig)
   implicit val actorSystem = ActorSystem()
 

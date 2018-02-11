@@ -11,13 +11,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class MovementLogTableTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "insert and retrieve an inserted movement log record from the database" in {
 
     val movementLog = createMovementLog()
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.movementLogTable.addRecord(movementLog).unsafeRunSync()
       val retrievedRecords = fixture.movementLogTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
@@ -31,11 +29,12 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
     val movementLogRecord1 = createMovementLog()
     val movementLogRecord2 = createMovementLog().copy(trainId = TrainId("862F60MY31"))
 
-    withInitialState(config)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) { fixture =>
-      val retrievedRecords = fixture.movementLogTable.retrieveAllRecords().unsafeRunSync()
-      retrievedRecords should have size 2
-      retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
-      retrievedRecords(1) shouldBe movementLogRecord2.copy(id = Some(2))
+    withInitialState(testDatabaseConfig)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
+      fixture =>
+        val retrievedRecords = fixture.movementLogTable.retrieveAllRecords().unsafeRunSync()
+        retrievedRecords should have size 2
+        retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
+        retrievedRecords(1) shouldBe movementLogRecord2.copy(id = Some(2))
     }
 
   }

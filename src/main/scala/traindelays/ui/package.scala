@@ -3,7 +3,7 @@ package traindelays
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
-import io.circe.{Decoder, Encoder}
+import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto._
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
@@ -24,7 +24,14 @@ package object ui {
 
   object ScheduleQueryRequest {
     implicit val decoder: Decoder[ScheduleQueryRequest] = deriveDecoder[ScheduleQueryRequest]
-    implicit val encoder: Encoder[ScheduleQueryRequest] = deriveEncoder[ScheduleQueryRequest]
+    implicit val encoder: Encoder[ScheduleQueryRequest] = (a: ScheduleQueryRequest) => {
+      Json.obj(
+        ("idToken", a.idToken.fold(Json.Null)(token => Json.fromString(token))),
+        ("fromStanox", Json.fromString(a.fromStanox.value)),
+        ("toStanox", Json.fromString(a.toStanox.value)),
+        ("daysRunPattern", Json.fromString(a.daysRunPattern.string))
+      )
+    }
   }
 
   case class ScheduleQueryResponse(id: Int,
@@ -44,6 +51,7 @@ package object ui {
 
   object ScheduleQueryResponse {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
+    implicit val decoder: Decoder[ScheduleQueryResponse] = deriveDecoder[ScheduleQueryResponse]
   }
 
   case class SubscribeRequest(email: String,

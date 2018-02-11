@@ -5,14 +5,12 @@ import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
-import traindelays.{ConfigLoader, DatabaseConfig, TestFeatures}
+import traindelays.{DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
-
-  protected def config: DatabaseConfig = testDatabaseConfig()
 
   override implicit val patienceConfig: PatienceConfig =
     PatienceConfig(timeout = scaled(10 seconds), interval = scaled(1 seconds))
@@ -21,11 +19,11 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
     val activationRecord = createActivationRecord()
     val movementRecord   = createMovementRecord()
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
-        val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+        val emailer = Emailer(config.emailerConfig)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -63,13 +61,13 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
       createActivationRecord(trainId = TrainId("FGHIJ"), scheduleTrainId = ScheduleTrainId("54321"))
     val movementRecord1 = createMovementRecord(stanoxCode = None, trainId = activationRecord1.trainId)
     val movementRecord2 = createMovementRecord(trainId = activationRecord2.trainId)
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord1).unsafeRunSync()
         queues.trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
-        val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+        val emailer = Emailer(config.emailerConfig)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -109,13 +107,13 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
       createActivationRecord(scheduleTrainId = ScheduleTrainId("G76489"), trainId = TrainId("98765432"))
     val movementRecord1 = createMovementRecord(trainId = activationRecord1.trainId)
     val movementRecord2 = createMovementRecord(trainId = activationRecord2.trainId)
-    withInitialState(config, redisCacheExpiry = 3 seconds)() { fixture =>
+    withInitialState(testDatabaseConfig, redisCacheExpiry = 3 seconds)() { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord1).unsafeRunSync()
         queues.trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
 
-        val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+        val emailer = Emailer(config.emailerConfig)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -167,13 +165,13 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
       createActivationRecord(scheduleTrainId = ScheduleTrainId("G99876"), trainId = TrainId("123456789"))
     val movementRecord1 = createMovementRecord()
     val movementRecord2 = createMovementRecord(trainId = activationRecord1.trainId)
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord1).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
 
-        val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+        val emailer = Emailer(config.emailerConfig)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -209,11 +207,11 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
     val activationRecord   = createActivationRecord()
     val cancellationRecord = createCancellationRecord()
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
-        val emailer = Emailer(ConfigLoader.defaultConfig.emailerConfig)
+        val emailer = Emailer(config.emailerConfig)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,

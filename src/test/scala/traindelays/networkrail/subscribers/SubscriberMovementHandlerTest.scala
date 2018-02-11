@@ -16,8 +16,6 @@ import scala.util.Random
 
 class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "email subscriber when movement log received relating to subscriber's FROM STANOX" in {
 
     val scheduleTrainId = ScheduleTrainId(randomGen)
@@ -36,7 +34,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(fromStanoxCode))
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       initialState.copy(
         subscriberRecords = List(subscriberRecord)
       )) { fixture =>
@@ -73,7 +71,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(toStanoxCode))
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
@@ -110,7 +108,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(midPointStanoxCode))
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
@@ -151,7 +149,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                            trainServiceCode = serviceCode,
                            stanoxCode = Some(initialState.scheduleLogRecords.last.stanoxCode))
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
@@ -180,7 +178,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val movementRecord =
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(fromStanoxCode))
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
@@ -225,20 +223,20 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                            trainServiceCode = serviceCode,
                            stanoxCode = Some(initialState.scheduleLogRecords(3).stanoxCode))
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) {
-      fixture =>
-        withQueues { queues =>
-          queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-          queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+    withInitialState(testDatabaseConfig)(
+      initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) { fixture =>
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
 
-          runAllQueues(queues, fixture)
-        }
-        fixture.emailer.emailsSent should have size 2
-        fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
-                                                                                   subscriberRecord2.emailAddress)
-        fixture.emailer.emailsSent.foreach { email =>
-          validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
-        }
+        runAllQueues(queues, fixture)
+      }
+      fixture.emailer.emailsSent should have size 2
+      fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
+                                                                                 subscriberRecord2.emailAddress)
+      fixture.emailer.emailsSent.foreach { email =>
+        validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
+      }
     }
   }
 

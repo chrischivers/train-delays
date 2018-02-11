@@ -16,8 +16,6 @@ import scala.util.Random
 
 class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "email subscriber when cancellation log received relating to subscriber's ROUTE" in {
 
     val scheduleTrainId = ScheduleTrainId(randomGen)
@@ -36,7 +34,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val cancellationRecord =
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
@@ -71,7 +69,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
                                trainServiceCode = serviceCode,
                                stanoxCode = initialState.scheduleLogRecords.head.stanoxCode)
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainCancellationQueue.enqueue1(cancellationRecord1).unsafeRunSync()
@@ -101,7 +99,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val cancellationLog =
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainCancellationQueue.enqueue1(cancellationLog).unsafeRunSync()
@@ -140,17 +138,17 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val cancellationRecord =
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode)
 
-    withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) {
-      fixture =>
-        withQueues { queues =>
-          queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-          queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+    withInitialState(testDatabaseConfig)(
+      initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) { fixture =>
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
 
-          runAllQueues(queues, fixture)
-        }
-        fixture.emailer.emailsSent should have size 2
-        fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
-                                                                                   subscriberRecord2.emailAddress)
+        runAllQueues(queues, fixture)
+      }
+      fixture.emailer.emailsSent should have size 2
+      fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
+                                                                                 subscriberRecord2.emailAddress)
     }
   }
 }

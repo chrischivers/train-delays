@@ -6,15 +6,15 @@ import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import fs2.Pipe
 import org.http4s.client.blaze.PooledHttp1Client
-import traindelays.ConfigLoader
-import traindelays.networkrail.{NetworkRailClient, StanoxCode, TipLocCode}
+import traindelays.TrainDelaysConfig
+import traindelays.networkrail.NetworkRailClient
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.{ScheduleTable, _}
 import traindelays.networkrail.scheduledata._
 
 object PopulateScheduleTable extends App with StrictLogging {
 
-  val config = ConfigLoader.defaultConfig
+  val config = TrainDelaysConfig()
   val client = PooledHttp1Client[IO]()
 
   val networkRailClient  = NetworkRailClient(config.networkRailConfig, client)

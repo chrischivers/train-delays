@@ -8,7 +8,7 @@ import traindelays.ui.{GoogleAuthenticator, Service}
 
 object StartWebServer extends StreamApp[IO] {
 
-  def config = ConfigLoader.defaultConfig
+  def config = TrainDelaysConfig()
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): fs2.Stream[IO, ExitCode] =
     withTransactor(config.databaseConfig)() { db =>

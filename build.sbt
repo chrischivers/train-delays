@@ -58,8 +58,6 @@ libraryDependencies ++= Seq(
   "com.google.api-client" % "google-api-client" % "1.23.0"
 )
 
-
-
 scalacOptions += "-Ypartial-unification"
 
 configs(IntegrationTest)
@@ -68,3 +66,4 @@ Defaults.itSettings
 
 internalDependencyClasspath in IntegrationTest += Attributed.blank((classDirectory in Test).value)
 parallelExecution in IntegrationTest := false
+parallelExecution in Test := false

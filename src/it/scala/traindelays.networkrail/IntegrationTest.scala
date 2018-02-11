@@ -3,14 +3,15 @@ package traindelays.networkrail
 import java.nio.file.Paths
 
 import cats.effect.IO
+import com.typesafe.config.ConfigFactory
 import org.http4s.client.blaze.PooledHttp1Client
-import traindelays.{ConfigLoader, DatabaseConfig, TrainDelaysConfig}
+import traindelays.{DatabaseConfig, TrainDelaysConfig}
 
 trait IntegrationTest {
 
   def client = PooledHttp1Client[IO]()
 
-  private val defaultConfig: TrainDelaysConfig = ConfigLoader.defaultConfig
+  private val defaultConfig: TrainDelaysConfig = TrainDelaysConfig(ConfigFactory.load("it/resources/application.conf"))
   val testconfig: TrainDelaysConfig = defaultConfig.copy(
     networkRailConfig = defaultConfig.networkRailConfig.copy(
       scheduleData = defaultConfig.networkRailConfig.scheduleData

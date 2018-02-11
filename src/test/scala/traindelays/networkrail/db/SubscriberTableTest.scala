@@ -14,11 +14,9 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class SubscriberTableTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "insert a watching record into the database" in {
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.subscriberTable.addRecord(createSubscriberRecord())
     }
   }
@@ -27,7 +25,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     val subscriberRecord = createSubscriberRecord()
 
-    withInitialState(config)(AppInitialState(subscriberRecords = List(subscriberRecord))) { fixture =>
+    withInitialState(testDatabaseConfig)(AppInitialState(subscriberRecords = List(subscriberRecord))) { fixture =>
       val retrievedRecords = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe subscriberRecord.copy(id = Some(1))
@@ -40,11 +38,12 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
     val watchingRecord1 = createSubscriberRecord()
     val watchingRecord2 = createSubscriberRecord().copy(userId = UserId("BCDEFGH"))
 
-    withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1, watchingRecord2))) { fixture =>
-      val retrievedRecords = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
-      retrievedRecords should have size 2
-      retrievedRecords.head shouldBe watchingRecord1.copy(id = Some(1))
-      retrievedRecords(1) shouldBe watchingRecord2.copy(id = Some(2))
+    withInitialState(testDatabaseConfig)(AppInitialState(subscriberRecords = List(watchingRecord1, watchingRecord2))) {
+      fixture =>
+        val retrievedRecords = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+        retrievedRecords should have size 2
+        retrievedRecords.head shouldBe watchingRecord1.copy(id = Some(1))
+        retrievedRecords(1) shouldBe watchingRecord2.copy(id = Some(2))
     }
 
   }
@@ -53,7 +52,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     val watchingRecord1 = createSubscriberRecord()
 
-    withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
+    withInitialState(testDatabaseConfig)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
       val retrievedRecords = fixture.subscriberTable
         .subscriberRecordsFor(watchingRecord1.scheduleTrainId, watchingRecord1.serviceCode)
         .unsafeRunSync()
@@ -66,7 +65,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     val watchingRecord1 = createSubscriberRecord()
 
-    withInitialState(config)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
+    withInitialState(testDatabaseConfig)(AppInitialState(subscriberRecords = List(watchingRecord1))) { fixture =>
       val retrievedRecords = fixture.subscriberTable
         .subscriberRecordsFor(watchingRecord1.userId)
         .unsafeRunSync()
@@ -81,22 +80,22 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     val subscriberRecord = createSubscriberRecord()
 
-    withInitialState(config, SubscribersConfig(3 seconds))(AppInitialState(subscriberRecords = List(subscriberRecord))) {
-      fixture =>
-        val retrievedRecords1 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
-        retrievedRecords1 should have size 1
-        retrievedRecords1.head shouldBe subscriberRecord.copy(id = Some(1))
+    withInitialState(testDatabaseConfig, SubscribersConfig(3 seconds))(
+      AppInitialState(subscriberRecords = List(subscriberRecord))) { fixture =>
+      val retrievedRecords1 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords1 should have size 1
+      retrievedRecords1.head shouldBe subscriberRecord.copy(id = Some(1))
 
-        fixture.subscriberTable.deleteAllRecords().unsafeRunSync()
+      fixture.subscriberTable.deleteAllRecords().unsafeRunSync()
 
-        val retrievedRecords2 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
-        retrievedRecords2 should have size 1
-        retrievedRecords2.head shouldBe subscriberRecord.copy(id = Some(1))
+      val retrievedRecords2 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords2 should have size 1
+      retrievedRecords2.head shouldBe subscriberRecord.copy(id = Some(1))
 
-        Thread.sleep(3000)
+      Thread.sleep(3000)
 
-        val retrievedRecords3 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
-        retrievedRecords3 should have size 0
+      val retrievedRecords3 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords3 should have size 0
     }
 
   }

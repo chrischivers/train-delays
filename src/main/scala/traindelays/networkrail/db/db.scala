@@ -13,9 +13,7 @@ import scalacache.memoization.memoizeF
 
 package object db {
 
-  private val commonMigrationLocation    = "db/migration/common"
-  private val h2MigrationsLocation       = "db/migration/h2"
-  private val postgresMigrationsLocation = "db/migration/postgres"
+  private val migrationLocation = "db/migration/common"
 
   def setUpTransactor(config: DatabaseConfig)(beforeMigration: Flyway => Unit = _ => ()) =
     for {
@@ -25,11 +23,8 @@ package object db {
           datasource.setMaximumPoolSize(config.maximumPoolSize)
           val flyway = new Flyway()
           flyway.setDataSource(datasource)
-          if (config.driverClassName.contains("h2")) {
-            flyway.setLocations(commonMigrationLocation, h2MigrationsLocation)
-          } else {
-            flyway.setLocations(commonMigrationLocation, postgresMigrationsLocation)
-          }
+          flyway.setLocations(migrationLocation)
+          beforeMigration(flyway)
           flyway.migrate()
 
         }

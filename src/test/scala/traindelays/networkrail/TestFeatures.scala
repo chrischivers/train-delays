@@ -1,14 +1,16 @@
 package traindelays
 
+import java.io.File
 import java.nio.file.Paths
 import java.time.{LocalDate, LocalTime}
 
 import akka.actor.ActorSystem
 import cats.effect.IO
+import com.typesafe.config.{Config, ConfigFactory}
 import doobie.hikari.HikariTransactor
 import fs2.Stream
 import fs2.async.mutable.Queue
-import org.http4s.Uri
+import org.http4s.{HttpService, Uri}
 import org.scalatest.Matchers.fail
 import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
@@ -26,6 +28,7 @@ import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLoc
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers._
 import traindelays.networkrail._
+import traindelays.ui.{AuthenticatedDetails, MockGoogleAuthenticator, Service}
 
 import scala.concurrent.ExecutionContext
 import scala.util.Random
@@ -45,11 +48,11 @@ trait TestFeatures {
 
     def clean: IO[Unit] =
       for {
-        _ <- sql"DELETE FROM schedule".update.run.transact(db)
-        _ <- sql"DELETE FROM stanox".update.run.transact(db)
-        _ <- sql"DELETE FROM movement_log".update.run.transact(db)
-        _ <- sql"DELETE FROM subscribers".update.run.transact(db)
-        _ <- sql"DELETE FROM cancellation_log".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS schedule".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS stanox".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS movement_log".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS subscribers".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS cancellation_log".update.run.transact(db)
       } yield ()
   }
 
@@ -72,17 +75,9 @@ trait TestFeatures {
                                     emailer: StubEmailer,
                                     subscriberHandler: SubscriberHandler)
 
-  def testDatabaseConfig() = {
-    val databaseName = s"testdb-${System.currentTimeMillis()}-${Random.nextInt(Integer.MAX_VALUE)}"
-    DatabaseConfig(
-      "org.h2.Driver",
-      "jdbc:h2:mem:" + databaseName + ";MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-      "sa",
-      ""
-    )
-  }
-
-  val testTransactor = setUpTransactor(testDatabaseConfig())(_.clean())
+  val config             = TrainDelaysConfig(ConfigFactory.parseFile(new File(getClass.getResource("/application.conf").getPath)))
+  val testDatabaseConfig = config.databaseConfig
+  val testTransactor     = setUpTransactor(testDatabaseConfig)(_.clean())
 
   def withDatabase[A](databaseConfig: DatabaseConfig)(f: HikariTransactor[IO] => IO[A]): A =
     withTransactor(databaseConfig)(_.clean)(x => Stream.eval(f(x))).runLast
@@ -122,7 +117,6 @@ trait TestFeatures {
       val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
 
       for {
-        _ <- db.clean
         _ <- initState.stanoxRecords
           .map(record => {
             StanoxTable
@@ -487,4 +481,22 @@ trait TestFeatures {
       stanoxRecords = stanoxRecords
     )
   }
+
+  def createAuthenticatedDetails(userId: UserId = UserId(Random.nextInt(Integer.MAX_VALUE).toString),
+                                 emailAddress: String = "test@test.com",
+                                 emailVerified: Option[Boolean] = Some(true),
+                                 name: Option[String] = Some("joebloggs"),
+                                 firstName: Option[String] = Some("Joe"),
+                                 familyName: Option[String] = Some("Bloggs"),
+                                 locale: Option[String] = Some("GB")) =
+    AuthenticatedDetails(userId, emailAddress, emailVerified, name, firstName, familyName, locale)
+
+  def serviceFrom(fixture: TrainDelaysTestFixture,
+                  uIConfig: UIConfig,
+                  authenticatedDetails: AuthenticatedDetails): HttpService[IO] =
+    Service(fixture.scheduleTable,
+            fixture.stanoxTable,
+            fixture.subscriberTable,
+            uIConfig,
+            MockGoogleAuthenticator(authenticatedDetails))
 }

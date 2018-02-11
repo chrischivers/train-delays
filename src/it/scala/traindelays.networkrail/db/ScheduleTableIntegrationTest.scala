@@ -13,7 +13,6 @@ import traindelays.networkrail.{CRS, IntegrationTest, StanoxCode, TipLocCode}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTest {
-  override protected def config: DatabaseConfig = testconfig.databaseConfig
 
   it should "retrieve schedule records by starting station, ending station and daysRunPattern" in {
 
@@ -49,7 +48,7 @@ class ScheduleTableIntegrationTest extends ScheduleTableTest with IntegrationTes
       stanoxRecord4
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = _stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(_stanoxRecords.map(x => x.tipLocCode -> x.stanoxCode).toMap)

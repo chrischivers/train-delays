@@ -14,13 +14,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class StanoxTableTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "retrieve an inserted stanox record from the database (single insertion)" in {
 
     val stanoxRecord = getStanoxRecord()
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.stanoxTable.addRecord(stanoxRecord).unsafeRunSync()
       val retrievedRecords = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
@@ -33,7 +31,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val stanoxRecord1 = getStanoxRecord()
     val stanoxRecord2 = getStanoxRecord().copy(stanoxCode = StanoxCode("12345"), description = Some("REIGATE_DESC"))
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.stanoxTable.addRecords(List(stanoxRecord1, stanoxRecord2)).unsafeRunSync()
       val retrievedRecords = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 2
@@ -47,10 +45,11 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val stanoxRecord1 = getStanoxRecord(stanoxCode = StanoxCode("12345"))
     val stanoxRecord2 = getStanoxRecord(stanoxCode = StanoxCode("23456"), crs = None)
 
-    withInitialState(config)(AppInitialState(stanoxRecords = List(stanoxRecord1, stanoxRecord2))) { fixture =>
-      val retrievedRecords = fixture.stanoxTable.retrieveAllRecordsWithCRS().unsafeRunSync()
-      retrievedRecords should have size 1
-      retrievedRecords.head shouldBe stanoxRecord1
+    withInitialState(testDatabaseConfig)(AppInitialState(stanoxRecords = List(stanoxRecord1, stanoxRecord2))) {
+      fixture =>
+        val retrievedRecords = fixture.stanoxTable.retrieveAllRecordsWithCRS().unsafeRunSync()
+        retrievedRecords should have size 1
+        retrievedRecords.head shouldBe stanoxRecord1
     }
 
   }
@@ -60,9 +59,10 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val stanoxRecord1 = getStanoxRecord(stanoxCode = StanoxCode("12345"))
     val stanoxRecord2 = getStanoxRecord(stanoxCode = StanoxCode("23456"))
 
-    withInitialState(config)(AppInitialState(stanoxRecords = List(stanoxRecord1, stanoxRecord2))) { fixture =>
-      val retrievedRecords = fixture.stanoxTable.stanoxRecordFor(stanoxRecord2.stanoxCode).unsafeRunSync()
-      retrievedRecords.get shouldBe stanoxRecord2
+    withInitialState(testDatabaseConfig)(AppInitialState(stanoxRecords = List(stanoxRecord1, stanoxRecord2))) {
+      fixture =>
+        val retrievedRecords = fixture.stanoxTable.stanoxRecordFor(stanoxRecord2.stanoxCode).unsafeRunSync()
+        retrievedRecords.get shouldBe stanoxRecord2
     }
   }
 
@@ -72,7 +72,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
 
     val stanoxRecord1 = getStanoxRecord()
 
-    withInitialState(config,
+    withInitialState(testDatabaseConfig,
                      scheduleDataConfig =
                        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
       AppInitialState(stanoxRecords = List(stanoxRecord1))) { fixture =>

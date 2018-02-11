@@ -15,7 +15,6 @@ object TrainActivationProcessor {
 
       override def stream: fs2.Stream[IO, Unit] =
         activationMessageQueue.dequeue
-          .observe1(x => IO(println("Activation record received: " + x)))
           .to(cacheWriter)
 
     }

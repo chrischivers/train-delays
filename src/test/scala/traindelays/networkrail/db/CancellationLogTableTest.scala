@@ -11,13 +11,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class CancellationLogTableTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "insert and retrieve a cancellation movement log record from the database" in {
 
     val cancellationLog = createCancellationLog()
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.cancellationLogTable.addRecord(cancellationLog).unsafeRunSync()
       val retrievedRecords = fixture.cancellationLogTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
@@ -31,12 +29,12 @@ class CancellationLogTableTest extends FlatSpec with TestFeatures {
     val cancellationLogRecord1 = createCancellationLog()
     val cancellationLogRecord2 = createCancellationLog().copy(trainId = TrainId("862F60MY31"))
 
-    withInitialState(config)(AppInitialState(cancellationLogs = List(cancellationLogRecord1, cancellationLogRecord2))) {
-      fixture =>
-        val retrievedRecords = fixture.cancellationLogTable.retrieveAllRecords().unsafeRunSync()
-        retrievedRecords should have size 2
-        retrievedRecords.head shouldBe cancellationLogRecord1.copy(id = Some(1))
-        retrievedRecords(1) shouldBe cancellationLogRecord2.copy(id = Some(2))
+    withInitialState(testDatabaseConfig)(
+      AppInitialState(cancellationLogs = List(cancellationLogRecord1, cancellationLogRecord2))) { fixture =>
+      val retrievedRecords = fixture.cancellationLogTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecords should have size 2
+      retrievedRecords.head shouldBe cancellationLogRecord1.copy(id = Some(1))
+      retrievedRecords(1) shouldBe cancellationLogRecord2.copy(id = Some(2))
     }
 
   }

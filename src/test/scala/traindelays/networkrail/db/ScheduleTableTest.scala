@@ -18,13 +18,11 @@ import scala.concurrent.ExecutionContext.Implicits.global
 
 class ScheduleTableTest extends FlatSpec with TestFeatures {
 
-  protected def config: DatabaseConfig = testDatabaseConfig()
-
   it should "insert and retrieve an inserted schedule log record from the database (single insertion)" in {
 
     val scheduleLogRecord = createScheduleLog()
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.scheduleTable.addRecord(scheduleLogRecord).unsafeRunSync()
       val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
@@ -38,7 +36,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     val log1 = createScheduleLog()
     val log2 = createScheduleLog(scheduleTrainId = ScheduleTrainId("98742"))
 
-    withInitialState(config)() { fixture =>
+    withInitialState(testDatabaseConfig)() { fixture =>
       fixture.scheduleTable.addRecords(List(log1, log2)).unsafeRunSync()
       val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 2
@@ -57,7 +55,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
@@ -79,7 +77,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
@@ -90,9 +88,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   }
 
-  ignore should "retrieve inserted records from the database by from, to and pattern" in {
-
-    //TODO sql statement does not work on H2. Ignored.
+  it should "retrieve inserted records from the database by from, to and pattern" in {
 
     val slr1 = ScheduleLocationRecord(OriginatingLocation,
                                       TipLocCode("REIGATE"),
@@ -115,7 +111,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
@@ -151,7 +147,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord1.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)) ++ scheduleRecord2
@@ -174,7 +170,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord1.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)) ++ scheduleRecord2
@@ -201,7 +197,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config,
+    withInitialState(testDatabaseConfig,
                      scheduleDataConfig =
                        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
       AppInitialState(
@@ -235,7 +231,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
@@ -273,7 +269,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
     )
 
-    withInitialState(config)(
+    withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))

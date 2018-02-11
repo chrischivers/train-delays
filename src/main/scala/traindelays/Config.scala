@@ -3,8 +3,9 @@ package traindelays
 import java.nio.file.{Path, Paths}
 import java.util.concurrent.TimeUnit
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 import org.http4s.Uri
+
 import scala.concurrent.duration.FiniteDuration
 
 case class NetworkRailConfig(host: String,
@@ -53,66 +54,60 @@ case class UIConfig(minimumDaysScheduleDuration: Int, memoizeRouteListFor: Finit
 
 case class RedisConfig(host: String, port: Int, dbIndex: Int)
 
-object ConfigLoader {
+object TrainDelaysConfig {
 
-  private val defaultConfigFactory = ConfigFactory.load()
-
-  val defaultConfig: TrainDelaysConfig = {
-
+  def apply(config: Config = ConfigFactory.load()): TrainDelaysConfig =
     TrainDelaysConfig(
       NetworkRailConfig(
-        defaultConfigFactory.getString("networkRail.host"),
-        defaultConfigFactory.getInt("networkRail.port"),
-        defaultConfigFactory.getString("networkRail.username"),
-        defaultConfigFactory.getString("networkRail.password"),
-        defaultConfigFactory.getInt("networkRail.maxRedirects"),
+        config.getString("networkRail.host"),
+        config.getInt("networkRail.port"),
+        config.getString("networkRail.username"),
+        config.getString("networkRail.password"),
+        config.getInt("networkRail.maxRedirects"),
         ScheduleDataConfig(
-          Uri.unsafeFromString(defaultConfigFactory.getString("networkRail.scheduleData.uri")),
-          Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpDownloadLocation")),
-          Paths.get(defaultConfigFactory.getString("networkRail.scheduleData.tmpUnzipLocation")),
-          FiniteDuration(defaultConfigFactory.getDuration("networkRail.scheduleData.memoizeFor").toMillis,
-                         TimeUnit.MILLISECONDS)
+          Uri.unsafeFromString(config.getString("networkRail.scheduleData.uri")),
+          Paths.get(config.getString("networkRail.scheduleData.tmpDownloadLocation")),
+          Paths.get(config.getString("networkRail.scheduleData.tmpUnzipLocation")),
+          FiniteDuration(config.getDuration("networkRail.scheduleData.memoizeFor").toMillis, TimeUnit.MILLISECONDS)
         ),
         MovementsConfig(
-          defaultConfigFactory.getString("networkRail.movements.topic"),
-          FiniteDuration(defaultConfigFactory.getDuration("networkRail.movements.activationExpiry").toMillis,
-                         TimeUnit.MILLISECONDS)
+          config.getString("networkRail.movements.topic"),
+          FiniteDuration(config.getDuration("networkRail.movements.activationExpiry").toMillis, TimeUnit.MILLISECONDS)
         ),
         SubscribersConfig(
-          FiniteDuration(defaultConfigFactory.getDuration("networkRail.subscribers.memoizeFor").toMillis,
-                         TimeUnit.MILLISECONDS)
+          FiniteDuration(config.getDuration("networkRail.subscribers.memoizeFor").toMillis, TimeUnit.MILLISECONDS)
         )
       ),
       DatabaseConfig(
-        defaultConfigFactory.getString("db.driverClassName"),
-        defaultConfigFactory.getString("db.url"),
-        defaultConfigFactory.getString("db.username"),
-        defaultConfigFactory.getString("db.password"),
-        defaultConfigFactory.getInt("db.maximumPoolSize")
+        config.getString("db.driverClassName"),
+        config.getString("db.url"),
+        config.getString("db.username"),
+        config.getString("db.password"),
+        config.getInt("db.maximumPoolSize")
       ),
       RedisConfig(
-        defaultConfigFactory.getString("redis.host"),
-        defaultConfigFactory.getInt("redis.port"),
-        defaultConfigFactory.getInt("redis.dbIndex")
+        config.getString("redis.host"),
+        config.getInt("redis.port"),
+        config.getInt("redis.dbIndex")
       ),
       EmailerConfig(
-        defaultConfigFactory.getBoolean("email.enabled"),
-        defaultConfigFactory.getString("email.fromAddress"),
-        defaultConfigFactory.getString("email.smtpHost"),
-        defaultConfigFactory.getInt("email.smtpPort"),
-        defaultConfigFactory.getString("email.smtpUsername"),
-        defaultConfigFactory.getString("email.smtpPassword"),
-        defaultConfigFactory.getInt("email.numberAttempts"),
-        defaultConfigFactory.getInt("email.secondsBetweenAttempts")
+        config.getBoolean("email.enabled"),
+        config.getString("email.fromAddress"),
+        config.getString("email.smtpHost"),
+        config.getInt("email.smtpPort"),
+        config.getString("email.smtpUsername"),
+        config.getString("email.smtpPassword"),
+        config.getInt("email.numberAttempts"),
+        config.getInt("email.secondsBetweenAttempts")
       ),
       HttpConfig(
-        defaultConfigFactory.getInt("http-server.port")
+        config.getInt("http-server.port")
       ),
       UIConfig(
-        defaultConfigFactory.getInt("ui.minimumDaysScheduleDuration"),
-        FiniteDuration(defaultConfigFactory.getDuration("ui.memoizeRouteListFor").toMillis, TimeUnit.MILLISECONDS),
-        defaultConfigFactory.getString("ui.clientId")
+        config.getInt("ui.minimumDaysScheduleDuration"),
+        FiniteDuration(config.getDuration("ui.memoizeRouteListFor").toMillis, TimeUnit.MILLISECONDS),
+        config.getString("ui.clientId")
       )
     )
-  }
+
 }
