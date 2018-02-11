@@ -25,7 +25,7 @@ trait TrainActivationCache {
 
 object TrainActivationCache {
 
-  private val trainActivationRecordSimpleDecoder: Decoder[TrainActivationRecord] = (c: HCursor) =>
+  private val trainActivationRecordCacheDecoder: Decoder[TrainActivationRecord] = (c: HCursor) =>
     for {
       scheduleTrainId          <- c.downField("scheduleTrainId").as[String].map(ScheduleTrainId(_))
       trainServiceCode         <- c.downField("trainServiceCode").as[String].map(ServiceCode(_))
@@ -35,7 +35,7 @@ object TrainActivationCache {
     } yield {
       new TrainActivationRecord(scheduleTrainId, trainServiceCode, trainId, originStanox, originDepartureTimestamp)
   }
-  private val trainActivationRecordSimpleEncoder: Encoder[TrainActivationRecord] = (a: TrainActivationRecord) =>
+  private val trainActivationRecordCacheEncoder: Encoder[TrainActivationRecord] = (a: TrainActivationRecord) =>
     Json.obj(
       ("scheduleTrainId", Json.fromString(a.scheduleTrainId.value)),
       ("trainServiceCode", Json.fromString(a.trainServiceCode.value)),
@@ -46,14 +46,14 @@ object TrainActivationCache {
 
   implicit val byteStringSerializer = new ByteStringSerializer[TrainActivationRecord] {
     override def serialize(data: TrainActivationRecord): ByteString =
-      ByteString(data.asJson(trainActivationRecordSimpleEncoder).noSpaces)
+      ByteString(data.asJson(trainActivationRecordCacheEncoder).noSpaces)
   }
 
   implicit val byteStringDeserializer = new ByteStringDeserializer[TrainActivationRecord] {
     override def deserialize(bs: ByteString): TrainActivationRecord =
       (for {
         json    <- parse(bs.utf8String)
-        decoded <- trainActivationRecordSimpleDecoder.decodeJson(json)
+        decoded <- trainActivationRecordCacheDecoder.decodeJson(json)
       } yield decoded).fold(err => throw err, identity)
 
   }
@@ -63,11 +63,11 @@ object TrainActivationCache {
 
       override def addToCache(trainActivationRecord: TrainActivationRecord): IO[Boolean] =
         IO.fromFuture(
-          Eval.now(redisClient
+          Eval.always(redisClient
             .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis))))
 
       override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] =
-        IO.fromFuture(Eval.later(redisClient.get[TrainActivationRecord](trainId.value)))
+        IO.fromFuture(Eval.always(redisClient.get[TrainActivationRecord](trainId.value)))
 
     }
 }
