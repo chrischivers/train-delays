@@ -37,15 +37,12 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 1
       fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
       fixture.emailer.emailsSent.head.subject should include("TRAIN CANCELLATION UPDATE")
@@ -75,15 +72,12 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
                                stanoxCode = initialState.scheduleLogRecords.head.stanoxCode)
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainCancellationQueue.enqueue1(cancellationRecord1).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainCancellationQueue.enqueue1(cancellationRecord1).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 1
       fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
       fixture.emailer.emailsSent.head.subject should include("TRAIN CANCELLATION UPDATE")
@@ -108,15 +102,12 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainCancellationQueue.enqueue1(cancellationLog).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainCancellationQueue.enqueue1(cancellationLog).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 0
     }
   }
@@ -151,15 +142,12 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) {
       fixture =>
-        withQueues
-          .map {
-            case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-              trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-              trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+        withQueues { queues =>
+          queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+          queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
 
-              runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-          }
-          .unsafeRunSync()
+          runAllQueues(queues, fixture)
+        }
         fixture.emailer.emailsSent should have size 2
         fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
                                                                                    subscriberRecord2.emailAddress)

@@ -37,6 +37,10 @@ trait TestFeatures {
 
   implicit val actorSystem: ActorSystem = ActorSystem()
 
+  case class Queues(trainMovementQueue: Queue[IO, TrainMovementRecord],
+                    trainActivationQueue: Queue[IO, TrainActivationRecord],
+                    trainCancellationQueue: Queue[IO, TrainCancellationRecord])
+
   implicit class DBExt(db: Transactor[IO]) {
 
     def clean: IO[Unit] =
@@ -85,13 +89,14 @@ trait TestFeatures {
       .unsafeRunSync()
       .getOrElse(fail(s"Unable to perform the operation"))
 
-  def withQueues = {
+  def withQueues[A](f: Queues => A): A = {
     import scala.concurrent.ExecutionContext.Implicits.global
-    for {
+    val queues = for {
       trainMovementQueue     <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
       trainActivationQueue   <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
       trainCancellationQueue <- fs2.async.unboundedQueue[IO, TrainCancellationRecord]
-    } yield (trainMovementQueue, trainActivationQueue, trainCancellationQueue)
+    } yield Queues(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
+    queues.map(q => f(q)).unsafeRunSync()
   }
 
   import cats.instances.list._
@@ -420,17 +425,15 @@ trait TestFeatures {
 
   def randomGen = Random.nextInt(9999999).toString
 
-  def runAllQueues(trainActivationQueue: Queue[IO, TrainActivationRecord],
-                   trainMovementQueue: Queue[IO, TrainMovementRecord],
-                   trainCancellationQueue: Queue[IO, TrainCancellationRecord],
-                   fixture: TrainDelaysTestFixture)(implicit executionContext: ExecutionContext) = {
+  def runAllQueues(queues: Queues, fixture: TrainDelaysTestFixture)(implicit executionContext: ExecutionContext) = {
 
-    TrainActivationProcessor(trainActivationQueue, fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
-    TrainMovementProcessor(trainMovementQueue,
+    TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+      .unsafeRunTimed(1 second)
+    TrainMovementProcessor(queues.trainMovementQueue,
                            fixture.movementLogTable,
                            fixture.subscriberHandler,
                            fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
-    TrainCancellationProcessor(trainCancellationQueue,
+    TrainCancellationProcessor(queues.trainCancellationQueue,
                                fixture.subscriberHandler,
                                fixture.cancellationLogTable,
                                fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)

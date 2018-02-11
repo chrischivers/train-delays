@@ -63,7 +63,7 @@ object TrainActivationCache {
 
       override def addToCache(trainActivationRecord: TrainActivationRecord): IO[Boolean] =
         IO.fromFuture(
-          Eval.later(redisClient
+          Eval.now(redisClient
             .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis))))
 
       override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] =

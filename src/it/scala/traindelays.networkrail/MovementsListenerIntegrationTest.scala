@@ -28,55 +28,55 @@ class MovementsListenerIntegrationTest
 
   it should "subscribe to a topic and receive updates" in {
 
-    withQueues
-      .map {
-        case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-          val movementWatcher =
-            new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
-          subscribeToMovementsTopic(movementWatcher)
+    withQueues { queues =>
+      val movementWatcher =
+        new MovementMessageHandlerWatcher(queues.trainMovementQueue,
+                                          queues.trainActivationQueue,
+                                          queues.trainCancellationQueue)
+      subscribeToMovementsTopic(movementWatcher)
 
-          eventually {
-            movementWatcher.rawMessagesReceived.size shouldBe >(0)
-            parse(movementWatcher.rawMessagesReceived.head).right.get
-              .as[List[TrainMovementRecord]]
-              .right
-              .get
-              .size shouldBe >(0)
-            trainMovementQueue.dequeueBatch1(3).unsafeRunSync().toList should have size 3
-          }
+      eventually {
+        movementWatcher.rawMessagesReceived.size shouldBe >(0)
+        parse(movementWatcher.rawMessagesReceived.head).right.get
+          .as[List[TrainMovementRecord]]
+          .right
+          .get
+          .size shouldBe >(0)
+        queues.trainMovementQueue.dequeueBatch1(3).unsafeRunSync().toList should have size 3
       }
-      .unsafeRunSync()
+    }
   }
 
   it should "persist movement records where all details exist to DB" in {
 
     withInitialState(testconfig.databaseConfig, scheduleDataConfig = testconfig.networkRailConfig.scheduleData)(
       AppInitialState.empty) { fixture =>
-      withQueues.map {
-        case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-          val movementWatcher =
-            new MovementMessageHandlerWatcher(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
-          val emailer = Emailer(testconfig.emailerConfig)
-          val subscriberFetcher =
-            SubscriberHandler(fixture.movementLogTable,
-                              fixture.subscriberTable,
-                              fixture.scheduleTable,
-                              fixture.stanoxTable,
-                              emailer)
-          subscribeToMovementsTopic(movementWatcher)
+      withQueues { queues =>
+        val movementWatcher =
+          new MovementMessageHandlerWatcher(queues.trainMovementQueue,
+                                            queues.trainActivationQueue,
+                                            queues.trainCancellationQueue)
+        val emailer = Emailer(testconfig.emailerConfig)
+        val subscriberFetcher =
+          SubscriberHandler(fixture.movementLogTable,
+                            fixture.subscriberTable,
+                            fixture.scheduleTable,
+                            fixture.stanoxTable,
+                            emailer)
+        subscribeToMovementsTopic(movementWatcher)
 
-          TrainMovementProcessor(trainMovementQueue,
-                                 fixture.movementLogTable,
-                                 subscriberFetcher,
-                                 fixture.trainActivationCache).stream.run
-            .unsafeRunTimed(10 seconds)
+        TrainMovementProcessor(queues.trainMovementQueue,
+                               fixture.movementLogTable,
+                               subscriberFetcher,
+                               fixture.trainActivationCache).stream.run
+          .unsafeRunTimed(10 seconds)
 
-          fixture.movementLogTable
-            .retrieveAllRecords()
-            .map { retrievedRecords =>
-              retrievedRecords.size shouldBe >(0)
-            }
-            .unsafeRunSync()
+        fixture.movementLogTable
+          .retrieveAllRecords()
+          .map { retrievedRecords =>
+            retrievedRecords.size shouldBe >(0)
+          }
+          .unsafeRunSync()
       }
     }
   }

@@ -40,15 +40,12 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       initialState.copy(
         subscriberRecords = List(subscriberRecord)
       )) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 1
       val email = fixture.emailer.emailsSent.head
       email.to shouldBe subscriberRecord.emailAddress
@@ -77,15 +74,12 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(toStanoxCode))
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 1
       val email = fixture.emailer.emailsSent.head
       email.to shouldBe subscriberRecord.emailAddress
@@ -117,15 +111,13 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(midPointStanoxCode))
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
+
       fixture.emailer.emailsSent should have size 1
       val email = fixture.emailer.emailsSent.head
       email.to shouldBe subscriberRecord.emailAddress
@@ -160,16 +152,13 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                            stanoxCode = Some(initialState.scheduleLogRecords.last.stanoxCode))
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
-            trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 0
     }
   }
@@ -192,15 +181,12 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       createMovementRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = Some(fromStanoxCode))
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
-      withQueues
-        .map {
-          case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-            trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-            trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
 
-            runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-        }
-        .unsafeRunSync()
+        runAllQueues(queues, fixture)
+      }
       fixture.emailer.emailsSent should have size 0
     }
   }
@@ -241,15 +227,12 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
 
     withInitialState(config)(initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) {
       fixture =>
-        withQueues
-          .map {
-            case (trainMovementQueue, trainActivationQueue, trainCancellationQueue) =>
-              trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
-              trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+        withQueues { queues =>
+          queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+          queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
 
-              runAllQueues(trainActivationQueue, trainMovementQueue, trainCancellationQueue, fixture)
-          }
-          .unsafeRunSync()
+          runAllQueues(queues, fixture)
+        }
         fixture.emailer.emailsSent should have size 2
         fixture.emailer.emailsSent.map(_.to) should contain theSameElementsAs List(subscriberRecord1.emailAddress,
                                                                                    subscriberRecord2.emailAddress)

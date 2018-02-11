@@ -27,20 +27,20 @@ class ServiceTest extends FlatSpec with TestFeatures {
 
   val initialState = createDefaultInitialState()
 
-  it should "fetch a list of stations from /stations" in {
+  it should "fetch a json list of stations from /stations" in {
 
     withInitialState(config)(initialState) { fixture =>
-      val service  = serviceFrom(fixture)
-      val request  = Request[IO](method = GET, uri = Uri(path = "/stations"))
-      val response = service.orNotFound(request).unsafeRunSync()
-      val x        = response.as[Json].unsafeRunSync()
-      x shouldBe initialState.stanoxRecords.map { stanoxRecord =>
+      val service      = serviceFrom(fixture)
+      val request      = Request[IO](method = GET, uri = Uri(path = "/stations"))
+      val response     = service.orNotFound(request).unsafeRunSync()
+      val jsonResponse = response.as[Json].unsafeRunSync()
+      jsonResponse shouldBe Json.arr(initialState.stanoxRecords.sortBy(_.stanoxCode.value).map { stanoxRecord =>
         Json.obj(
           "key" -> Json.fromString(stanoxRecord.stanoxCode.value),
           "value" -> Json.fromString(
             s"${stanoxRecord.description.getOrElse("")} [${stanoxRecord.crs.map(_.value).getOrElse("")}]")
         )
-      }
+      }: _*)
     }
 
   }

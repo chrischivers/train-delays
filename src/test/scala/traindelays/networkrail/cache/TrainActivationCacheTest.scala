@@ -1,11 +1,9 @@
 package traindelays.networkrail.cache
 
-import akka.actor.ActorSystem
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.TestFeatures
-import traindelays.networkrail.movementdata.{TrainActivationRecord, TrainId}
-import traindelays.networkrail.scheduledata.ScheduleTrainId
+import traindelays.networkrail.movementdata.TrainId
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
