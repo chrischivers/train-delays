@@ -55,7 +55,8 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.1.9",
   "javax.mail" % "mail" % "1.5.0-b01",
   "com.github.etaty" %% "rediscala" % "1.8.0",
-  "com.google.api-client" % "google-api-client" % "1.23.0"
+  "com.google.api-client" % "google-api-client" % "1.23.0",
+  "com.internetitem" % "logback-elasticsearch-appender" % "1.6"
 )
 
 scalacOptions += "-Ypartial-unification"
