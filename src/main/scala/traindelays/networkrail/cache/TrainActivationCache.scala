@@ -66,8 +66,10 @@ object TrainActivationCache {
           Eval.always(redisClient
             .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis))))
 
-      override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] =
+      override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] = {
+        redisClient.get[TrainActivationRecord](trainId.value)
         IO.fromFuture(Eval.always(redisClient.get[TrainActivationRecord](trainId.value)))
+      }
 
     }
 }

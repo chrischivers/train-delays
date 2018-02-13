@@ -272,29 +272,33 @@ package object movementdata {
 
     private def movementRecordToMovementLog(movementRec: TrainMovementRecord,
                                             cache: TrainActivationCache): IO[Option[MovementLog]] =
-      cache.getFromCache(movementRec.trainId).map { trainActivationRecordOpt =>
-        for {
-          stanoxCode                <- movementRec.stanoxCode
-          plannedPassengerTimestamp <- movementRec.plannedPassengerTimestamp
-          variationStatus           <- movementRec.variationStatus
-          trainActivationRecord     <- trainActivationRecordOpt
-        } yield {
-          MovementLog(
-            None,
-            movementRec.trainId,
-            trainActivationRecord.scheduleTrainId,
-            movementRec.trainServiceCode,
-            movementRec.eventType,
-            movementRec.toc,
-            stanoxCode,
-            trainActivationRecord.originStanox,
-            trainActivationRecord.originDepartureTimestamp,
-            plannedPassengerTimestamp,
-            movementRec.actualTimestamp,
-            movementRec.actualTimestamp - plannedPassengerTimestamp,
-            variationStatus
-          )
-        }
+      cache.getFromCache(movementRec.trainId).attempt.map {
+        case Right(trainActivationRecordOpt) =>
+          for {
+            stanoxCode                <- movementRec.stanoxCode
+            plannedPassengerTimestamp <- movementRec.plannedPassengerTimestamp
+            variationStatus           <- movementRec.variationStatus
+            trainActivationRecord     <- trainActivationRecordOpt
+          } yield {
+            MovementLog(
+              None,
+              movementRec.trainId,
+              trainActivationRecord.scheduleTrainId,
+              movementRec.trainServiceCode,
+              movementRec.eventType,
+              movementRec.toc,
+              stanoxCode,
+              trainActivationRecord.originStanox,
+              trainActivationRecord.originDepartureTimestamp,
+              plannedPassengerTimestamp,
+              movementRec.actualTimestamp,
+              movementRec.actualTimestamp - plannedPassengerTimestamp,
+              variationStatus
+            )
+          }
+        case Left(err) =>
+          println("Error : " + err)
+          throw err
       }
   }
 
