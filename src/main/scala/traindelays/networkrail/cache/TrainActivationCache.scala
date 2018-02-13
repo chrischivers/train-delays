@@ -62,14 +62,16 @@ object TrainActivationCache {
     new TrainActivationCache {
 
       override def addToCache(trainActivationRecord: TrainActivationRecord): IO[Boolean] =
-        IO.fromFuture(
-          Eval.always(redisClient
-            .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis))))
+        IO.fromFuture {
+          Eval.always(
+            redisClient
+              .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis)))
+        }
 
-      override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] = {
-        redisClient.get[TrainActivationRecord](trainId.value)
-        IO.fromFuture(Eval.always(redisClient.get[TrainActivationRecord](trainId.value)))
-      }
-
+      override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] =
+        IO.fromFuture {
+          Eval.always(redisClient.get[TrainActivationRecord](trainId.value))
+        }
     }
+
 }
