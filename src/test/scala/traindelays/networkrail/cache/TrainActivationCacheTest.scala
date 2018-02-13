@@ -11,7 +11,7 @@ import scala.concurrent.duration._
 class TrainActivationCacheTest extends FlatSpec with TestFeatures {
 
   it should "add and retrieve record to/from train activation cache" in {
-    val redisClient          = MockRedisClient()
+    val redisClient          = getFlushedRedisClient.unsafeRunSync()
     val expiry               = 5 seconds
     val trainActivationCache = TrainActivationCache(redisClient, expiry)
 
@@ -24,7 +24,7 @@ class TrainActivationCacheTest extends FlatSpec with TestFeatures {
   }
 
   it should "return none if records not found in cache" in {
-    val redisClient          = MockRedisClient()
+    val redisClient          = getFlushedRedisClient.unsafeRunSync()
     val expiry               = 5 seconds
     val trainActivationCache = TrainActivationCache(redisClient, expiry)
 
@@ -35,7 +35,7 @@ class TrainActivationCacheTest extends FlatSpec with TestFeatures {
   }
 
   it should "return none if records are expired in cache" in {
-    val redisClient          = MockRedisClient()
+    val redisClient          = getFlushedRedisClient.unsafeRunSync()
     val expiry               = 2 seconds
     val trainActivationCache = TrainActivationCache(redisClient, expiry)
 

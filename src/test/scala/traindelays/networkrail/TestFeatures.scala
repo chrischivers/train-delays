@@ -12,7 +12,8 @@ import fs2.Stream
 import fs2.async.mutable.Queue
 import org.http4s.{HttpService, Uri}
 import org.scalatest.Matchers.fail
-import traindelays.networkrail.cache.{MockRedisClient, TrainActivationCache}
+import redis.RedisClient
+import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern.Weekdays
@@ -107,7 +108,7 @@ trait TestFeatures {
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
       f: TrainDelaysTestFixture => A)(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
-      val redisClient          = MockRedisClient()
+      val redisClient          = RedisClient()
       val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
       val stanoxTable          = StanoxTable(db, scheduleDataConfig.memoizeFor)
       val movementLogTable     = MovementLogTable(db)
@@ -117,6 +118,7 @@ trait TestFeatures {
       val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
 
       for {
+        _ <- IO.fromFuture(cats.Eval.always(redisClient.flushall()))
         _ <- initState.stanoxRecords
           .map(record => {
             StanoxTable
@@ -499,4 +501,9 @@ trait TestFeatures {
             fixture.subscriberTable,
             uIConfig,
             MockGoogleAuthenticator(authenticatedDetails))
+
+  def getFlushedRedisClient(implicit executionContext: ExecutionContext): IO[RedisClient] = {
+    val redisClient = new RedisClient()
+    IO.fromFuture(cats.Eval.always(redisClient.flushall())).map(_ => redisClient)
+  }
 }

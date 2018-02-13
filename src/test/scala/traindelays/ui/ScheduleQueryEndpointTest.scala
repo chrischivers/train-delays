@@ -17,8 +17,8 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
   val defaultAuthenticatedDetails = createAuthenticatedDetails()
   val initialState                = createDefaultInitialState()
 
-  implicit val scheduleQueryResponseEntityDecoder: EntityDecoder[IO, ScheduleQueryResponse] =
-    org.http4s.circe.jsonOf[IO, ScheduleQueryResponse]
+  implicit val scheduleQueryResponseEntityDecoder: EntityDecoder[IO, List[ScheduleQueryResponse]] =
+    org.http4s.circe.jsonOf[IO, List[ScheduleQueryResponse]]
 
   val scheduleQueryRequestEntityEncoder: EntityEncoder[IO, ScheduleQueryRequest] =
     org.http4s.circe.jsonEncoderOf[IO, ScheduleQueryRequest]
@@ -38,9 +38,11 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
         Request[IO](method = POST,
                     uri = Uri(path = "/schedule-query"),
                     body = scheduleQueryRequestEntityEncoder.toEntity(scheduleQueryRequest).unsafeRunSync().body)
-      val response     = service.orNotFound(request).unsafeRunSync()
-      val jsonResponse = response.as[ScheduleQueryResponse].unsafeRunSync()
-      println(jsonResponse)
+      val response              = service.orNotFound(request).unsafeRunSync()
+      val scheduleQueryResponse = response.as[List[ScheduleQueryResponse]].attempt.unsafeRunSync()
+//      scheduleQueryResponse shouldBe ScheduleQueryResponse(???)
+    //TODO
+
     }
   }
 

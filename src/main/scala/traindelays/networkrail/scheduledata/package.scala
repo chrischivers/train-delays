@@ -29,7 +29,7 @@ package object scheduledata {
   object ScheduleTrainId {
     import io.circe.generic.semiauto._
     implicit val decoder: Decoder[ScheduleTrainId] = Decoder.decodeString.map(ScheduleTrainId(_))
-    implicit val encoder: Encoder[ScheduleTrainId] = deriveEncoder[ScheduleTrainId]
+    implicit val encoder: Encoder[ScheduleTrainId] = Encoder[ScheduleTrainId](a => Json.fromString(a.value))
 
     implicit val meta: Meta[ScheduleTrainId] =
       Meta[String].xmap(ScheduleTrainId(_), _.value)
@@ -39,7 +39,7 @@ package object scheduledata {
   object AtocCode {
     import io.circe.generic.semiauto._
     implicit val decoder: Decoder[AtocCode] = Decoder.decodeString.map(AtocCode(_))
-    implicit val encoder: Encoder[AtocCode] = deriveEncoder[AtocCode]
+    implicit val encoder: Encoder[AtocCode] = Encoder[AtocCode](a => Json.fromString(a.value))
 
     implicit val meta: Meta[AtocCode] =
       Meta[String].xmap(AtocCode(_), _.value)
