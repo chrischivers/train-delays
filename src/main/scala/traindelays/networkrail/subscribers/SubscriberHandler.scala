@@ -44,7 +44,7 @@ object SubscriberHandler extends StrictLogging {
           _ = if (subscribersOnRoute.nonEmpty) println("Subscribers on route: " + subscribersOnRoute) else IO.unit
           affected <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
           _ = if (affected.nonEmpty) println("Affected subscribers " + affected) else IO.unit
-          _ <- if (affected.nonEmpty) createEmailAction(log, affected).value.map(_ => ()) else IO.unit
+          _ <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
         } yield ()
       }
 
@@ -80,19 +80,27 @@ object SubscriberHandler extends StrictLogging {
           .sequence[IO, (SubscriberRecord, Boolean)]
           .map(_.collect { case (subscriber, true) => subscriber })
 
-      def createEmailAction(movementLog: MovementLog,
-                            affectedSubscribers: List[SubscriberRecord]): OptionT[IO, Unit] = {
+      def createEmailAction(movementLog: MovementLog, affectedSubscribers: List[SubscriberRecord]): IO[Unit] = {
         println(s"Creating email for $movementLog and subscribers $affectedSubscribers")
         import cats.implicits._
         for {
-          originatingStanoxOpt <- OptionT.liftF(stanoxTable.stanoxRecordFor(movementLog.originStanoxCode))
-          affectedStanoxOpt    <- OptionT.liftF(stanoxTable.stanoxRecordFor(movementLog.stanoxCode))
-          originatingStanox    <- OptionT.fromOption[IO](originatingStanoxOpt)
-          affectedStanox       <- OptionT.fromOption[IO](affectedStanoxOpt)
-          _ = println("affected: " + affectedStanox)
-          _ = println("originating: " + originatingStanox)
-          _ <- OptionT.liftF(affectedSubscribers.traverse(subscriber =>
-            emailSubscriberWithMovementUpdate(subscriber, movementLog, originatingStanox, affectedStanox, emailer)))
+          originatingStanoxOpt <- stanoxTable.stanoxRecordFor(movementLog.originStanoxCode)
+          _ = println("HERE1")
+          affectedStanoxOpt <- stanoxTable.stanoxRecordFor(movementLog.stanoxCode)
+          _ = println("HERE2")
+          _ <- affectedSubscribers
+            .map { subscriber =>
+              val emailAction = for {
+                originatingStanox <- originatingStanoxOpt
+                _ = println("HERE3")
+                affectedStanox <- affectedStanoxOpt
+                _ = println("HERE4")
+              } yield {
+                emailSubscriberWithMovementUpdate(subscriber, movementLog, originatingStanox, affectedStanox, emailer)
+              }
+              emailAction.getOrElse(IO.unit)
+            }
+            .sequence[IO, Unit]
         } yield ()
       }
 
@@ -102,7 +110,6 @@ object SubscriberHandler extends StrictLogging {
                                                     stanoxOriginated: StanoxRecord,
                                                     stanoxAffected: StanoxRecord,
                                                     emailer: Emailer): IO[Unit] = {
-        println("HERE")
         val email = Email("TRAIN MOVEMENT UPDATE",
                           movementLogToBody(movementLog, stanoxOriginated, stanoxAffected),
                           subscriberRecord.emailAddress)
@@ -119,7 +126,9 @@ object SubscriberHandler extends StrictLogging {
 
     }
 
-  def movementLogToBody(movementLog: MovementLog, stanoxOriginated: StanoxRecord, stanoxAffected: StanoxRecord) =
+  def movementLogToBody(movementLog: MovementLog,
+                        stanoxOriginated: StanoxRecord,
+                        stanoxAffected: StanoxRecord): String =
     s"""
        |TRAIN MOVEMENT UPDATE
        |Train ID: ${movementLog.scheduleTrainId.value}
