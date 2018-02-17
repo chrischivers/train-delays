@@ -58,7 +58,7 @@ object Service extends StrictLogging {
         case Right(req) =>
           (for {
             maybeAuthenticatedDetails <- req.idToken.fold[IO[Option[AuthenticatedDetails]]](IO.pure(None))(token =>
-              googleAuthenticator.verifyToken(token).map(Some(_)))
+              googleAuthenticator.verifyToken(token))
             stanoxRecordsWithCRS <- stanoxTable.retrieveAllRecordsWithCRS()
             maybeExistingSubscriberRecords <- maybeAuthenticatedDetails.fold[IO[Option[List[SubscriberRecord]]]](
               IO.pure(None))(details => subscriberTable.subscriberRecordsFor(details.userId).map(Some(_)))
@@ -116,33 +116,40 @@ object Service extends StrictLogging {
                                        subscriberTable: SubscriberTable,
                                        googleAuthenticator: GoogleAuthenticator): IO[Unit] =
     for {
-      authenticatedDetails <- googleAuthenticator.verifyToken(subscribeRequest.idToken)
-      _ <- subscribeRequest.ids
-        .map { id =>
-          for {
-            scheduleRec <- scheduleTable.retrieveRecordBy(id)
-            maybeSubscriberRecord = scheduleRec.map { scheduleRec =>
-              SubscriberRecord(
-                None,
-                authenticatedDetails.userId,
-                authenticatedDetails.email,
-                authenticatedDetails.emailVerified,
-                authenticatedDetails.name,
-                authenticatedDetails.firstName,
-                authenticatedDetails.familyName,
-                authenticatedDetails.locale,
-                scheduleRec.scheduleTrainId,
-                scheduleRec.serviceCode,
-                subscribeRequest.fromStanox,
-                subscribeRequest.toStanox,
-                subscribeRequest.daysRunPattern
-              )
-            }
-            _ <- maybeSubscriberRecord.fold[IO[Unit]](IO.raiseError(new RuntimeException(s"Invalid schedule ID $id")))(
-              subscriberRec => subscriberTable.addRecord(subscriberRec))
-          } yield ()
+      maybeAuthenticatedDetails <- googleAuthenticator.verifyToken(subscribeRequest.idToken)
+      _ <- maybeAuthenticatedDetails
+        .fold[IO[List[Unit]]](
+          IO.raiseError(new RuntimeException(
+            s"Unable to retrieve authentication details for id token ${subscribeRequest.idToken}"))) {
+          authenticatedDetails =>
+            subscribeRequest.ids
+              .map { id =>
+                for {
+                  scheduleRec <- scheduleTable.retrieveRecordBy(id)
+                  maybeSubscriberRecord = scheduleRec.map { scheduleRec =>
+                    SubscriberRecord(
+                      None,
+                      authenticatedDetails.userId,
+                      authenticatedDetails.email,
+                      authenticatedDetails.emailVerified,
+                      authenticatedDetails.name,
+                      authenticatedDetails.firstName,
+                      authenticatedDetails.familyName,
+                      authenticatedDetails.locale,
+                      scheduleRec.scheduleTrainId,
+                      scheduleRec.serviceCode,
+                      subscribeRequest.fromStanox,
+                      subscribeRequest.toStanox,
+                      subscribeRequest.daysRunPattern
+                    )
+                  }
+                  _ <- maybeSubscriberRecord.fold[IO[Unit]](
+                    IO.raiseError(new RuntimeException(s"Invalid schedule ID $id")))(subscriberRec =>
+                    subscriberTable.addRecord(subscriberRec))
+                } yield ()
+              }
+              .sequence[IO, Unit]
         }
-        .sequence[IO, Unit]
     } yield ()
 
   private def static(file: String, request: Request[IO]) = {

@@ -6,6 +6,7 @@ object MockGoogleAuthenticator {
   def apply(authenticatedDetailsToReturn: AuthenticatedDetails) = new GoogleAuthenticator {
     override val verifier: GoogleIdTokenVerifier = GoogleAuthenticator("").verifier
 
-    override def verifyToken(idTokenString: String): IO[AuthenticatedDetails] = IO(authenticatedDetailsToReturn)
+    override def verifyToken(idTokenString: String): IO[Option[AuthenticatedDetails]] =
+      IO(Some(authenticatedDetailsToReturn))
   }
 }

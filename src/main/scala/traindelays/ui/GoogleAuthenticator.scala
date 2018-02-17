@@ -8,6 +8,9 @@ import traindelays.networkrail.subscribers.UserId
 import scala.collection.JavaConverters._
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier
+import com.typesafe.scalalogging.StrictLogging
+
+import scala.util.Try
 
 case class AuthenticatedDetails(userId: UserId,
                                 email: String,
@@ -17,15 +20,14 @@ case class AuthenticatedDetails(userId: UserId,
                                 familyName: Option[String],
                                 locale: Option[String])
 
-trait GoogleAuthenticator {
+trait GoogleAuthenticator extends StrictLogging {
 
   val verifier: GoogleIdTokenVerifier
 
-  def verifyToken(idTokenString: String): IO[AuthenticatedDetails] = {
-    val idTokenOpt: Option[GoogleIdToken] = Option(verifier.verify(idTokenString))
-    idTokenOpt.fold[IO[AuthenticatedDetails]](
-      IO.raiseError(new RuntimeException(s"Unable to verify token string $idTokenString"))) { idToken =>
-      IO {
+  def verifyToken(idTokenString: String): IO[Option[AuthenticatedDetails]] = IO {
+    val idTokenOpt: Option[GoogleIdToken] = Try(verifier.verify(idTokenString)).toOption
+    idTokenOpt
+      .map { idToken =>
         val payload = idToken.getPayload
         val userId  = payload.getSubject
 
@@ -38,7 +40,10 @@ trait GoogleAuthenticator {
 
         AuthenticatedDetails(UserId(userId), email, emailVerified, name, firstName, familyName, locale)
       }
-    }
+      .orElse {
+        logger.error(s"Unable to verify token string $idTokenString")
+        None
+      }
   }
 }
 
