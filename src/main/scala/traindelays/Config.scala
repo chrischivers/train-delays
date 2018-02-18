@@ -42,13 +42,16 @@ case class TrainDelaysConfig(networkRailConfig: NetworkRailConfig,
                              redisConfig: RedisConfig,
                              emailerConfig: EmailerConfig,
                              httpConfig: HttpConfig,
-                             uIConfig: UIConfig)
+                             uIConfig: UIConfig,
+                             metricsConfig: MetricsConfig)
 
 case class DatabaseConfig(driverClassName: String,
                           url: String,
                           username: String,
                           password: String,
                           maximumPoolSize: Int = 2)
+
+case class MetricsConfig(host: String, port: Int, dbName: String, updateInterval: Int, enabled: Boolean)
 
 case class UIConfig(minimumDaysScheduleDuration: Int, memoizeRouteListFor: FiniteDuration, clientId: String)
 
@@ -107,6 +110,13 @@ object TrainDelaysConfig {
         config.getInt("ui.minimumDaysScheduleDuration"),
         FiniteDuration(config.getDuration("ui.memoizeRouteListFor").toMillis, TimeUnit.MILLISECONDS),
         config.getString("ui.clientId")
+      ),
+      MetricsConfig(
+        config.getString("metrics.host"),
+        config.getInt("metrics.port"),
+        config.getString("metrics.dbName"),
+        config.getInt("metrics.updateInterval"),
+        config.getBoolean("metrics.enabled")
       )
     )
 

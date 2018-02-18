@@ -6,6 +6,7 @@ import com.typesafe.scalalogging.StrictLogging
 import fs2.async
 import fs2.async.mutable.Queue
 import redis.RedisClient
+import traindelays.metrics.MetricsLogging
 import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.db._
 import traindelays.networkrail.movementdata._
@@ -24,14 +25,16 @@ object StartMovementListener extends App with StrictLogging {
     trainActivationQueue   <- async.unboundedQueue[IO, TrainActivationRecord]
     trainCancellationQueue <- async.unboundedQueue[IO, TrainCancellationRecord]
     incomingMessageQueue   <- async.unboundedQueue[IO, String]
-    _ <- MovementMessageHandler(config.networkRailConfig,
-                                incomingMessageQueue,
-                                trainMovementQueue,
-                                trainActivationQueue,
-                                trainCancellationQueue,
-                                newStompClient(config.networkRailConfig))
-      .concurrently(createMovementMessageProcessor(trainMovementQueue, trainActivationQueue, trainCancellationQueue))
-      .run
+    metricsLogging = MetricsLogging(config.metricsConfig)
+    _ <- MovementMessageHandler(
+      config.networkRailConfig,
+      incomingMessageQueue,
+      trainMovementQueue,
+      trainActivationQueue,
+      trainCancellationQueue,
+      metricsLogging,
+      newStompClient(config.networkRailConfig)
+    ).concurrently(createMovementMessageProcessor(trainMovementQueue, trainActivationQueue, trainCancellationQueue)).run
   } yield ()
 
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],

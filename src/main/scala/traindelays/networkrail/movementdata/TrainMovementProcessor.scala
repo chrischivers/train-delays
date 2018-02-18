@@ -23,9 +23,7 @@ object TrainMovementProcessor {
       override def stream: fs2.Stream[IO, Unit] =
         movementMessageQueue.dequeue
           .through(recordsToLogPipe)
-          .observe1(x => IO(println("After pipe: " + x)))
           .collect[MovementLog] { case Some(ml) => ml }
-          .observe1(x => IO(println("Before subscriber handler: " + x)))
           .observe(subscriberHandler.movementNotifier)
 //          .observe1(x => IO(println(x)))
           .to(movementLogTable.dbWriter)

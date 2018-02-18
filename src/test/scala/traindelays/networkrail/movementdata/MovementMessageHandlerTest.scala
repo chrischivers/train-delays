@@ -3,6 +3,7 @@ package traindelays.networkrail.movementdata
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.TestFeatures
+import traindelays.metrics.MetricsLogging
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.{MockStompClient, ServiceCode, StanoxCode, TOC}
 
@@ -98,6 +99,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
         queues.trainMovementQueue,
         queues.trainActivationQueue,
         queues.trainCancellationQueue,
+        MetricsLogging(config.metricsConfig),
         mockStompClient.client
       )
 
