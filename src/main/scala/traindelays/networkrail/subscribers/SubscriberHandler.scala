@@ -10,7 +10,7 @@ import cats.instances.list._
 import cats.syntax.traverse._
 import traindelays.networkrail.{ServiceCode, StanoxCode}
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, StanoxTable, SubscriberTable}
-import traindelays.networkrail.movementdata.{CancellationLog, MovementLog, VariationStatus}
+import traindelays.networkrail.movementdata.{CancellationLog, DBLog, MovementLog, VariationStatus}
 import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
 import traindelays.networkrail.subscribers.Emailer.Email
 import cats.instances.list._
@@ -41,10 +41,8 @@ object SubscriberHandler extends StrictLogging {
 
         for {
           subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
-          _ = if (subscribersOnRoute.nonEmpty) println("Subscribers on route: " + subscribersOnRoute) else IO.unit
-          affected <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
-          _ = if (affected.nonEmpty) println("Affected subscribers " + affected) else IO.unit
-          _ <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
+          affected           <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
+          _                  <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
         } yield ()
       }
 
@@ -53,8 +51,7 @@ object SubscriberHandler extends StrictLogging {
           subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
           //For cancellation on a route all subscribers are notified
           //TODO is this assumption correct
-          _ <- subscribersOnRoute.traverse(subscriber =>
-            emailSubscriberWithCancellationUpdate(subscriber, log, emailer))
+          _ <- if (subscribersOnRoute.nonEmpty) createEmailAction(log, subscribersOnRoute) else IO.unit
         } yield ()
       }
 
@@ -80,23 +77,24 @@ object SubscriberHandler extends StrictLogging {
           .sequence[IO, (SubscriberRecord, Boolean)]
           .map(_.collect { case (subscriber, true) => subscriber })
 
-      def createEmailAction(movementLog: MovementLog, affectedSubscribers: List[SubscriberRecord]): IO[Unit] = {
-        println(s"Creating email for $movementLog and subscribers $affectedSubscribers")
+      def createEmailAction(log: DBLog, affectedSubscribers: List[SubscriberRecord]): IO[Unit] = {
         import cats.implicits._
         for {
-          originatingStanoxOpt <- stanoxTable.stanoxRecordFor(movementLog.originStanoxCode)
-          _ = println("HERE1")
-          affectedStanoxOpt <- stanoxTable.stanoxRecordFor(movementLog.stanoxCode)
-          _ = println("HERE2")
+          _                    <- IO(logger.info(s"Creating email for $log and subscribers $affectedSubscribers"))
+          originatingStanoxOpt <- stanoxTable.stanoxRecordFor(log.originStanoxCode)
+          affectedStanoxOpt    <- stanoxTable.stanoxRecordFor(log.stanoxCode)
           _ <- affectedSubscribers
             .map { subscriber =>
               val emailAction = for {
                 originatingStanox <- originatingStanoxOpt
-                _ = println("HERE3")
-                affectedStanox <- affectedStanoxOpt
-                _ = println("HERE4")
+                affectedStanox    <- affectedStanoxOpt
               } yield {
-                emailSubscriberWithMovementUpdate(subscriber, movementLog, originatingStanox, affectedStanox, emailer)
+                log match {
+                  case l: MovementLog =>
+                    emailSubscriberWithMovementUpdate(subscriber, l, originatingStanox, affectedStanox, emailer)
+                  case l: CancellationLog =>
+                    emailSubscriberWithCancellationUpdate(subscriber, l, originatingStanox, affectedStanox, emailer)
+                }
               }
               emailAction.getOrElse(IO.unit)
             }
@@ -110,17 +108,31 @@ object SubscriberHandler extends StrictLogging {
                                                     stanoxOriginated: StanoxRecord,
                                                     stanoxAffected: StanoxRecord,
                                                     emailer: Emailer): IO[Unit] = {
-        val email = Email("TRAIN MOVEMENT UPDATE",
-                          movementLogToBody(movementLog, stanoxOriginated, stanoxAffected),
-                          subscriberRecord.emailAddress)
+
+        val headline = "Train Delay Helper: Delay Update"
+        val email = Email(
+          headline,
+          EmailTemplates.movementEmailTemplate(headline,
+                                               movementLogToBody(movementLog, stanoxOriginated, stanoxAffected)),
+          subscriberRecord.emailAddress
+        )
         println("email: " + email)
         emailer.sendEmail(email)
       }
 
       private def emailSubscriberWithCancellationUpdate(subscriberRecord: SubscriberRecord,
                                                         cancellationLog: CancellationLog,
+                                                        stanoxOriginating: StanoxRecord,
+                                                        stanoxCancelled: StanoxRecord,
                                                         emailer: Emailer): IO[Unit] = {
-        val email = Email("TRAIN CANCELLATION UPDATE", cancellationLog.toString, subscriberRecord.emailAddress)
+        val headline = "Train Delay Helper: Cancel Update"
+        val email = Email(
+          headline,
+          EmailTemplates.movementEmailTemplate(
+            headline,
+            cancellationLogToBody(cancellationLog, stanoxOriginating, stanoxCancelled)),
+          subscriberRecord.emailAddress
+        )
         emailer.sendEmail(email)
       }
 
@@ -130,18 +142,31 @@ object SubscriberHandler extends StrictLogging {
                         stanoxOriginated: StanoxRecord,
                         stanoxAffected: StanoxRecord): String =
     s"""
-       |TRAIN MOVEMENT UPDATE
-       |Train ID: ${movementLog.scheduleTrainId.value}
-       |Train originated from: ${stationTextFrom(stanoxOriginated)}
-       |Station affected: ${stationTextFrom(stanoxAffected)}
-       |Operator: ${movementLog.toc.value}
-       |
-       |Event type: ${movementLog.eventType.string}
-       |Expected time: ${timestampToFormattedDateTime(movementLog.plannedPassengerTimestamp)}
-       |Actual time: ${timestampToFormattedDateTime(movementLog.actualTimestamp)}
+       |Train ID: ${movementLog.scheduleTrainId.value}<br/>
+       |Train originated from: ${stationTextFrom(stanoxOriginated)}<br/>
+       |Station affected: ${stationTextFrom(stanoxAffected)}<br/>
+       |Operator: ${movementLog.toc.value}<br/>
+       |<br/>
+       |Event type: ${movementLog.eventType.string}<br/>
+       |Expected time: ${timestampToFormattedDateTime(movementLog.plannedPassengerTimestamp)}<br/>
+       |Actual time: ${timestampToFormattedDateTime(movementLog.actualTimestamp)}<br/>
        |Status: ${statusTextFrom(movementLog.variationStatus,
                                  movementLog.plannedPassengerTimestamp,
-                                 movementLog.actualTimestamp)}
+                                 movementLog.actualTimestamp)}<br/>
+       |
+     """.stripMargin
+
+  def cancellationLogToBody(cancellationLog: CancellationLog,
+                            stanoxOriginating: StanoxRecord,
+                            stanoxCancelled: StanoxRecord): String =
+    s"""
+       |Train ID: ${cancellationLog.scheduleTrainId.value}<br/>
+       |Train originated from: ${stationTextFrom(stanoxOriginating)}<br/>
+       |Stop cancelled: ${stationTextFrom(stanoxCancelled)}<br/>
+       |Operator: ${cancellationLog.toc.value}<br/>
+       |<br/>
+       |Cancellation type: ${cancellationLog.cancellationType.string}<br/>
+       |Expected departure time: ${timestampToFormattedDateTime(cancellationLog.originDepartureTimestamp)}<br/>
        |
      """.stripMargin
 

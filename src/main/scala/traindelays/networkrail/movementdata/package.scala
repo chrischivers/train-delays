@@ -300,6 +300,17 @@ package object movementdata {
       }
   }
 
+  sealed trait DBLog {
+    def id: Option[Int]
+    def trainId: TrainId
+    def scheduleTrainId: ScheduleTrainId
+    def serviceCode: ServiceCode
+    def toc: TOC
+    def stanoxCode: StanoxCode
+    def originStanoxCode: StanoxCode
+    def originDepartureTimestamp: Long
+  }
+
   case class MovementLog(id: Option[Int],
                          trainId: TrainId,
                          scheduleTrainId: ScheduleTrainId,
@@ -313,6 +324,7 @@ package object movementdata {
                          actualTimestamp: Long,
                          difference: Long,
                          variationStatus: VariationStatus)
+      extends DBLog
 
   case class CancellationLog(id: Option[Int],
                              trainId: TrainId,
@@ -324,6 +336,7 @@ package object movementdata {
                              originDepartureTimestamp: Long,
                              cancellationType: CancellationType,
                              cancellationReasonCode: String)
+      extends DBLog
 
   trait MovementProcessor {
     def stream: fs2.Stream[IO, Unit]
