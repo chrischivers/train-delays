@@ -2,6 +2,7 @@ package traindelays
 
 import akka.actor.ActorSystem
 import cats.effect.IO
+import com.typesafe.scalalogging.StrictLogging
 import fs2.async
 import fs2.async.mutable.Queue
 import redis.RedisClient
@@ -13,25 +14,31 @@ import traindelays.stomp.StompClient
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object StartMovementListener extends App {
+object StartMovementListener extends App with StrictLogging {
 
   val config               = TrainDelaysConfig()
-  val stompClient          = StompClient(config.networkRailConfig)
   implicit val actorSystem = ActorSystem()
 
   val app = for {
     trainMovementQueue     <- async.unboundedQueue[IO, TrainMovementRecord]
     trainActivationQueue   <- async.unboundedQueue[IO, TrainActivationRecord]
     trainCancellationQueue <- async.unboundedQueue[IO, TrainCancellationRecord]
-    movementMessageHandler = MovementMessageHandler(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
-    _ <- stompClient.subscribe(config.networkRailConfig.movements.topic, movementMessageHandler)
-    _ <- createMovementMessageProcessor(trainMovementQueue, trainActivationQueue, trainCancellationQueue).run
+    incomingMessageQueue   <- async.unboundedQueue[IO, String]
+    _ <- MovementMessageHandler(config.networkRailConfig,
+                                incomingMessageQueue,
+                                trainMovementQueue,
+                                trainActivationQueue,
+                                trainCancellationQueue,
+                                newStompClient(config.networkRailConfig))
+      .concurrently(createMovementMessageProcessor(trainMovementQueue, trainActivationQueue, trainCancellationQueue))
+      .run
   } yield ()
 
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
                                              trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
                                              trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord]) =
     withTransactor(config.databaseConfig)() { db =>
+      logger.info(s"creating movement message processor with db config ${config.databaseConfig}")
       val movementLogTable     = MovementLogTable(db)
       val cancellationLogTable = CancellationLogTable(db)
       val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
@@ -59,5 +66,7 @@ object StartMovementListener extends App {
     }
 
   app.unsafeRunSync()
+
+  def newStompClient(networkRailConfig: NetworkRailConfig) = StompClient(networkRailConfig)
 
 }

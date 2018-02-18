@@ -7,17 +7,30 @@ import traindelays.NetworkRailConfig
 
 trait StompClient {
 
-  def subscribe(topic: String, handler: StompHandler): IO[Unit]
+  def subscribe(topic: String, listener: StompStreamListener): IO[Unit]
+
+  def unsubscribe(topic: String, listener: StompStreamListener): IO[Unit]
+
+  def disconnect: IO[Unit]
 
 }
 
 object StompClient extends StrictLogging {
 
-  def apply(config: NetworkRailConfig) = new StompClient {
-    override def subscribe(topic: String, handler: StompHandler): IO[Unit] = IO {
-      logger.info(s"Subscribing to topic $topic")
-      new Client(config.host, config.port, config.username, config.password)
-        .subscribe(topic, handler)
+  def apply(config: NetworkRailConfig) = {
+    logger.info("Creating new Client")
+    val client = new Client(config.host, config.port, config.username, config.password)
+    new StompClient {
+      logger.info("Creating new StompClient")
+      override def subscribe(topic: String, listener: StompStreamListener): IO[Unit] = IO {
+        logger.info(s"Subscribing to topic $topic")
+        client.subscribe(topic, listener)
+      }
+
+      override def unsubscribe(topic: String, listener: StompStreamListener): IO[Unit] =
+        IO(client.unsubscribe(topic, listener))
+
+      override def disconnect: IO[Unit] = IO(client.disconnect())
     }
   }
 }

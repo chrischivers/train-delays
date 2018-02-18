@@ -29,6 +29,8 @@ import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLoc
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers._
 import traindelays.networkrail._
+import traindelays.networkrail.movementdata.CancellationType.EnRoute
+import traindelays.networkrail.movementdata.EventType.Arrival
 import traindelays.ui.{AuthenticatedDetails, MockGoogleAuthenticator, Service}
 
 import scala.concurrent.ExecutionContext

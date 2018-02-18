@@ -9,7 +9,7 @@ import org.http4s.client.Client
 import org.http4s.headers.Authorization
 import org.http4s.{BasicCredentials, EntityBody, Headers, Request}
 import traindelays.{NetworkRailConfig, ScheduleDataConfig}
-import traindelays.stomp.{StompClient, StompHandler}
+import traindelays.stomp.{StompClient, StompStreamListener}
 
 trait NetworkRailClient {
 
@@ -17,7 +17,7 @@ trait NetworkRailClient {
 
   def unpackScheduleData: IO[Unit]
 
-  def subscribeToTopic(topic: String, listener: StompHandler)
+  def subscribeToTopic(topic: String, listener: StompStreamListener)
 }
 
 object NetworkRailClient extends StrictLogging {
@@ -43,7 +43,7 @@ object NetworkRailClient extends StrictLogging {
         .to(fs2.io.file.writeAll[IO](config.scheduleData.tmpUnzipLocation))
         .run
 
-    override def subscribeToTopic(topic: String, listener: StompHandler): Unit = {
+    override def subscribeToTopic(topic: String, listener: StompStreamListener): Unit = {
       logger.info(s"Subscribing to $topic")
       StompClient(config)
         .subscribe(topic, listener)

@@ -14,13 +14,15 @@ package object movementdata {
   sealed trait EventType {
     val string: String
   }
-  case object Departure extends EventType {
-    override val string: String = "DEPARTURE"
-  }
-  case object Arrival extends EventType {
-    override val string: String = "ARRIVAL"
-  }
+
   object EventType {
+
+    case object Departure extends EventType {
+      override val string: String = "DEPARTURE"
+    }
+    case object Arrival extends EventType {
+      override val string: String = "ARRIVAL"
+    }
 
     def fromString(str: String): EventType =
       str match {
@@ -69,20 +71,20 @@ package object movementdata {
     val string: String
   }
 
-  case object OnCall extends CancellationType {
-    override val string: String = "ON CALL"
-  }
-  case object AtOrigin extends CancellationType {
-    override val string: String = "AT ORIGIN"
-  }
-  case object EnRoute extends CancellationType {
-    override val string: String = "EN ROUTE"
-  }
-  case object OutOfPlan extends CancellationType {
-    override val string: String = "OUT OF PLAN"
-  }
-
   object CancellationType {
+
+    case object OnCall extends CancellationType {
+      override val string: String = "ON CALL"
+    }
+    case object AtOrigin extends CancellationType {
+      override val string: String = "AT ORIGIN"
+    }
+    case object EnRoute extends CancellationType {
+      override val string: String = "EN ROUTE"
+    }
+    case object OutOfPlan extends CancellationType {
+      override val string: String = "OUT OF PLAN"
+    }
 
     def fromString(str: String): CancellationType =
       str match {
