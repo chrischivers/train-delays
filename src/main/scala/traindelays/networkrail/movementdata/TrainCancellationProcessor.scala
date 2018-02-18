@@ -13,7 +13,8 @@ object TrainCancellationProcessor {
   def apply(cancellationMessageQueue: Queue[IO, TrainCancellationRecord],
             subscriberHandler: SubscriberHandler,
             cancellationLogTable: CancellationLogTable,
-            activationCache: TrainActivationCache)(implicit executionContext: ExecutionContext) =
+            activationCache: TrainActivationCache,
+            metricsIncrementAction: => Unit)(implicit executionContext: ExecutionContext) =
     new MovementProcessor {
 
       private val recordsToLogPipe: Pipe[IO, TrainCancellationRecord, Option[CancellationLog]] =
@@ -22,10 +23,10 @@ object TrainCancellationProcessor {
 
       override def stream: fs2.Stream[IO, Unit] =
         cancellationMessageQueue.dequeue
+          .observe1(_ => IO(metricsIncrementAction))
           .through(recordsToLogPipe)
           .collect[CancellationLog] { case Some(cl) => cl }
           .observe(subscriberHandler.cancellationNotifier)
-//          .observe1(x => IO(println(x)))
           .to(cancellationLogTable.dbWriter)
 
     }

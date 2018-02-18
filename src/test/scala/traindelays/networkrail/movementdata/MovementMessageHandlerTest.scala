@@ -1,9 +1,10 @@
 package traindelays.networkrail.movementdata
 
+import cats.effect.IO
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.TestFeatures
-import traindelays.metrics.MetricsLogging
+import traindelays.networkrail.metrics.TestMetricsLogging
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.{MockStompClient, ServiceCode, StanoxCode, TOC}
 
@@ -16,10 +17,10 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
   it should "receive activation message and put onto activation queue" in {
 
     withQueues { queues =>
-      val (mockStompClient, listener, handler) = setUpClientAndHandler(queues)
-      mockStompClient.sendMessage("test/topic", sampleActivationMovementMessage)
-      handler.run.unsafeRunTimed(2 seconds)
-      listener.rawMessagesReceived should have size 1
+      val fixture = setUpClientAndHandler(queues)
+      fixture.mockStompClient.sendMessage("test/topic", sampleActivationMovementMessage)
+      fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
+      fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainActivationQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
       queueMessages should have size 1
       queueMessages.head shouldBe TrainActivationRecord(ScheduleTrainId("G73773"),
@@ -33,11 +34,10 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
   it should "receive movement message and put onto movement queue" in {
 
     withQueues { queues =>
-      val (mockStompClient, listener, handler) =
-        setUpClientAndHandler(queues)
-      mockStompClient.sendMessage("test/topic", sampleMovementMessage)
-      handler.run.unsafeRunTimed(2 seconds)
-      listener.rawMessagesReceived should have size 1
+      val fixture = setUpClientAndHandler(queues)
+      fixture.mockStompClient.sendMessage("test/topic", sampleMovementMessage)
+      fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
+      fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainMovementQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
       queueMessages should have size 1
 
@@ -52,17 +52,17 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
         Some(StanoxCode("24799")),
         Some(VariationStatus.OnTime)
       )
+
     }
   }
 
   it should "receive cancellation message and put onto cancellation queue" in {
 
     withQueues { queues =>
-      val (mockStompClient, listener, handler) =
-        setUpClientAndHandler(queues)
-      mockStompClient.sendMessage("test/topic", sampleCancellationMovementMessage)
-      handler.run.unsafeRunTimed(2 seconds)
-      listener.rawMessagesReceived should have size 1
+      val fixture = setUpClientAndHandler(queues)
+      fixture.mockStompClient.sendMessage("test/topic", sampleCancellationMovementMessage)
+      fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
+      fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainCancellationQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
       queueMessages should have size 1
       queueMessages.head shouldBe TrainCancellationRecord(TrainId("871B26MK24"),
@@ -83,9 +83,8 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
   def sampleMovementMessage =
     Source.fromResource("sample-movement-message.json").getLines().mkString
 
-  def setUpClientAndHandler(queues: Queues) = {
+  def setUpClientAndHandler(queues: Queues): Fixture = {
     val mockStompClient = MockStompClient()
-
     val listener =
       new MovementMessageHandlerWatcher(config.networkRailConfig,
                                         queues.trainMovementQueue,
@@ -99,11 +98,14 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
         queues.trainMovementQueue,
         queues.trainActivationQueue,
         queues.trainCancellationQueue,
-        MetricsLogging(config.metricsConfig),
         mockStompClient.client
       )
 
     mockStompClient.client.subscribe("test/topic", listener).unsafeRunSync()
-    (mockStompClient, listener, handler)
+    Fixture(mockStompClient, listener, handler)
   }
+
+  case class Fixture(mockStompClient: MockStompClient,
+                     movementMessageHandlerWatcher: MovementMessageHandlerWatcher,
+                     messageHandlerStream: fs2.Stream[IO, Unit])
 }

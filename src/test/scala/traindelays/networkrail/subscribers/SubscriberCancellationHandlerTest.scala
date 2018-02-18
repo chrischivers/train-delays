@@ -45,7 +45,6 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
       fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
       fixture.emailer.emailsSent.head.subject should include("TRAIN CANCELLATION UPDATE")
     }
-
   }
 
   it should "still email subscriber when cancellation log received relating to subscriber's route despite being outside of subscriber's TO and FROM STANOX" in {

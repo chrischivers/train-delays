@@ -25,21 +25,20 @@ trait MetricsLogging extends StrictLogging with DefaultInstrumented {
         .build()
         .start(metricsConfig.updateInterval, TimeUnit.SECONDS)
     }
+  protected val activationRecordsReceivedMeter: Meter = metrics.meter("activation-records-received")
+  def incrActivationRecordsReceived                   = if (metricsConfig.enabled) activationRecordsReceivedMeter.mark()
 
-  private val activationRecordsReceivedMeter: Meter = metrics.meter("activation-records-received")
-  def incrActivationRecordsReceived                 = if (metricsConfig.enabled) activationRecordsReceivedMeter.mark()
+  protected val movementRecordsReceivedMeter: Meter = metrics.meter("movement-records-received")
+  def incrMovementRecordsReceived                   = if (metricsConfig.enabled) movementRecordsReceivedMeter.mark()
 
-  private val movementRecordsReceivedMeter: Meter = metrics.meter("movement-records-received")
-  def incrMovementRecordsReceived                 = if (metricsConfig.enabled) movementRecordsReceivedMeter.mark()
+  protected val cancellationRecordsReceivedMeter: Meter = metrics.meter("cancellation-records-received")
+  def incrCancellationRecordsReceived                   = if (metricsConfig.enabled) cancellationRecordsReceivedMeter.mark()
 
-  private val cancellationRecordsReceivedMeter: Meter = metrics.meter("cancellation-records-received")
-  def incrCancellationRecordsReceived                 = if (metricsConfig.enabled) cancellationRecordsReceivedMeter.mark()
+  protected val unhandledRecordsReceivedMeter: Meter = metrics.meter("unhandled-records-received")
+  def incrUnhandledRecordsReceived                   = if (metricsConfig.enabled) unhandledRecordsReceivedMeter.mark()
 
-  private val unhandledRecordsReceivedMeter: Meter = metrics.meter("unhandled-records-received")
-  def incrUnhandledRecordsReceived                 = if (metricsConfig.enabled) unhandledRecordsReceivedMeter.mark()
-
-  private val emailsSent: Meter = metrics.meter("emails-sent")
-  def incrEmailsSent            = if (metricsConfig.enabled) emailsSent.mark()
+  protected val emailsSent: Meter = metrics.meter("emails-sent")
+  def incrEmailsSent              = if (metricsConfig.enabled) emailsSent.mark()
 
 }
 

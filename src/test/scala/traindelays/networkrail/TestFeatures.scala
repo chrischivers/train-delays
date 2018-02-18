@@ -29,6 +29,7 @@ import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLoc
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers._
 import traindelays.networkrail._
+import traindelays.networkrail.metrics.TestMetricsLogging
 import traindelays.networkrail.movementdata.CancellationType.EnRoute
 import traindelays.networkrail.movementdata.EventType.Arrival
 import traindelays.ui.{AuthenticatedDetails, MockGoogleAuthenticator, Service}
@@ -76,7 +77,8 @@ trait TestFeatures {
                                     subscriberTable: SubscriberTable,
                                     trainActivationCache: TrainActivationCache,
                                     emailer: StubEmailer,
-                                    subscriberHandler: SubscriberHandler)
+                                    subscriberHandler: SubscriberHandler,
+                                    metricsLogging: TestMetricsLogging)
 
   val config             = TrainDelaysConfig(ConfigFactory.parseFile(new File(getClass.getResource("/application.conf").getPath)))
   val testDatabaseConfig = config.databaseConfig
@@ -118,6 +120,7 @@ trait TestFeatures {
       val scheduleTable        = ScheduleTable(db, scheduleDataConfig.memoizeFor)
       val emailer              = StubEmailer()
       val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
+      val metricsLogging       = TestMetricsLogging(config.metricsConfig)
 
       for {
         _ <- IO.fromFuture(cats.Eval.always(redisClient.flushall()))
@@ -175,7 +178,8 @@ trait TestFeatures {
                                  subscriberTable,
                                  trainActivationCache,
                                  emailer,
-                                 subscriberHandler))
+                                 subscriberHandler,
+                                 metricsLogging))
     }
 
   def createMovementRecord(trainId: TrainId = TrainId("12345"),
@@ -425,16 +429,24 @@ trait TestFeatures {
 
   def runAllQueues(queues: Queues, fixture: TrainDelaysTestFixture)(implicit executionContext: ExecutionContext) = {
 
-    TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+    TrainActivationProcessor(queues.trainActivationQueue,
+                             fixture.trainActivationCache,
+                             fixture.metricsLogging.incrActivationRecordsReceived).stream.run
       .unsafeRunTimed(1 second)
-    TrainMovementProcessor(queues.trainMovementQueue,
-                           fixture.movementLogTable,
-                           fixture.subscriberHandler,
-                           fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
-    TrainCancellationProcessor(queues.trainCancellationQueue,
-                               fixture.subscriberHandler,
-                               fixture.cancellationLogTable,
-                               fixture.trainActivationCache).stream.run.unsafeRunTimed(1 second)
+    TrainMovementProcessor(
+      queues.trainMovementQueue,
+      fixture.movementLogTable,
+      fixture.subscriberHandler,
+      fixture.trainActivationCache,
+      fixture.metricsLogging.incrMovementRecordsReceived
+    ).stream.run.unsafeRunTimed(1 second)
+    TrainCancellationProcessor(
+      queues.trainCancellationQueue,
+      fixture.subscriberHandler,
+      fixture.cancellationLogTable,
+      fixture.trainActivationCache,
+      fixture.metricsLogging.incrCancellationRecordsReceived
+    ).stream.run.unsafeRunTimed(1 second)
 
   }
 

@@ -32,14 +32,19 @@ object StartMovementListener extends App with StrictLogging {
       trainMovementQueue,
       trainActivationQueue,
       trainCancellationQueue,
-      metricsLogging,
       newStompClient(config.networkRailConfig)
-    ).concurrently(createMovementMessageProcessor(trainMovementQueue, trainActivationQueue, trainCancellationQueue)).run
+    ).concurrently(
+        createMovementMessageProcessor(trainMovementQueue,
+                                       trainActivationQueue,
+                                       trainCancellationQueue,
+                                       metricsLogging))
+      .run
   } yield ()
 
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
                                              trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
-                                             trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord]) =
+                                             trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord],
+                                             metricsLogging: MetricsLogging) =
     withTransactor(config.databaseConfig)() { db =>
       logger.info(s"creating movement message processor with db config ${config.databaseConfig}")
       val movementLogTable     = MovementLogTable(db)
@@ -47,21 +52,28 @@ object StartMovementListener extends App with StrictLogging {
       val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
       val scheduleTable        = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val stanoxTable          = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-      val emailer              = Emailer(config.emailerConfig)
+      val emailer              = Emailer(config.emailerConfig, metricsLogging)
       val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
 
       val redisClient =
         RedisClient(config.redisConfig.host, config.redisConfig.port, password = None, Some(config.redisConfig.dbIndex))
       val trainActivationCache = TrainActivationCache(redisClient, config.networkRailConfig.movements.activationExpiry)
 
-      val trainActivationProcessor = TrainActivationProcessor(trainActivationMessageQueue, trainActivationCache)
+      val trainActivationProcessor = TrainActivationProcessor(trainActivationMessageQueue,
+                                                              trainActivationCache,
+                                                              metricsLogging.incrActivationRecordsReceived)
       val trainMovementProcessor =
-        TrainMovementProcessor(trainMovementMessageQueue, movementLogTable, subscriberHandler, trainActivationCache)
+        TrainMovementProcessor(trainMovementMessageQueue,
+                               movementLogTable,
+                               subscriberHandler,
+                               trainActivationCache,
+                               metricsLogging.incrMovementRecordsReceived)
       val trainCancellationProcessor =
         TrainCancellationProcessor(trainCancellationMessageQueue,
                                    subscriberHandler,
                                    cancellationLogTable,
-                                   trainActivationCache)
+                                   trainActivationCache,
+                                   metricsLogging.incrCancellationRecordsReceived)
 
       trainActivationProcessor.stream
         .concurrently(trainMovementProcessor.stream)

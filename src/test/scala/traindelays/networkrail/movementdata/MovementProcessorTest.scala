@@ -3,9 +3,9 @@ package traindelays.networkrail.movementdata
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
+import traindelays.TestFeatures
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
-import traindelays.{DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -23,19 +23,22 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
-        val emailer = Emailer(config.emailerConfig)
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.scheduleTable,
                             fixture.stanoxTable,
                             emailer)
-        TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
-                               fixture.trainActivationCache).stream.run
+                               fixture.trainActivationCache,
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -67,7 +70,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
-        val emailer = Emailer(config.emailerConfig)
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -75,13 +78,16 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                             fixture.stanoxTable,
                             emailer)
 
-        TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
 
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
-                               fixture.trainActivationCache).stream.run
+                               fixture.trainActivationCache,
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -113,7 +119,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainActivationQueue.enqueue1(activationRecord2).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
 
-        val emailer = Emailer(config.emailerConfig)
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -121,13 +127,16 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                             fixture.stanoxTable,
                             emailer)
 
-        TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
 
         val trainMovementProcessor = TrainMovementProcessor(queues.trainMovementQueue,
                                                             fixture.movementLogTable,
                                                             subscriberHandler,
-                                                            fixture.trainActivationCache)
+                                                            fixture.trainActivationCache,
+                                                            fixture.metricsLogging.incrMovementRecordsReceived)
 
         trainMovementProcessor.stream.run
           .unsafeRunTimed(1 second)
@@ -171,7 +180,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainMovementQueue.enqueue1(movementRecord1).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
 
-        val emailer = Emailer(config.emailerConfig)
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
@@ -179,13 +188,16 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                             fixture.stanoxTable,
                             emailer)
 
-        TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
 
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
-                               fixture.trainActivationCache).stream.run
+                               fixture.trainActivationCache,
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -211,19 +223,24 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
-        val emailer = Emailer(config.emailerConfig)
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.scheduleTable,
                             fixture.stanoxTable,
                             emailer)
-        TrainActivationProcessor(queues.trainActivationQueue, fixture.trainActivationCache).stream.run
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
           .unsafeRunTimed(1 second)
-        TrainCancellationProcessor(queues.trainCancellationQueue,
-                                   subscriberHandler,
-                                   fixture.cancellationLogTable,
-                                   fixture.trainActivationCache).stream.run
+        TrainCancellationProcessor(
+          queues.trainCancellationQueue,
+          subscriberHandler,
+          fixture.cancellationLogTable,
+          fixture.trainActivationCache,
+          fixture.metricsLogging.incrCancellationRecordsReceived
+        ).stream.run
           .unsafeRunTimed(1 second)
 
         fixture.cancellationLogTable
@@ -238,6 +255,50 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
               activationRecord.originDepartureTimestamp)
           }
           .unsafeRunSync()
+      }
+    }
+  }
+
+  "Metrics Logger" should "increment metrics when records received" in {
+
+    val activationRecord   = createActivationRecord()
+    val movementRecord     = createMovementRecord()
+    val cancellationRecord = createCancellationRecord()
+    withInitialState(testDatabaseConfig)() { fixture =>
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+        queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
+        val subscriberHandler =
+          SubscriberHandler(fixture.movementLogTable,
+                            fixture.subscriberTable,
+                            fixture.scheduleTable,
+                            fixture.stanoxTable,
+                            emailer)
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+          .unsafeRunTimed(1 second)
+        TrainMovementProcessor(queues.trainMovementQueue,
+                               fixture.movementLogTable,
+                               subscriberHandler,
+                               fixture.trainActivationCache,
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
+          .unsafeRunTimed(1 second)
+
+        TrainCancellationProcessor(
+          queues.trainCancellationQueue,
+          subscriberHandler,
+          fixture.cancellationLogTable,
+          fixture.trainActivationCache,
+          fixture.metricsLogging.incrCancellationRecordsReceived
+        ).stream.run
+          .unsafeRunTimed(1 second)
+
+        fixture.metricsLogging.getActivationRecordsCount shouldBe 1
+        fixture.metricsLogging.getMovementRecordsCount shouldBe 1
+        fixture.metricsLogging.getCancellationRecordsCount shouldBe 1
       }
     }
   }

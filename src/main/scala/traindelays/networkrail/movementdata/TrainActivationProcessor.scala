@@ -5,7 +5,9 @@ import fs2.async.mutable.Queue
 import traindelays.networkrail.cache.TrainActivationCache
 
 object TrainActivationProcessor {
-  def apply(activationMessageQueue: Queue[IO, TrainActivationRecord], trainActivationCache: TrainActivationCache) =
+  def apply(activationMessageQueue: Queue[IO, TrainActivationRecord],
+            trainActivationCache: TrainActivationCache,
+            metricsIncrementAction: => Unit) =
     new MovementProcessor {
 
       private val cacheWriter: fs2.Sink[IO, TrainActivationRecord] = fs2.Sink { record =>
@@ -15,6 +17,7 @@ object TrainActivationProcessor {
 
       override def stream: fs2.Stream[IO, Unit] =
         activationMessageQueue.dequeue
+          .observe1(_ => IO(metricsIncrementAction))
           .to(cacheWriter)
 
     }
