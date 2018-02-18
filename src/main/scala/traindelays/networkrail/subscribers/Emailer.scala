@@ -7,6 +7,7 @@ import javax.mail.{Session, _}
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import traindelays.EmailerConfig
+import traindelays.metrics.MetricsLogging
 import traindelays.networkrail.subscribers.Emailer.Email
 
 trait Emailer {
@@ -17,7 +18,7 @@ object Emailer extends StrictLogging {
 
   case class Email(subject: String, body: String, to: String)
 
-  def apply(emailerConfig: EmailerConfig) = new Emailer {
+  def apply(emailerConfig: EmailerConfig, metricsLogging: MetricsLogging) = new Emailer {
 
     val properties = new Properties()
     properties.put("mail.transport.protocol", "smtp")
@@ -48,7 +49,10 @@ object Emailer extends StrictLogging {
 
         retry(emailerConfig.numberAttempts, emailerConfig.secondsBetweenAttempts) {
           logger.info(s"Sending email to ${email.to}")
-          IO(Transport.send(message))
+          IO.eval(cats.Eval.now {
+            Transport.send(message)
+            metricsLogging.incrEmailsSent
+          })
         }
       } else IO(logger.info("Emailing disabled"))
 

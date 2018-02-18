@@ -38,6 +38,9 @@ trait MetricsLogging extends StrictLogging with DefaultInstrumented {
   private val unhandledRecordsReceivedMeter: Meter = metrics.meter("unhandled-records-received")
   def incrUnhandledRecordsReceived                 = if (metricsConfig.enabled) unhandledRecordsReceivedMeter.mark()
 
+  private val emailsSent: Meter = metrics.meter("emails-sent")
+  def incrEmailsSent            = if (metricsConfig.enabled) emailsSent.mark()
+
 }
 
 object MetricsLogging {
