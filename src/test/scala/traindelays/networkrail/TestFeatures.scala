@@ -183,7 +183,7 @@ trait TestFeatures {
                            eventType: EventType = Arrival,
                            toc: TOC = TOC("SN"),
                            actualTimestamp: Long = System.currentTimeMillis(),
-                           plannedTimestamp: Long = System.currentTimeMillis() - 60000,
+                           plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
                            plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
                            stanoxCode: Option[StanoxCode] = Some(StanoxCode("98765")),
                            variationStatus: Option[VariationStatus] = Some(Late)) =

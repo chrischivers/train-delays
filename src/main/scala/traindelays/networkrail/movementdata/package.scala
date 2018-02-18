@@ -211,7 +211,7 @@ package object movementdata {
                                  eventType: EventType,
                                  toc: TOC,
                                  actualTimestamp: Long,
-                                 plannedTimestamp: Long,
+                                 plannedTimestamp: Option[Long],
                                  plannedPassengerTimestamp: Option[Long],
                                  stanoxCode: Option[StanoxCode],
                                  variationStatus: Option[VariationStatus])
@@ -240,8 +240,8 @@ package object movementdata {
             .map(_.toLong)
           plannedTimestamp <- bodyObject
             .downField("planned_timestamp")
-            .as[String]
-            .map(_.toLong)
+            .as[Option[String]]
+            .map(emptyStringOptionToNone(_)(_.toLong))
           plannedPassengerTimestamp <- bodyObject
             .downField("gbtt_timestamp")
             .as[Option[String]]

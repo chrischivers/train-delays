@@ -46,7 +46,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
         EventType.Departure,
         TOC("23"),
         1514663100000L,
-        1514663100000L,
+        Some(1514663100000L),
         Some(1514663100000L),
         Some(StanoxCode("24799")),
         Some(VariationStatus.OnTime)
