@@ -61,8 +61,9 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
 
     withInitialState(testDatabaseConfig)(AppInitialState(stanoxRecords = List(stanoxRecord1, stanoxRecord2))) {
       fixture =>
-        val retrievedRecords = fixture.stanoxTable.stanoxRecordFor(stanoxRecord2.stanoxCode).unsafeRunSync()
-        retrievedRecords.get shouldBe stanoxRecord2
+        val retrievedRecords = fixture.stanoxTable.stanoxRecordsFor(stanoxRecord2.stanoxCode).unsafeRunSync()
+        retrievedRecords should have size 1
+        retrievedRecords.head shouldBe stanoxRecord2
     }
   }
 

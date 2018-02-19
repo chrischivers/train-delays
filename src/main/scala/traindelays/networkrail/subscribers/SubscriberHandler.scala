@@ -80,15 +80,14 @@ object SubscriberHandler extends StrictLogging {
       def createEmailAction(log: DBLog, affectedSubscribers: List[SubscriberRecord]): IO[Unit] = {
         import cats.implicits._
         for {
-          _                    <- IO(logger.info(s"Creating email for $log and subscribers $affectedSubscribers"))
-          originatingStanoxOpt <- stanoxTable.stanoxRecordFor(log.originStanoxCode)
-          affectedStanoxOpt    <- stanoxTable.stanoxRecordFor(log.stanoxCode)
-          _                    <- IO(logger.info(s"Originating stanox $originatingStanoxOpt and affected stanox $affectedStanoxOpt"))
+          _                     <- IO(logger.info(s"Creating email for $log and subscribers $affectedSubscribers"))
+          originatingStanoxList <- stanoxTable.stanoxRecordsFor(log.originStanoxCode)
+          affectedStanoxList    <- stanoxTable.stanoxRecordsFor(log.stanoxCode)
           _ <- affectedSubscribers
             .traverse { subscriber =>
               val emailAction = for {
-                originatingStanox <- originatingStanoxOpt
-                affectedStanox    <- affectedStanoxOpt
+                originatingStanox <- getMainStanox(originatingStanoxList)
+                affectedStanox    <- getMainStanox(affectedStanoxList)
               } yield {
                 log match {
                   case l: MovementLog =>
@@ -186,4 +185,6 @@ object SubscriberHandler extends StrictLogging {
       case VariationStatus.OffRoute => s"Train is off route"
     }
 
+  private def getMainStanox(stanoxRecords: List[StanoxRecord]): Option[StanoxRecord] =
+    stanoxRecords.find(_.primary.contains(true)).orElse(stanoxRecords.headOption)
 }

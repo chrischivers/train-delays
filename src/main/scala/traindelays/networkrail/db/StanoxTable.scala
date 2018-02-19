@@ -10,7 +10,7 @@ import scalacache.guava.GuavaCache
 import scalacache.memoization.memoizeF
 
 trait StanoxTable extends MemoizedTable[StanoxRecord] {
-  def stanoxRecordFor(stanoxCode: StanoxCode): IO[Option[StanoxRecord]]
+  def stanoxRecordsFor(stanoxCode: StanoxCode): IO[List[StanoxRecord]]
 
   def addRecords(records: List[StanoxRecord]): IO[Unit]
 
@@ -79,10 +79,10 @@ object StanoxTable {
           .transact(db)
           .map(_ => ())
 
-      override def stanoxRecordFor(stanoxCode: StanoxCode): IO[Option[StanoxRecord]] =
+      override def stanoxRecordsFor(stanoxCode: StanoxCode): IO[List[StanoxRecord]] =
         StanoxTable
           .stanoxRecordFor(stanoxCode)
-          .option
+          .list
           .transact(db)
 
       override def addRecords(records: List[StanoxRecord]): IO[Unit] =
