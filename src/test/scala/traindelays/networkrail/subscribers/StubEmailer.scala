@@ -11,7 +11,6 @@ trait StubEmailer extends Emailer {
 
   override def sendEmail(email: Email): IO[Unit] =
     IO {
-      println("IN HERE")
       emailsSent += email
     }
 }

@@ -47,7 +47,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       fixture.emailer.emailsSent should have size 1
       val email = fixture.emailer.emailsSent.head
       email.to shouldBe subscriberRecord.emailAddress
-      email.subject should include("TRAIN MOVEMENT UPDATE")
+      email.subject should include("Train Delay Helper: Delay Update")
       validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
 
     }
@@ -81,7 +81,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       fixture.emailer.emailsSent should have size 1
       val email = fixture.emailer.emailsSent.head
       email.to shouldBe subscriberRecord.emailAddress
-      email.subject should include("TRAIN MOVEMENT UPDATE")
+      email.subject should include("Train Delay Helper: Delay Update")
       validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
     }
   }
@@ -119,7 +119,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       fixture.emailer.emailsSent should have size 1
       val email = fixture.emailer.emailsSent.head
       email.to shouldBe subscriberRecord.emailAddress
-      email.subject should include("TRAIN MOVEMENT UPDATE")
+      email.subject should include("Train Delay Helper: Delay Update")
     }
   }
 

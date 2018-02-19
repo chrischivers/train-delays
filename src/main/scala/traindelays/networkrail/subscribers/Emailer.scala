@@ -35,7 +35,7 @@ object Emailer extends StrictLogging {
           new PasswordAuthentication(emailerConfig.smtpUsername, emailerConfig.smtpPassword)
       }
     )
-    session.setDebug(true)
+    session.setDebug(false)
 
     override def sendEmail(email: Email): IO[Unit] =
       if (emailerConfig.enabled) {

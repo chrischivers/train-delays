@@ -30,7 +30,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val cancellationRecord =
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
@@ -43,7 +43,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
       }
       fixture.emailer.emailsSent should have size 1
       fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
-      fixture.emailer.emailsSent.head.subject should include("TRAIN CANCELLATION UPDATE")
+      fixture.emailer.emailsSent.head.subject should include("Train Delay Helper: Cancel Update")
     }
   }
 
@@ -62,7 +62,10 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId,
+                                                  serviceCode,
+                                                  trainId,
+                                                  originStanox = initialState.scheduleLogRecords.head.stanoxCode)
     val cancellationRecord1 =
       createCancellationRecord(trainId = trainId,
                                trainServiceCode = serviceCode,
@@ -77,7 +80,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
       }
       fixture.emailer.emailsSent should have size 1
       fixture.emailer.emailsSent.head.to shouldBe subscriberRecord.emailAddress
-      fixture.emailer.emailsSent.head.subject should include("TRAIN CANCELLATION UPDATE")
+      fixture.emailer.emailsSent.head.subject should include("Train Delay Helper: Cancel Update")
     }
   }
 
@@ -94,7 +97,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
                                                   fromStanoxCode = fromStanoxCode,
                                                   toStanoxCode = toStanoxCode)
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
     val cancellationLog =
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
@@ -133,9 +136,12 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
       serviceCode = serviceCode
     )
 
-    val activationRecord = createActivationRecord(scheduleTrainId, serviceCode, trainId)
+    val activationRecord = createActivationRecord(scheduleTrainId,
+                                                  serviceCode,
+                                                  trainId,
+                                                  originStanox = initialState.scheduleLogRecords.head.stanoxCode)
     val cancellationRecord =
-      createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode)
+      createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 
     withInitialState(testDatabaseConfig)(
       initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) { fixture =>
