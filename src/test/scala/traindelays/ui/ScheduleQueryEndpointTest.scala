@@ -6,6 +6,8 @@ import org.http4s.dsl.io._
 import org.http4s.{EntityDecoder, EntityEncoder, Request, Uri}
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.StanoxCode
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.{TestFeatures, UIConfig}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -22,6 +24,27 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
 
   val scheduleQueryRequestEntityEncoder: EntityEncoder[IO, ScheduleQueryRequest] =
     org.http4s.circe.jsonEncoderOf[IO, ScheduleQueryRequest]
+
+  it should "return an empty list if query yields no results" in {
+
+    val scheduleQueryRequest = ScheduleQueryRequest(
+      idToken = None,
+      StanoxCode("67822"),
+      StanoxCode("335675"),
+      DaysRunPattern.Weekdays
+    )
+
+    withInitialState(testDatabaseConfig)(initialState) { fixture =>
+      val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
+      val request =
+        Request[IO](method = POST,
+                    uri = Uri(path = "/schedule-query"),
+                    body = scheduleQueryRequestEntityEncoder.toEntity(scheduleQueryRequest).unsafeRunSync().body)
+      val response              = service.orNotFound(request).unsafeRunSync()
+      val scheduleQueryResponse = response.as[List[ScheduleQueryResponse]].attempt.unsafeRunSync().right.get
+      scheduleQueryResponse should have size 0
+    }
+  }
 
   it should "fetch a list of schedule records given a query" in {
 
@@ -61,9 +84,28 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
         dateFormatter.format(firstScheduleLogRecord.scheduleEnd),
         subscribed = false
       )
-    //TODO
-
     }
   }
+  it should "return an empty list if from/to stanox are the same " in {
 
+    val firstScheduleLogRecord = initialState.scheduleLogRecords.head
+
+    val scheduleQueryRequest = ScheduleQueryRequest(
+      idToken = None,
+      firstScheduleLogRecord.stanoxCode,
+      firstScheduleLogRecord.stanoxCode,
+      DaysRunPattern.Weekdays
+    )
+
+    withInitialState(testDatabaseConfig)(initialState) { fixture =>
+      val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
+      val request =
+        Request[IO](method = POST,
+                    uri = Uri(path = "/schedule-query"),
+                    body = scheduleQueryRequestEntityEncoder.toEntity(scheduleQueryRequest).unsafeRunSync().body)
+      val response              = service.orNotFound(request).unsafeRunSync()
+      val scheduleQueryResponse = response.as[List[ScheduleQueryResponse]].attempt.unsafeRunSync().right.get
+      scheduleQueryResponse should have size 0
+    }
+  }
 }

@@ -83,8 +83,9 @@ object SubscriberHandler extends StrictLogging {
           _                    <- IO(logger.info(s"Creating email for $log and subscribers $affectedSubscribers"))
           originatingStanoxOpt <- stanoxTable.stanoxRecordFor(log.originStanoxCode)
           affectedStanoxOpt    <- stanoxTable.stanoxRecordFor(log.stanoxCode)
+          _                    <- IO(logger.info(s"Originating stanox $originatingStanoxOpt and affected stanox $affectedStanoxOpt"))
           _ <- affectedSubscribers
-            .map { subscriber =>
+            .traverse { subscriber =>
               val emailAction = for {
                 originatingStanox <- originatingStanoxOpt
                 affectedStanox    <- affectedStanoxOpt
@@ -96,9 +97,9 @@ object SubscriberHandler extends StrictLogging {
                     emailSubscriberWithCancellationUpdate(subscriber, l, originatingStanox, affectedStanox, emailer)
                 }
               }
+              logger.info(s"Email action created: ${emailAction.isDefined}")
               emailAction.getOrElse(IO.unit)
             }
-            .sequence[IO, Unit]
         } yield ()
       }
 
@@ -116,7 +117,6 @@ object SubscriberHandler extends StrictLogging {
                                                movementLogToBody(movementLog, stanoxOriginated, stanoxAffected)),
           subscriberRecord.emailAddress
         )
-        println("email: " + email)
         emailer.sendEmail(email)
       }
 
