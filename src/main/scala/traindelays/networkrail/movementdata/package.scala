@@ -37,21 +37,26 @@ package object movementdata {
 
   sealed trait VariationStatus {
     val string: String
+    val notifiable: Boolean
   }
 
   object VariationStatus {
 
     case object OnTime extends VariationStatus {
-      override val string: String = "ON TIME"
+      override val string: String      = "ON TIME"
+      override val notifiable: Boolean = false
     }
     case object Early extends VariationStatus {
-      override val string: String = "EARLY"
+      override val string: String      = "EARLY"
+      override val notifiable: Boolean = false
     }
     case object Late extends VariationStatus {
-      override val string: String = "LATE"
+      override val string: String      = "LATE"
+      override val notifiable: Boolean = true
     }
     case object OffRoute extends VariationStatus {
-      override val string: String = "OFF ROUTE"
+      override val string: String      = "OFF ROUTE"
+      override val notifiable: Boolean = true
     }
 
     def fromString(str: String): VariationStatus =

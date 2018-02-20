@@ -8,7 +8,7 @@ object EmailTemplates {
      |  <head>
      |    <meta name="viewport" content="width=device-width" />
      |    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
-     |    <title>Free Postcode Lottery Checker = Results</title>
+     |    <title>Train Delay Helper</title>
      |    <style>
      |      /* -------------------------------------
      |          GLOBAL RESETS
@@ -287,7 +287,7 @@ object EmailTemplates {
      |          <div class="content">
      |
       |            <!-- START CENTERED WHITE CONTAINER -->
-     |            <span class="preheader">Free Postcode Lottery Checker: Results</span>
+     |            <span class="preheader">Train Delay Helper</span>
      |            <table class="main">
      |
       |              <!-- START MAIN CONTENT AREA -->

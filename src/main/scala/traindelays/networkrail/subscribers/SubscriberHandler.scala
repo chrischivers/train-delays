@@ -17,6 +17,8 @@ import cats.instances.list._
 import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
 
+import scala.util.Try
+
 trait SubscriberHandler {
 
   def movementNotifier: fs2.Sink[IO, MovementLog]
@@ -37,13 +39,13 @@ object SubscriberHandler extends StrictLogging {
     new SubscriberHandler {
 
       override def movementNotifier: fs2.Sink[IO, MovementLog] = fs2.Sink[IO, MovementLog] { log =>
-        //TODO only notify in particular circumstances (e.g. late)
-
-        for {
+        val email = for {
           subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
           affected           <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
           _                  <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
         } yield ()
+
+        if (log.variationStatus.notifiable) email else IO.unit
       }
 
       override def cancellationNotifier: fs2.Sink[IO, CancellationLog] = fs2.Sink[IO, CancellationLog] { log =>
@@ -142,7 +144,8 @@ object SubscriberHandler extends StrictLogging {
                         stanoxAffected: StanoxRecord): String =
     s"""
        |Train ID: ${movementLog.scheduleTrainId.value}<br/>
-       |Train originated from: ${stationTextFrom(stanoxOriginated)}<br/>
+       |Train originated from: ${stationTextFrom(stanoxOriginated)} at ${timestampToFormattedDateTime(
+         movementLog.originDepartureTimestamp)}<br/>
        |Station affected: ${stationTextFrom(stanoxAffected)}<br/>
        |Operator: ${movementLog.toc.value}<br/>
        |<br/>
@@ -160,7 +163,8 @@ object SubscriberHandler extends StrictLogging {
                             stanoxCancelled: StanoxRecord): String =
     s"""
        |Train ID: ${cancellationLog.scheduleTrainId.value}<br/>
-       |Train originated from: ${stationTextFrom(stanoxOriginating)}<br/>
+       |Train originated from: ${stationTextFrom(stanoxOriginating)} at ${timestampToFormattedDateTime(
+         cancellationLog.originDepartureTimestamp)}<br/>
        |Stop cancelled: ${stationTextFrom(stanoxCancelled)}<br/>
        |Operator: ${cancellationLog.toc.value}<br/>
        |<br/>
@@ -169,10 +173,11 @@ object SubscriberHandler extends StrictLogging {
        |
      """.stripMargin
 
-  def timestampToFormattedDateTime(timestamp: Long): String = {
-    val zonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone)
-    zonedDateTime.format(SubscriberHandler.dateTimeFormatter)
-  }
+  def timestampToFormattedDateTime(timestamp: Long): String =
+    Try {
+      val zonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone)
+      zonedDateTime.format(SubscriberHandler.dateTimeFormatter)
+    }.getOrElse("N/A")
 
   private def stationTextFrom(stanox: StanoxRecord): String =
     s"${stanox.crs.map(str => s"[${str.value}]").getOrElse("")} ${stanox.description.getOrElse("")}"
@@ -186,5 +191,5 @@ object SubscriberHandler extends StrictLogging {
     }
 
   private def getMainStanox(stanoxRecords: List[StanoxRecord]): Option[StanoxRecord] =
-    stanoxRecords.find(_.primary.contains(true)).orElse(stanoxRecords.headOption)
+    stanoxRecords.filter(_.crs.isDefined).find(_.primary.contains(true)).orElse(stanoxRecords.headOption)
 }
