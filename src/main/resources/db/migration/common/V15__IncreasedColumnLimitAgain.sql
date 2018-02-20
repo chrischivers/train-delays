@@ -1,0 +1,16 @@
+ALTER TABLE movement_log
+  ALTER COLUMN id TYPE VARCHAR(20),
+  ALTER COLUMN schedule_train_id TYPE VARCHAR(20),
+  ALTER COLUMN toc TYPE VARCHAR(20),
+  ALTER COLUMN stanox_code TYPE VARCHAR(20),
+  ALTER COLUMN variation_status TYPE VARCHAR(20),
+  ALTER COLUMN origin_stanox_code TYPE VARCHAR(20);
+
+ALTER TABLE cancellation_log
+  ALTER COLUMN id TYPE VARCHAR(20),
+  ALTER COLUMN schedule_train_id TYPE VARCHAR(20),
+  ALTER COLUMN toc TYPE VARCHAR(20),
+  ALTER COLUMN stanox_code TYPE VARCHAR(20),
+  ALTER COLUMN cancellation_type TYPE VARCHAR(20),
+  ALTER COLUMN cancellation_reason_code TYPE VARCHAR(20),
+  ALTER COLUMN origin_stanox_code TYPE VARCHAR(20);
