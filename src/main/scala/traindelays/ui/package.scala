@@ -1,6 +1,6 @@
 package traindelays
 
-import java.time.LocalDate
+import java.time.{LocalDate, LocalTime}
 import java.time.format.DateTimeFormatter
 
 import io.circe.{Decoder, Encoder, Json}
@@ -64,6 +64,21 @@ package object ui {
   object SubscribeRequest {
     implicit val decoder: Decoder[SubscribeRequest] = deriveDecoder[SubscribeRequest]
     implicit val encoder: Encoder[SubscribeRequest] = deriveEncoder[SubscribeRequest]
+  }
+
+  case class HistoryQueryRecord(scheduledDepartureDate: LocalDate,
+                                expectedDepartureTime: LocalTime,
+                                actualDepartureTime: LocalTime,
+                                expectedArrivalTime: LocalTime,
+                                actualArrivalTime: LocalTime)
+  case class HistoryQueryResponse(scheduleTrainId: ScheduleTrainId,
+                                  from: StanoxRecord,
+                                  to: StanoxRecord,
+                                  list: List[HistoryQueryRecord])
+
+  object HistoryQueryResponse {
+//    implicit val decoder: Decoder[HistoryQueryResponse] = deriveDecoder[HistoryQueryResponse]
+//    implicit val encoder: Encoder[HistoryQueryResponse] = deriveEncoder[HistoryQueryResponse]
   }
 
   //TODO test this

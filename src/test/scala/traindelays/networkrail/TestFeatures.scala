@@ -246,8 +246,12 @@ trait TestFeatures {
       movementRecord.stanoxCode.get,
       originStanoxCode,
       originDepartureTimestamp,
+      timestampToLocalDate(originDepartureTimestamp),
+      timestampToLocalTime(originDepartureTimestamp),
       movementRecord.plannedPassengerTimestamp.get,
+      timestampToLocalTime(movementRecord.plannedPassengerTimestamp.get),
       movementRecord.actualTimestamp,
+      timestampToLocalTime(movementRecord.actualTimestamp),
       movementRecord.actualTimestamp - movementRecord.plannedPassengerTimestamp.get,
       movementRecord.variationStatus.get
     )
@@ -266,6 +270,8 @@ trait TestFeatures {
       cancellationRecord.stanoxCode,
       originStanoxCode,
       originDepartureTimestamp,
+      timestampToLocalDate(originDepartureTimestamp),
+      timestampToLocalTime(originDepartureTimestamp),
       cancellationRecord.cancellationType,
       cancellationRecord.cancellationReasonCode
     )
@@ -365,6 +371,8 @@ trait TestFeatures {
       stanoxCode,
       originStanoxCode,
       originDepartureTimestamp,
+      timestampToLocalDate(originDepartureTimestamp),
+      timestampToLocalTime(originDepartureTimestamp),
       cancellationType,
       cancellationReasonCode
     )
@@ -390,8 +398,12 @@ trait TestFeatures {
       stanoxCode,
       originStanoxCode,
       originDepartureTimestamp,
+      timestampToLocalDate(originDepartureTimestamp),
+      timestampToLocalTime(originDepartureTimestamp),
       plannedPassengerTimestamp,
+      timestampToLocalTime(plannedPassengerTimestamp),
       actualTimestamp,
+      timestampToLocalTime(actualTimestamp),
       actualTimestamp - plannedPassengerTimestamp,
       variationStatus
     )
@@ -513,6 +525,7 @@ trait TestFeatures {
     Service(fixture.scheduleTable,
             fixture.stanoxTable,
             fixture.subscriberTable,
+            fixture.movementLogTable,
             uIConfig,
             MockGoogleAuthenticator(authenticatedDetails))
 

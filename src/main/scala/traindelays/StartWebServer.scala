@@ -3,7 +3,7 @@ package traindelays
 import cats.effect.IO
 import org.http4s.server.blaze._
 import org.http4s.util.{ExitCode, StreamApp}
-import traindelays.networkrail.db.{ScheduleTable, StanoxTable, SubscriberTable, withTransactor}
+import traindelays.networkrail.db._
 import traindelays.ui.{GoogleAuthenticator, Service}
 
 object StartWebServer extends StreamApp[IO] {
@@ -15,11 +15,14 @@ object StartWebServer extends StreamApp[IO] {
       val scheduleTable       = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val stanoxTable         = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val subscriberTable     = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
+      val movementLogTable    = MovementLogTable(db)
       val googleAuthenticator = GoogleAuthenticator(config.uIConfig.clientId)
 
       BlazeBuilder[IO]
         .bindHttp(config.httpConfig.port, "localhost")
-        .mountService(Service(scheduleTable, stanoxTable, subscriberTable, config.uIConfig, googleAuthenticator), "/")
+        .mountService(
+          Service(scheduleTable, stanoxTable, subscriberTable, movementLogTable, config.uIConfig, googleAuthenticator),
+          "/")
         .serve
 
     }

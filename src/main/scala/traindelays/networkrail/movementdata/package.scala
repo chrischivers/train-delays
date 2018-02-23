@@ -1,6 +1,6 @@
 package traindelays.networkrail
 
-import java.time.Instant
+import java.time._
 
 import cats.effect.IO
 import doobie.util.meta.Meta
@@ -8,8 +8,11 @@ import io.circe.Decoder.Result
 import io.circe.{Decoder, HCursor}
 import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.scheduledata.ScheduleTrainId
+import traindelays.networkrail.subscribers.SubscriberHandler.timeZone
 
 package object movementdata {
+
+  private val timeZone = ZoneId.of("Europe/London")
 
   sealed trait EventType {
     val string: String
@@ -203,6 +206,8 @@ package object movementdata {
             cancellationRec.stanoxCode,
             trainActivationRecord.originStanox,
             trainActivationRecord.originDepartureTimestamp,
+            timestampToLocalDate(trainActivationRecord.originDepartureTimestamp),
+            timestampToLocalTime(trainActivationRecord.originDepartureTimestamp),
             cancellationRec.cancellationType,
             cancellationRec.cancellationReasonCode
           )
@@ -296,8 +301,12 @@ package object movementdata {
             stanoxCode,
             trainActivationRecord.originStanox,
             trainActivationRecord.originDepartureTimestamp,
+            timestampToLocalDate(trainActivationRecord.originDepartureTimestamp),
+            timestampToLocalTime(trainActivationRecord.originDepartureTimestamp),
             plannedPassengerTimestamp,
+            timestampToLocalTime(plannedPassengerTimestamp),
             movementRec.actualTimestamp,
+            timestampToLocalTime(movementRec.actualTimestamp),
             movementRec.actualTimestamp - plannedPassengerTimestamp,
             variationStatus
           )
@@ -325,8 +334,12 @@ package object movementdata {
                          stanoxCode: StanoxCode,
                          originStanoxCode: StanoxCode,
                          originDepartureTimestamp: Long,
+                         originDepartureDate: LocalDate,
+                         originDepartureTime: LocalTime,
                          plannedPassengerTimestamp: Long,
+                         plannedPassengerTime: LocalTime,
                          actualTimestamp: Long,
+                         actualTime: LocalTime,
                          difference: Long,
                          variationStatus: VariationStatus)
       extends DBLog
@@ -339,6 +352,8 @@ package object movementdata {
                              stanoxCode: StanoxCode,
                              originStanoxCode: StanoxCode,
                              originDepartureTimestamp: Long,
+                             originDepartureDate: LocalDate,
+                             originDepartureTime: LocalTime,
                              cancellationType: CancellationType,
                              cancellationReasonCode: String)
       extends DBLog
@@ -346,4 +361,10 @@ package object movementdata {
   trait MovementProcessor {
     def stream: fs2.Stream[IO, Unit]
   }
+
+  def timestampToLocalDate(timestamp: Long) =
+    ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalDate
+
+  def timestampToLocalTime(timestamp: Long) =
+    ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalTime
 }

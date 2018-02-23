@@ -1,24 +1,29 @@
 package traindelays.ui
 
+import java.time.{Instant, LocalDate}
+
 import _root_.cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 import io.circe.syntax._
 import org.http4s.dsl.io._
 import org.http4s.{EntityDecoder, EntityEncoder, HttpService, Request, StaticFile, UrlForm}
-import traindelays.networkrail.db.{ScheduleTable, StanoxTable, SubscriberTable}
+import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, StanoxTable, SubscriberTable}
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import org.http4s.circe._
 import traindelays.networkrail.{StanoxCode, TipLocCode}
-import traindelays.networkrail.scheduledata.StanoxRecord
+import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
 import java.time.temporal.ChronoUnit.DAYS
+import java.time.temporal.TemporalAmount
 
+import scala.concurrent.duration._
 import scalacache.memoization._
 import scalacache.CatsEffect.modes._
 import cats.kernel.Order
 import org.postgresql.util.PSQLException
 import traindelays.UIConfig
 import traindelays.networkrail.db.ScheduleTable.ScheduleLog
+import traindelays.networkrail.movementdata.MovementLog
 import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
 
 import scala.concurrent.duration.FiniteDuration
@@ -29,6 +34,10 @@ object Service extends StrictLogging {
 
   import cats.instances.list._
   import cats.syntax.traverse._
+
+  object ScheduleTrainIdParamMatcher extends QueryParamDecoderMatcher[String]("scheduleTrainId")
+  object FromStanoxCodeParamMatcher  extends QueryParamDecoderMatcher[String]("fromStanoxCode")
+  object ToStanoxCodeParamMatcher    extends QueryParamDecoderMatcher[String]("toStanoxCode")
 
   implicit val scheduleRequestEntityDecoder: EntityDecoder[IO, ScheduleQueryRequest] =
     jsonOf[IO, ScheduleQueryRequest]
@@ -41,6 +50,7 @@ object Service extends StrictLogging {
   def apply(scheduleTable: ScheduleTable,
             stanoxTable: StanoxTable,
             subscriberTable: SubscriberTable,
+            movementLogTable: MovementLogTable,
             uiConfig: UIConfig,
             googleAuthenticator: GoogleAuthenticator) = HttpService[IO] {
 
@@ -109,6 +119,16 @@ object Service extends StrictLogging {
             logger.error(s"Unable to decode subscribe request ${request.toString()}", err)
             BadRequest()
         }
+
+//    case request @ GET -> Root / "history" :? ScheduleTrainIdParamMatcher(scheduleTrainIdStr) :? FromStanoxCodeParamMatcher(
+//          fromStanoxStr) :? ToStanoxCodeParamMatcher(toStanoxStr) =>
+//      val scheduleTrainId = ScheduleTrainId(scheduleTrainIdStr)
+//      val fromStanox      = StanoxCode(fromStanoxStr)
+//      val toStanox        = StanoxCode(toStanoxStr)
+//      val fromTimestamp   = Instant.now.minus(java.time.Duration.ofDays(30L)).toEpochMilli
+//      movementLogTable.retrieveRecordsFor(scheduleTrainId, Some(fromTimestamp), toTimestamp = None).map { response =>
+//        response
+//      }
   }
 
   private def processSubscriberRequest(subscribeRequest: SubscribeRequest,
@@ -206,5 +226,8 @@ object Service extends StrictLogging {
       .toSeq
     Json.arr(records: _*)
   }
+//
+//  private def movementLogsToHistory(logs: List[MovementLog]): HistoryQueryResponse =
+//    logs.groupBy(l => (l.scheduleTrainId, l.trainId))
 
 }

@@ -31,7 +31,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
     }
   }
 
-  it should "receive movement message and put onto movement queue" in {
+  it should "receive multiple movement messages and put onto movement queue" in {
 
     withQueues { queues =>
       val fixture = setUpClientAndHandler(queues)
@@ -39,7 +39,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
       fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
       fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainMovementQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
-      queueMessages should have size 1
+      queueMessages should have size 2
 
       queueMessages.head shouldBe TrainMovementRecord(
         TrainId("172N37MX30"),
@@ -53,6 +53,17 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
         Some(VariationStatus.OnTime)
       )
 
+      queueMessages(1) shouldBe TrainMovementRecord(
+        TrainId("172N37MX30"),
+        ServiceCode("11800920"),
+        EventType.Departure,
+        TOC("23"),
+        1514661100000L,
+        Some(1514661100000L),
+        Some(1514663100000L),
+        Some(StanoxCode("24780")),
+        Some(VariationStatus.OnTime)
+      )
     }
   }
 
