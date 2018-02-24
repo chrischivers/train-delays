@@ -75,13 +75,13 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
         traindelays.networkrail.tocs.tocs.mapping(firstScheduleLogRecord.atocCode),
         firstScheduleLogRecord.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == firstScheduleLogRecord.stanoxCode).get.crs.get,
-        timeFormatter.format(firstScheduleLogRecord.departureTime.get),
+        firstScheduleLogRecord.departureTime.get,
         lastScheduleLogRecord.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == lastScheduleLogRecord.stanoxCode).get.crs.get,
-        timeFormatter.format(lastScheduleLogRecord.arrivalTime.get),
+        lastScheduleLogRecord.arrivalTime.get,
         firstScheduleLogRecord.daysRunPattern,
-        "Current",
-        dateFormatter.format(firstScheduleLogRecord.scheduleEnd),
+        firstScheduleLogRecord.scheduleStart,
+        firstScheduleLogRecord.scheduleEnd,
         subscribed = false
       )
     }

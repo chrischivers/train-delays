@@ -38,4 +38,54 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
     }
 
   }
+
+  it should "retrieve inserted movement log records from the database for a schedule train ID" in {
+
+    val scheduleTrainId    = ScheduleTrainId("ABC123")
+    val movementLogRecord1 = createMovementLog().copy(scheduleTrainId = scheduleTrainId)
+    val movementLogRecord2 = createMovementLog()
+
+    withInitialState(testDatabaseConfig)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
+      fixture =>
+        val retrievedRecords =
+          fixture.movementLogTable.retrieveRecordsFor(scheduleTrainId, None, None, None).unsafeRunSync()
+        retrievedRecords should have size 1
+        retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
+    }
+  }
+
+  it should "retrieve inserted movement log records from the database for a schedule train ID and stanox" in {
+
+    val scheduleTrainId    = ScheduleTrainId("ABC123")
+    val stanoxCode         = StanoxCode("67232")
+    val movementLogRecord1 = createMovementLog().copy(scheduleTrainId = scheduleTrainId, stanoxCode = stanoxCode)
+    val movementLogRecord2 = createMovementLog().copy(scheduleTrainId = scheduleTrainId)
+
+    withInitialState(testDatabaseConfig)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
+      fixture =>
+        val retrievedRecords =
+          fixture.movementLogTable
+            .retrieveRecordsFor(scheduleTrainId, Some(List(stanoxCode)), None, None)
+            .unsafeRunSync()
+        retrievedRecords should have size 1
+        retrievedRecords.head shouldBe movementLogRecord1.copy(id = Some(1))
+    }
+  }
+
+  it should "retrieve inserted movement log records from the database for a given origin time period" in {
+
+    val scheduleTrainId = ScheduleTrainId("ABC123")
+    val movementLogRecord1 =
+      createMovementLog().copy(scheduleTrainId = scheduleTrainId, originDepartureTimestamp = 1000L)
+    val movementLogRecord2 =
+      createMovementLog().copy(scheduleTrainId = scheduleTrainId, originDepartureTimestamp = 2000L)
+
+    withInitialState(testDatabaseConfig)(AppInitialState(movementLogs = List(movementLogRecord1, movementLogRecord2))) {
+      fixture =>
+        val retrievedRecords =
+          fixture.movementLogTable.retrieveRecordsFor(scheduleTrainId, None, Some(1001L), Some(2001L)).unsafeRunSync()
+        retrievedRecords should have size 1
+        retrievedRecords.head shouldBe movementLogRecord2.copy(id = Some(2))
+    }
+  }
 }

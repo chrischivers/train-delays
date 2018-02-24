@@ -27,7 +27,6 @@ package object scheduledata {
 
   case class ScheduleTrainId(value: String)
   object ScheduleTrainId {
-    import io.circe.generic.semiauto._
     implicit val decoder: Decoder[ScheduleTrainId] = Decoder.decodeString.map(ScheduleTrainId(_))
     implicit val encoder: Encoder[ScheduleTrainId] = Encoder[ScheduleTrainId](a => Json.fromString(a.value))
 
@@ -37,7 +36,6 @@ package object scheduledata {
 
   case class AtocCode(value: String)
   object AtocCode {
-    import io.circe.generic.semiauto._
     implicit val decoder: Decoder[AtocCode] = Decoder.decodeString.map(AtocCode(_))
     implicit val encoder: Encoder[AtocCode] = Encoder[AtocCode](a => Json.fromString(a.value))
 

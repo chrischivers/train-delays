@@ -8,7 +8,6 @@ import io.circe.Decoder.Result
 import io.circe.{Decoder, HCursor}
 import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.networkrail.subscribers.SubscriberHandler.timeZone
 
 package object movementdata {
 

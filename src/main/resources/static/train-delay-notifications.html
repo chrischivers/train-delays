@@ -126,7 +126,8 @@
                 {title: "Running pattern"},
                 {title: "Schedule valid from"},
                 {title: "Schedule valid to"},
-                {title: "Subscribed"}
+                {title: "Subscribed"},
+                {title: "History"}
             ],
             order: [[9, "asc"]],
             searching: false,
@@ -141,6 +142,15 @@
                     "targets": [1, 3, 5, 7],
                     "visible": false,
                     "searchable": false
+                },
+                {
+                    targets: 15,
+                    render: function (data, type, row, meta) {
+                        if (type === 'display') {
+                            data = '<a href="' + data + '">View History</a>';
+                        }
+                        return data;
+                    }
                 }
             ],
             select: {
@@ -250,7 +260,8 @@
                         var scheduleStart = json[i].scheduleStart;
                         var scheduleEnd = json[i].scheduleEnd;
                         var subscribed = json[i].subscribed ? "Y" : "N";
-                        var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd, subscribed];
+                        var history = "/train-history.html?scheduleTrainId=" + scheduleTrainId + "&fromStanox=" + fromStanoxCode + "&toStanox=" + toStanoxCode;
+                        var row = [null, id, scheduleTrainId, atocCode, tocName, fromStanoxCode, fromCRS, toStanoxCode, toCRS, departureTime, arrivalTime, daysRunPattern, scheduleStart, scheduleEnd, subscribed, history];
                         rowArray.push(row);
                     }
                     //TODO this is not very nice

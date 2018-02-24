@@ -1,6 +1,6 @@
 package traindelays.networkrail.subscribers
 
-import java.time.{Instant, ZoneId, ZonedDateTime}
+import java.time._
 import java.time.format.{DateTimeFormatter, FormatStyle}
 
 import cats.Functor
@@ -27,9 +27,6 @@ trait SubscriberHandler {
 }
 
 object SubscriberHandler extends StrictLogging {
-
-  private val dateTimeFormatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT)
-  private val timeZone          = ZoneId.of("Europe/London")
 
   def apply(movementLogTable: MovementLogTable,
             subscriberTable: SubscriberTable,
@@ -144,40 +141,36 @@ object SubscriberHandler extends StrictLogging {
                         stanoxAffected: StanoxRecord): String =
     s"""
        |Train ID: ${movementLog.scheduleTrainId.value}<br/>
-       |Train originated from: ${stationTextFrom(stanoxOriginated)} at ${timestampToFormattedDateTime(
-         movementLog.originDepartureTimestamp)}<br/>
+       |Date: ${dateFormatter(movementLog.originDepartureDate)}
+       |Train originated from: ${stationTextFrom(stanoxOriginated)} at ${timeFormatter(movementLog.originDepartureTime)}<br/>
        |Station affected: ${stationTextFrom(stanoxAffected)}<br/>
        |Operator: ${movementLog.toc.value}<br/>
        |<br/>
        |Event type: ${movementLog.eventType.string}<br/>
-       |Expected time: ${timestampToFormattedDateTime(movementLog.plannedPassengerTimestamp)}<br/>
-       |Actual time: ${timestampToFormattedDateTime(movementLog.actualTimestamp)}<br/>
+       |Expected time: ${timeFormatter(movementLog.plannedPassengerTime)}<br/>
+       |Actual time: ${timeFormatter(movementLog.actualTime)}<br/>
        |Status: ${statusTextFrom(movementLog.variationStatus,
                                  movementLog.plannedPassengerTimestamp,
                                  movementLog.actualTimestamp)}<br/>
        |
      """.stripMargin
 
+  //TODO need to include subscribers stop in this
   def cancellationLogToBody(cancellationLog: CancellationLog,
                             stanoxOriginating: StanoxRecord,
                             stanoxCancelled: StanoxRecord): String =
     s"""
        |Train ID: ${cancellationLog.scheduleTrainId.value}<br/>
-       |Train originated from: ${stationTextFrom(stanoxOriginating)} at ${timestampToFormattedDateTime(
-         cancellationLog.originDepartureTimestamp)}<br/>
-       |Stop cancelled: ${stationTextFrom(stanoxCancelled)}<br/>
+       |Date: ${dateFormatter(cancellationLog.originDepartureDate)}
+       |Train originating from: ${stationTextFrom(stanoxOriginating)}<br/>
+       |Expected departure time: ${timeFormatter(cancellationLog.originDepartureTime)}<br/>
+       |Cancelled at: ${stationTextFrom(stanoxCancelled)}<br/>
        |Operator: ${cancellationLog.toc.value}<br/>
        |<br/>
        |Cancellation type: ${cancellationLog.cancellationType.string}<br/>
-       |Expected departure time: ${timestampToFormattedDateTime(cancellationLog.originDepartureTimestamp)}<br/>
+
        |
      """.stripMargin
-
-  def timestampToFormattedDateTime(timestamp: Long): String =
-    Try {
-      val zonedDateTime = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone)
-      zonedDateTime.format(SubscriberHandler.dateTimeFormatter)
-    }.getOrElse("N/A")
 
   private def stationTextFrom(stanox: StanoxRecord): String =
     s"${stanox.crs.map(str => s"[${str.value}]").getOrElse("")} ${stanox.description.getOrElse("")}"
@@ -192,4 +185,10 @@ object SubscriberHandler extends StrictLogging {
 
   private def getMainStanox(stanoxRecords: List[StanoxRecord]): Option[StanoxRecord] =
     stanoxRecords.filter(_.crs.isDefined).find(_.primary.contains(true)).orElse(stanoxRecords.headOption)
+
+  def timeFormatter(time: LocalTime): String =
+    time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT))
+
+  def dateFormatter(date: LocalDate): String =
+    date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.SHORT))
 }

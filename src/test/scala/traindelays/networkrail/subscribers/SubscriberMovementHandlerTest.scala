@@ -1,5 +1,8 @@
 package traindelays.networkrail.subscribers
 
+import java.time.format.{DateTimeFormatter, FormatStyle}
+import java.time.{Instant, ZoneId, ZonedDateTime}
+
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.TestFeatures
@@ -8,7 +11,7 @@ import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Random
+import scala.util.{Random, Try}
 
 class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
 
@@ -279,6 +282,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                 activationRecord: TrainActivationRecord,
                                 stanoxRecords: List[StanoxRecord]) = {
     body should include(s"Train ID: ${activationRecord.scheduleTrainId.value}")
+    body should include(s"Date: ${timestampToFormattedDate(activationRecord.originDepartureTimestamp)}")
     val originStanox = stanoxRecords.find(_.stanoxCode == activationRecord.originStanox).get
     body should include(s"Train originated from: [${originStanox.crs.get.value}] ${originStanox.description.get}")
 
@@ -286,11 +290,26 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     body should include(s"Station affected: [${stanoxAffected.crs.get.value}] ${stanoxAffected.description.get}")
     body should include(s"Operator: ${movementRecord.toc.value}")
     body should include(s"Event type: ${movementRecord.eventType.string}")
-    body should include(
-      s"Expected time: ${SubscriberHandler.timestampToFormattedDateTime(movementRecord.plannedPassengerTimestamp.get)}")
-    body should include(
-      s"Actual time: ${SubscriberHandler.timestampToFormattedDateTime(movementRecord.actualTimestamp)}")
+    body should include(s"Expected time: ${timestampToFormattedTime(movementRecord.plannedPassengerTimestamp.get)}")
+    body should include(s"Actual time: ${timestampToFormattedTime(movementRecord.actualTimestamp)}")
     body should include(
       s"Status: ${SubscriberHandler.statusTextFrom(movementRecord.variationStatus.get, movementRecord.plannedPassengerTimestamp.get, movementRecord.actualTimestamp)}")
   }
+
+  private def timestampToFormattedTime(timestamp: Long): String = {
+    val timeZone = ZoneId.of("Europe/London")
+    Try {
+      val time = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalTime
+      SubscriberHandler.timeFormatter(time)
+    }.getOrElse("N/A")
+  }
+
+  private def timestampToFormattedDate(timestamp: Long): String = {
+    val timeZone = ZoneId.of("Europe/London")
+    Try {
+      val date = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalDate
+      SubscriberHandler.dateFormatter(date)
+    }.getOrElse("N/A")
+  }
+
 }

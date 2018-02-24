@@ -1,0 +1,171 @@
+<html>
+<head>
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/1.10.16/css/dataTables.bootstrap.min.css" rel="stylesheet"/>
+    <link href="https://cdn.datatables.net/select/1.2.5/css/select.dataTables.min.css" rel="stylesheet"/>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/jqueryui/1.12.1/jquery-ui.css" rel="stylesheet"/>
+    <link href="/train-history.css" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+    <script src="http://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.10.16/js/dataTables.bootstrap.min.js"></script>
+    <script src="https://cdn.datatables.net/select/1.2.5/js/dataTables.select.min.js"></script>
+    <script src="https://apis.google.com/js/platform.js" async defer></script>
+    <meta name="google-signin-client_id"
+          content="687239019355-9116qecl38jplk8uv82b5r44hqaqbiu0.apps.googleusercontent.com">
+</head>
+<body>
+<nav class="navbar navbar-default">
+    <div class="container-fluid">
+        <div class="navbar-header">
+            <a class="navbar-brand" href="#">TrainDelayHelper</a>
+        </div>
+        <ul class="nav navbar-nav">
+            <li><a href="#">Home</a></li>
+            <li><a href="/train-delay-notifications.html">Train delay notifications</a></li>
+            <li class="active"><a href="#">Train history search</a></li>
+        </ul>
+        <ul class="nav navbar-nav navbar-right">
+            <div class="g-signin2" data-onsuccess="onSignIn"></div>
+        </ul>
+    </div>
+</nav>
+
+<div class="container">
+    <div class="alert-placeholder"></div>
+</div>
+<div class="container">
+    <div class="panel panel-default">
+        <div id="route-information-heading" class="panel-heading"></div>
+        <div id="route-information" class="panel-body"></div>
+    </div>
+</div>
+<div class="container">
+    <table class="table table-hover" id="query-results" width="100%"></table>
+</div>
+
+</body>
+
+<script>
+
+    var dataTable;
+    var queryParamsMap = new Map();
+
+    function setUpDataTable() {
+        dataTable = $('#query-results').DataTable({
+            dom: 'frtipB',
+            scrollY: '65vh',
+            scrollX: true,
+            scrollCollapse: true,
+            columns: [
+                {title: "Date"},
+                {title: "Actual departure Time"},
+                {title: "Actual arrival Time"}
+            ],
+            order: [[0, "desc"]],
+            searching: false,
+            paging: false,
+            columnDefs: [
+                {
+                    "targets": [1, 2],
+                    "orderable": false
+                }
+            ]
+        });
+    }
+
+
+
+    function getHistory(scheduleTrainId, fromStanox, toStanox) {
+
+        if(scheduleTrainId && fromStanox && toStanox) {
+
+            $.ajax({
+                type: "GET",
+                url: "history-query",
+                data: {
+                    "scheduleTrainId": scheduleTrainId,
+                    "fromStanox": fromStanox,
+                    "toStanox": toStanox
+                },
+                success: function (data) {
+
+                    var json = JSON.parse(data);
+                    var scheduleTrainId = json.scheduleTrainId;
+                    var toc = json.toc;
+                    var fromStanoxCode = json.fromStanoxCode;
+                    var fromCRS = json.fromCRS;
+                    var toStanoxCode = json.toStanoxCode;
+                    var toCRS = json.toCRS;
+                    var expectedDepartureTime = json.expectedDepartureTime;
+                    var expectedArrivalTime = json.expectedArrivalTime;
+                    var records = json.records;
+
+                    if (records.length > 0) {
+                        var rowArray = [];
+                        for (var i = 0; i < records.length; i++) {
+                            var departureDate = records[i].departureDate;
+                            var actualDepartureTime = records[i].actualDepartureTime;
+                            var actualArrivalTime = records[i].actualArrivalTime;
+                            var row = [departureDate, actualDepartureTime, actualArrivalTime];
+                            rowArray.push(row);
+                        }
+                        dataTable.clear();
+                        dataTable.rows.add(rowArray).draw();
+                    }
+                    showRouteDetails(scheduleTrainId, toc, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime);
+                },
+                error: function (response) {
+                    if (response.status === 404) {
+                        showNoHistoryAvailable();
+                    } else {
+                        showUnsuccessfulHistoryQuery();
+                    }
+                }
+            });
+        } else {
+            showQueryParamsMissing();
+        }
+    }
+
+    function showRouteDetails(scheduleTrainId, toc, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime) {
+        $( "#route-information-heading").append(
+            "Route Information for train " + scheduleTrainId + " from " + fromCRS + " to " + toCRS);
+        $( "#route-information").append(
+                "Scheduled departure: " + expectedDepartureTime + "<br/>" +
+                "Scheduled arrival: " + expectedArrivalTime + "<br/>"
+        );
+    }
+
+    function showUnsuccessfulHistoryQuery() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem obtaining route history</div>")
+    }
+
+    function showNoHistoryAvailable() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>No history could be found.</div>")
+    }
+
+    function showQueryParamsMissing() {
+        $('.alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>Unable to return route history. Url format invalid.</div>")
+    }
+
+    function readUrlQueryParams() {
+        var keyValues = window.location.href.slice(window.location.href.indexOf('?') + 1).split('&');
+        for(var i = 0; i < keyValues.length; i++) {
+            var kv = keyValues[i].split('=');
+            queryParamsMap.set(kv[0], kv[1]);
+        }
+    }
+
+    $(document).ready(function () {
+        readUrlQueryParams();
+        var scheduleTrainId = queryParamsMap.get("scheduleTrainId");
+        var fromStanox =  queryParamsMap.get("fromStanox");
+        var toStanox =  queryParamsMap.get("toStanox");
+        setUpDataTable();
+        getHistory(scheduleTrainId, fromStanox, toStanox);
+    });
+
+</script>
+</html>
