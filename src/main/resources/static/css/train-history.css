@@ -4,6 +4,16 @@
     float: right;
 }
 
+td:nth-child(2), td:nth-child(3)  {
+    background-color:#F0F8FF;
+}
+td:nth-child(4), td:nth-child(5)  {
+    background-color:#FFF8DC;
+}
+
+table {
+    visibility:hidden;
+}
 
 .g-signin2 {
     margin-top: 7px;

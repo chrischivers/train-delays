@@ -1,16 +1,15 @@
 package traindelays.ui
 
+import java.time.Duration
+
 import cats.effect.IO
 import org.http4s.circe._
 import org.http4s.dsl.io._
-import org.http4s.{EntityDecoder, EntityEncoder, Request, Uri}
+import org.http4s.{EntityDecoder, Request, Uri}
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.movementdata.EventType.{Arrival, Departure}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.ui.Service.ScheduleTrainIdParamMatcher
 import traindelays.{TestFeatures, UIConfig}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -30,9 +29,8 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
     val movementLog = createMovementLog()
     withInitialState(testDatabaseConfig)(initialState.copy(movementLogs = List(movementLog))) { fixture =>
       val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
-      val queryParams = Map("scheduleTrainId" -> movementLog.scheduleTrainId.value,
-                            "fromStanoxCode" -> "57883",
-                            "toStanoxCode"   -> "87742")
+      val queryParams =
+        Map("scheduleTrainId" -> movementLog.scheduleTrainId.value, "fromStanox" -> "57883", "toStanox" -> "87742")
       val request = Request[IO](method = GET,
                                 uri = Uri(path = "/history-query")
                                   .setQueryParams(queryParams.map { case (k, v) => k -> Seq(v) }))
@@ -62,8 +60,8 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
       val queryParams = Map(
         "scheduleTrainId" -> movementLogDeparture.scheduleTrainId.value,
-        "fromStanoxCode"  -> movementLogDeparture.stanoxCode.value,
-        "toStanoxCode"    -> movementLogArrival.stanoxCode.value
+        "fromStanox"      -> movementLogDeparture.stanoxCode.value,
+        "toStanox"        -> movementLogArrival.stanoxCode.value
       )
       val request = Request[IO](method = GET,
                                 uri = Uri(path = "/history-query")
@@ -80,9 +78,14 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture.plannedPassengerTime,
         movementLogArrival.plannedPassengerTime,
         List(
-          HistoryQueryRecord(movementLogDeparture.originDepartureDate,
-                             movementLogDeparture.actualTime,
-                             movementLogArrival.actualTime))
+          HistoryQueryRecord(
+            movementLogDeparture.originDepartureDate,
+            movementLogDeparture.actualTime,
+            Duration.between(movementLogDeparture.plannedPassengerTime, movementLogDeparture.actualTime).toMinutes,
+            movementLogArrival.actualTime,
+            Duration.between(movementLogArrival.plannedPassengerTime, movementLogArrival.actualTime).toMinutes
+          )
+        )
       )
     }
   }
@@ -123,8 +126,8 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
         val queryParams = Map(
           "scheduleTrainId" -> movementLogDeparture1.scheduleTrainId.value,
-          "fromStanoxCode"  -> movementLogDeparture1.stanoxCode.value,
-          "toStanoxCode"    -> movementLogArrival1.stanoxCode.value
+          "fromStanox"      -> movementLogDeparture1.stanoxCode.value,
+          "toStanox"        -> movementLogArrival1.stanoxCode.value
         )
         val request = Request[IO](method = GET,
                                   uri = Uri(path = "/history-query")
@@ -141,12 +144,20 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
           movementLogDeparture1.plannedPassengerTime,
           movementLogArrival1.plannedPassengerTime,
           List(
-            HistoryQueryRecord(movementLogDeparture2.originDepartureDate,
-                               movementLogDeparture2.actualTime,
-                               movementLogArrival2.actualTime),
-            HistoryQueryRecord(movementLogDeparture1.originDepartureDate,
-                               movementLogDeparture1.actualTime,
-                               movementLogArrival1.actualTime),
+            HistoryQueryRecord(
+              movementLogDeparture2.originDepartureDate,
+              movementLogDeparture2.actualTime,
+              Duration.between(movementLogDeparture2.plannedPassengerTime, movementLogDeparture2.actualTime).toMinutes,
+              movementLogArrival2.actualTime,
+              Duration.between(movementLogArrival2.plannedPassengerTime, movementLogArrival2.actualTime).toMinutes
+            ),
+            HistoryQueryRecord(
+              movementLogDeparture1.originDepartureDate,
+              movementLogDeparture1.actualTime,
+              Duration.between(movementLogDeparture1.plannedPassengerTime, movementLogDeparture1.actualTime).toMinutes,
+              movementLogArrival1.actualTime,
+              Duration.between(movementLogArrival1.plannedPassengerTime, movementLogArrival1.actualTime).toMinutes
+            )
           )
         )
     }
@@ -185,8 +196,8 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
       val queryParams = Map(
         "scheduleTrainId" -> movementLogDeparture.scheduleTrainId.value,
-        "fromStanoxCode"  -> movementLogDeparture.stanoxCode.value,
-        "toStanoxCode"    -> movementLogArrival.stanoxCode.value
+        "fromStanox"      -> movementLogDeparture.stanoxCode.value,
+        "toStanox"        -> movementLogArrival.stanoxCode.value
       )
       val request = Request[IO](method = GET,
                                 uri = Uri(path = "/history-query")
@@ -203,9 +214,13 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture.plannedPassengerTime,
         movementLogArrival.plannedPassengerTime,
         List(
-          HistoryQueryRecord(movementLogDeparture.originDepartureDate,
-                             movementLogDeparture.actualTime,
-                             movementLogArrival.actualTime)
+          HistoryQueryRecord(
+            movementLogDeparture.originDepartureDate,
+            movementLogDeparture.actualTime,
+            Duration.between(movementLogDeparture.plannedPassengerTime, movementLogDeparture.actualTime).toMinutes,
+            movementLogArrival.actualTime,
+            Duration.between(movementLogArrival.plannedPassengerTime, movementLogArrival.actualTime).toMinutes
+          )
         )
       )
     }
@@ -249,8 +264,8 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       val service = serviceFrom(fixture, uiTestConfig, defaultAuthenticatedDetails)
       val queryParams1 = Map(
         "scheduleTrainId" -> movementLogDeparture1.scheduleTrainId.value,
-        "fromStanoxCode"  -> movementLogDeparture1.stanoxCode.value,
-        "toStanoxCode"    -> movementLogArrival4.stanoxCode.value
+        "fromStanox"      -> movementLogDeparture1.stanoxCode.value,
+        "toStanox"        -> movementLogArrival4.stanoxCode.value
       )
       val request1 = Request[IO](method = GET,
                                  uri = Uri(path = "/history-query")
@@ -267,16 +282,20 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture1.plannedPassengerTime,
         movementLogArrival4.plannedPassengerTime,
         List(
-          HistoryQueryRecord(movementLogDeparture1.originDepartureDate,
-                             movementLogDeparture1.actualTime,
-                             movementLogArrival4.actualTime)
+          HistoryQueryRecord(
+            movementLogDeparture1.originDepartureDate,
+            movementLogDeparture1.actualTime,
+            Duration.between(movementLogDeparture1.plannedPassengerTime, movementLogDeparture1.actualTime).toMinutes,
+            movementLogArrival4.actualTime,
+            Duration.between(movementLogArrival4.plannedPassengerTime, movementLogArrival4.actualTime).toMinutes
+          )
         )
       )
 
       val queryParams2 = Map(
         "scheduleTrainId" -> movementLogDeparture3.scheduleTrainId.value,
-        "fromStanoxCode"  -> movementLogDeparture3.stanoxCode.value,
-        "toStanoxCode"    -> movementLogArrival4.stanoxCode.value
+        "fromStanox"      -> movementLogDeparture3.stanoxCode.value,
+        "toStanox"        -> movementLogArrival4.stanoxCode.value
       )
       val request2 = Request[IO](method = GET,
                                  uri = Uri(path = "/history-query")
@@ -293,16 +312,20 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture3.plannedPassengerTime,
         movementLogArrival4.plannedPassengerTime,
         List(
-          HistoryQueryRecord(movementLogDeparture3.originDepartureDate,
-                             movementLogDeparture3.actualTime,
-                             movementLogArrival4.actualTime)
+          HistoryQueryRecord(
+            movementLogDeparture3.originDepartureDate,
+            movementLogDeparture3.actualTime,
+            Duration.between(movementLogDeparture3.plannedPassengerTime, movementLogDeparture3.actualTime).toMinutes,
+            movementLogArrival4.actualTime,
+            Duration.between(movementLogArrival4.plannedPassengerTime, movementLogArrival4.actualTime).toMinutes
+          )
         )
       )
 
       val queryParams3 = Map(
         "scheduleTrainId" -> movementLogDeparture1.scheduleTrainId.value,
-        "fromStanoxCode"  -> movementLogDeparture1.stanoxCode.value,
-        "toStanoxCode"    -> movementLogArrival2.stanoxCode.value
+        "fromStanox"      -> movementLogDeparture1.stanoxCode.value,
+        "toStanox"        -> movementLogArrival2.stanoxCode.value
       )
       val request3 = Request[IO](method = GET,
                                  uri = Uri(path = "/history-query")
@@ -319,9 +342,13 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture1.plannedPassengerTime,
         movementLogArrival2.plannedPassengerTime,
         List(
-          HistoryQueryRecord(movementLogDeparture1.originDepartureDate,
-                             movementLogDeparture1.actualTime,
-                             movementLogArrival2.actualTime)
+          HistoryQueryRecord(
+            movementLogDeparture1.originDepartureDate,
+            movementLogDeparture1.actualTime,
+            Duration.between(movementLogDeparture1.plannedPassengerTime, movementLogDeparture1.actualTime).toMinutes,
+            movementLogArrival2.actualTime,
+            Duration.between(movementLogArrival2.plannedPassengerTime, movementLogArrival2.actualTime).toMinutes
+          )
         )
       )
     }

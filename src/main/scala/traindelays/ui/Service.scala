@@ -1,6 +1,6 @@
 package traindelays.ui
 
-import java.time.{Instant, LocalDate}
+import java.time.{Instant, LocalDate, LocalTime}
 
 import _root_.cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
@@ -218,24 +218,25 @@ object Service extends StrictLogging {
     }
 
   private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]): Json = {
-    import cats.implicits._
 
+    val records = getMainStanoxRecords(stanoxRecords).map { record =>
+      Json.obj(
+        "key"   -> Json.fromString(record.stanoxCode.value),
+        "value" -> Json.fromString(s"${record.description.getOrElse("")} [${record.crs.map(_.value).getOrElse("")}]")
+      )
+    }
+    Json.arr(records: _*)
+  }
+
+  private def getMainStanoxRecords(allStanoxRecords: List[StanoxRecord]): List[StanoxRecord] = {
+    import cats.implicits._
     implicit val ordering: Order[StanoxCode] = cats.Order.by[StanoxCode, String](_.value)
 
-    val records = stanoxRecords
+    allStanoxRecords
       .filter(_.crs.isDefined)
       .groupByNel(_.stanoxCode)
-      .map {
-        case (stanoxCode, rec) =>
-          val firstValidRecord = rec.find(_.primary.contains(true)).getOrElse(rec.head)
-          Json.obj(
-            "key" -> Json.fromString(stanoxCode.value),
-            "value" -> Json.fromString(
-              s"${firstValidRecord.description.getOrElse("")} [${firstValidRecord.crs.map(_.value).getOrElse("")}]")
-          )
-      }
-      .toSeq
-    Json.arr(records: _*)
+      .map { case (_, rec) => rec.find(_.primary.contains(true)).getOrElse(rec.head) }
+      .toList
   }
 
   private def movementLogsToHistory(scheduleTrainId: ScheduleTrainId,
@@ -244,10 +245,12 @@ object Service extends StrictLogging {
                                     stanoxRecords: List[StanoxRecord],
                                     movementLogs: List[MovementLog]): Option[HistoryQueryResponse] = {
 
+    val mainStanoxRecords = getMainStanoxRecords(stanoxRecords)
+
     val filteredLogs = movementLogs.filter(l =>
       l.scheduleTrainId == scheduleTrainId && (l.stanoxCode == fromStanoxCode || l.stanoxCode == toStanoxCode))
 
-    def getHistoryRecords: List[HistoryQueryRecord] =
+    def getHistoryRecords(expectedDepartureTime: LocalTime, expectedArrivalTime: LocalTime): List[HistoryQueryRecord] =
       filteredLogs
         .groupBy(l => (l.scheduleTrainId, l.trainId, l.originDepartureDate))
         .flatMap {
@@ -256,15 +259,21 @@ object Service extends StrictLogging {
               departureLog <- list.find(l => l.eventType == Departure && l.stanoxCode == fromStanoxCode)
               arrivalLog   <- list.find(l => l.eventType == Arrival && l.stanoxCode == toStanoxCode)
             } yield {
-              HistoryQueryRecord(group._3, departureLog.actualTime, arrivalLog.actualTime)
+              HistoryQueryRecord(
+                group._3,
+                departureLog.actualTime,
+                java.time.Duration.between(expectedDepartureTime, departureLog.actualTime).toMinutes,
+                arrivalLog.actualTime,
+                java.time.Duration.between(expectedArrivalTime, arrivalLog.actualTime).toMinutes
+              )
             }
         }
         .toList
         .sortBy(_.departureDate.toEpochDay)
 
     for {
-      fromCRS <- stanoxRecords.find(_.stanoxCode == fromStanoxCode).flatMap(_.crs)
-      toCRS   <- stanoxRecords.find(_.stanoxCode == toStanoxCode).flatMap(_.crs)
+      fromCRS <- mainStanoxRecords.find(_.stanoxCode == fromStanoxCode).flatMap(_.crs)
+      toCRS   <- mainStanoxRecords.find(_.stanoxCode == toStanoxCode).flatMap(_.crs)
       plannedDepartureTime <- filteredLogs
         .find(y => y.eventType == Departure && y.stanoxCode == fromStanoxCode)
         .map(_.plannedPassengerTime)
@@ -273,15 +282,17 @@ object Service extends StrictLogging {
         .map(_.plannedPassengerTime)
       toc <- filteredLogs.headOption.map(_.toc)
     } yield {
-      HistoryQueryResponse(scheduleTrainId,
-                           toc,
-                           fromStanoxCode,
-                           fromCRS,
-                           toStanoxCode,
-                           toCRS,
-                           plannedDepartureTime,
-                           plannedArrivalTime,
-                           getHistoryRecords)
+      HistoryQueryResponse(
+        scheduleTrainId,
+        toc,
+        fromStanoxCode,
+        fromCRS,
+        toStanoxCode,
+        toCRS,
+        plannedDepartureTime,
+        plannedArrivalTime,
+        getHistoryRecords(plannedDepartureTime, plannedArrivalTime)
+      )
     }
 
   }

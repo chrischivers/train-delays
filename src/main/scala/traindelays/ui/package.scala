@@ -72,7 +72,11 @@ package object ui {
     implicit val encoder: Encoder[SubscribeRequest] = deriveEncoder[SubscribeRequest]
   }
 
-  case class HistoryQueryRecord(departureDate: LocalDate, actualDepartureTime: LocalTime, actualArrivalTime: LocalTime)
+  case class HistoryQueryRecord(departureDate: LocalDate,
+                                actualDepartureTime: LocalTime,
+                                differenceWithExpectedDeparture: Long,
+                                actualArrivalTime: LocalTime,
+                                differenceWithExpectedArrival: Long)
   case class HistoryQueryResponse(scheduleTrainId: ScheduleTrainId,
                                   toc: TOC,
                                   fromStanoxCode: StanoxCode,

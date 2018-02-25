@@ -42,7 +42,7 @@
     </div>
 </div>
 <div class="container">
-    <table class="table table-hover" id="query-results" width="100%"></table>
+    <table class="table table-hover row-border" id="query-results" width="100%"></table>
 </div>
 
 </body>
@@ -61,14 +61,16 @@
             columns: [
                 {title: "Date"},
                 {title: "Actual departure Time"},
-                {title: "Actual arrival Time"}
+                {title: "Difference"},
+                {title: "Actual arrival Time"},
+                {title: "Difference"}
             ],
             order: [[0, "desc"]],
             searching: false,
             paging: false,
             columnDefs: [
                 {
-                    "targets": [1, 2],
+                    "targets": [1, 2, 3, 4],
                     "orderable": false
                 }
             ]
@@ -107,14 +109,17 @@
                         for (var i = 0; i < records.length; i++) {
                             var departureDate = records[i].departureDate;
                             var actualDepartureTime = records[i].actualDepartureTime;
+                            var differenceWithExpectedDeparture = records[i].differenceWithExpectedDeparture;
                             var actualArrivalTime = records[i].actualArrivalTime;
-                            var row = [departureDate, actualDepartureTime, actualArrivalTime];
+                            var differenceWithExpectedArrival = records[i].differenceWithExpectedArrival;
+                            var row = [departureDate, actualDepartureTime, timeDifferenceText(differenceWithExpectedDeparture), actualArrivalTime, timeDifferenceText(differenceWithExpectedArrival)];
                             rowArray.push(row);
                         }
                         dataTable.clear();
                         dataTable.rows.add(rowArray).draw();
                     }
                     showRouteDetails(scheduleTrainId, toc, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime);
+                    $('.table').css( 'visibility', 'visible' );
                 },
                 error: function (response) {
                     if (response.status === 404) {
@@ -126,6 +131,16 @@
             });
         } else {
             showQueryParamsMissing();
+        }
+    }
+
+    function timeDifferenceText(difference) {
+        if (difference > 0) {
+            return difference + " " + (difference === 1 ? "minute" : "minutes") + " late";
+        } else if (difference < 0) {
+            return Math.abs(difference) + " " + (difference === -1 ? "minute" : "minutes") + " early";
+        } else {
+            return "On time";
         }
     }
 
