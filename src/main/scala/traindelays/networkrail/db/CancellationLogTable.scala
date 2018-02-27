@@ -3,9 +3,14 @@ package traindelays.networkrail.db
 import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
-import traindelays.networkrail.movementdata.CancellationLog
+import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 
-trait CancellationLogTable extends NonMemoizedTable[CancellationLog]
+trait CancellationLogTable extends NonMemoizedTable[CancellationLog] {
+  def retrieveRecordsFor(scheduleTrainId: ScheduleTrainId,
+                         fromTimestamp: Option[Long],
+                         toTimestamp: Option[Long]): IO[List[CancellationLog]]
+}
 
 object CancellationLogTable {
 
@@ -32,7 +37,18 @@ object CancellationLogTable {
     sql"""
       SELECT id, train_id, schedule_train_id, service_code, toc, stanox_code, origin_stanox_code, origin_departure_timestamp,
       origin_departure_date, origin_departure_time, cancellation_type, cancellation_reason_code
-      from cancellation_log
+      FROM cancellation_log
+      """.query[CancellationLog]
+
+  def cancellationLogsFor(scheduleTrainId: ScheduleTrainId,
+                          fromTimestamp: Long,
+                          toTimestamp: Long): Query0[CancellationLog] =
+    sql"""
+      SELECT id, train_id, schedule_train_id, service_code, toc, stanox_code, origin_stanox_code, origin_departure_timestamp,
+      origin_departure_date, origin_departure_time, cancellation_type, cancellation_reason_code
+      FROM cancellation_log
+      WHERE schedule_train_id = ${scheduleTrainId}
+      AND origin_departure_timestamp BETWEEN ${fromTimestamp} AND ${toTimestamp}
       """.query[CancellationLog]
 
   def apply(db: Transactor[IO]): CancellationLogTable =
@@ -47,6 +63,14 @@ object CancellationLogTable {
       override protected def retrieveAll(): IO[List[CancellationLog]] =
         CancellationLogTable
           .allCancellationLogRecords()
+          .list
+          .transact(db)
+
+      override def retrieveRecordsFor(scheduleTrainId: ScheduleTrainId,
+                                      fromTimestamp: Option[Long],
+                                      toTimestamp: Option[Long]): IO[List[CancellationLog]] =
+        CancellationLogTable
+          .cancellationLogsFor(scheduleTrainId, fromTimestamp.getOrElse(0), toTimestamp.getOrElse(Long.MaxValue))
           .list
           .transact(db)
     }

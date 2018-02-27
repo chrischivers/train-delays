@@ -1,6 +1,7 @@
 package traindelays.ui
 
-import java.time.Duration
+import java.time._
+import java.util.concurrent.TimeUnit
 
 import cats.effect.IO
 import org.http4s.circe._
@@ -11,13 +12,11 @@ import org.scalatest.Matchers._
 import traindelays.networkrail.movementdata.EventType.{Arrival, Departure}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.{TestFeatures, UIConfig}
-
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
+import scala.concurrent.duration.FiniteDuration
 
 class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
-
-  val uiTestConfig                                      = UIConfig(2, 1 minute, "")
+  val uiTestConfig                                      = UIConfig(2, FiniteDuration(1, TimeUnit.MINUTES), "")
   val defaultAuthenticatedDetails: AuthenticatedDetails = createAuthenticatedDetails()
   val initialState: AppInitialState                     = createDefaultInitialState()
 
@@ -41,18 +40,20 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
 
   it should "return the history of a single record" in {
 
-    val now = System.currentTimeMillis()
-
-    val movementLogDeparture = createMovementLog(eventType = Departure,
-                                                 stanoxCode = initialState.stanoxRecords(0).stanoxCode,
-                                                 originDepartureTimestamp = now,
-                                                 plannedPassengerTimestamp = now)
+    val movementLogDeparture = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Departure,
+      stanoxCode = initialState.stanoxRecords(0).stanoxCode,
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get)
+    )
     val movementLogArrival = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
       eventType = Arrival,
       stanoxCode = initialState.stanoxRecords(1).stanoxCode,
-      originDepartureTimestamp = now,
-      plannedPassengerTimestamp = now + 120000,
-      actualTimestamp = now + 180000
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).arrivalTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).arrivalTime.get)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -70,7 +71,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       response.status.code shouldBe 200
       response.as[HistoryQueryResponse].unsafeRunSync() shouldBe HistoryQueryResponse(
         movementLogDeparture.scheduleTrainId,
-        movementLogDeparture.toc,
+        initialState.scheduleLogRecords.find(_.stanoxCode == movementLogDeparture.stanoxCode).get.atocCode,
         movementLogDeparture.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == movementLogDeparture.stanoxCode).get.crs.get,
         movementLogArrival.stanoxCode,
@@ -78,45 +79,53 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture.plannedPassengerTime,
         movementLogArrival.plannedPassengerTime,
         List(
-          HistoryQueryRecord(
+          HistoryQueryMovementRecord(
             movementLogDeparture.originDepartureDate,
             movementLogDeparture.actualTime,
             Duration.between(movementLogDeparture.plannedPassengerTime, movementLogDeparture.actualTime).toMinutes,
             movementLogArrival.actualTime,
             Duration.between(movementLogArrival.plannedPassengerTime, movementLogArrival.actualTime).toMinutes
           )
-        )
+        ),
+        List.empty
       )
     }
   }
 
   it should "return the history of multiple records" in {
 
-    val now       = System.currentTimeMillis()
-    val yesterday = System.currentTimeMillis() - 86400000
-
-    val movementLogDeparture1 = createMovementLog(eventType = Departure,
-                                                  stanoxCode = initialState.stanoxRecords.head.stanoxCode,
-                                                  originDepartureTimestamp = now,
-                                                  plannedPassengerTimestamp = now)
+    val movementLogDeparture1 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Departure,
+      stanoxCode = initialState.stanoxRecords.head.stanoxCode,
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get)
+    )
     val movementLogArrival1 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
       eventType = Arrival,
       stanoxCode = initialState.stanoxRecords.last.stanoxCode,
-      originDepartureTimestamp = now,
-      plannedPassengerTimestamp = now + 1200000,
-      actualTimestamp = now + 1800000
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get) + 180000
     )
 
-    val movementLogDeparture2 = createMovementLog(eventType = Departure,
-                                                  stanoxCode = initialState.stanoxRecords.head.stanoxCode,
-                                                  originDepartureTimestamp = yesterday,
-                                                  plannedPassengerTimestamp = yesterday)
+    val movementLogDeparture2 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Departure,
+      stanoxCode = initialState.stanoxRecords.head.stanoxCode,
+      originDepartureTimestamp = yesterdayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = yesterdayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      actualTimestamp = yesterdayMillisWith(initialState.scheduleLogRecords.head.departureTime.get) + 60000
+    )
     val movementLogArrival2 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
       eventType = Arrival,
       stanoxCode = initialState.stanoxRecords.last.stanoxCode,
-      originDepartureTimestamp = yesterday,
-      plannedPassengerTimestamp = yesterday + 1200000,
-      actualTimestamp = now + 1800000
+      originDepartureTimestamp = yesterdayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = yesterdayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get),
+      actualTimestamp = yesterdayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get) + 1800000
     )
 
     withInitialState(testDatabaseConfig)(
@@ -136,7 +145,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         response.status.code shouldBe 200
         response.as[HistoryQueryResponse].unsafeRunSync() shouldBe HistoryQueryResponse(
           movementLogDeparture1.scheduleTrainId,
-          movementLogDeparture1.toc,
+          initialState.scheduleLogRecords.find(_.stanoxCode == movementLogDeparture1.stanoxCode).get.atocCode,
           movementLogDeparture1.stanoxCode,
           initialState.stanoxRecords.find(_.stanoxCode == movementLogDeparture1.stanoxCode).get.crs.get,
           movementLogArrival1.stanoxCode,
@@ -144,46 +153,54 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
           movementLogDeparture1.plannedPassengerTime,
           movementLogArrival1.plannedPassengerTime,
           List(
-            HistoryQueryRecord(
+            HistoryQueryMovementRecord(
               movementLogDeparture2.originDepartureDate,
               movementLogDeparture2.actualTime,
               Duration.between(movementLogDeparture2.plannedPassengerTime, movementLogDeparture2.actualTime).toMinutes,
               movementLogArrival2.actualTime,
               Duration.between(movementLogArrival2.plannedPassengerTime, movementLogArrival2.actualTime).toMinutes
             ),
-            HistoryQueryRecord(
+            HistoryQueryMovementRecord(
               movementLogDeparture1.originDepartureDate,
               movementLogDeparture1.actualTime,
               Duration.between(movementLogDeparture1.plannedPassengerTime, movementLogDeparture1.actualTime).toMinutes,
               movementLogArrival1.actualTime,
               Duration.between(movementLogArrival1.plannedPassengerTime, movementLogArrival1.actualTime).toMinutes
             )
-          )
+          ),
+          List.empty
         )
     }
   }
 
   it should "return the history of a record, excluding records relating to a different scheduleTrainId or stanox" in {
 
-    val now = System.currentTimeMillis()
-
-    val movementLogDeparture = createMovementLog(eventType = Departure,
-                                                 stanoxCode = initialState.stanoxRecords.head.stanoxCode,
-                                                 originDepartureTimestamp = now,
-                                                 plannedPassengerTimestamp = now)
+    val movementLogDeparture = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Departure,
+      stanoxCode = initialState.stanoxRecords.head.stanoxCode,
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get)
+    )
     val movementLogArrival = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
       eventType = Arrival,
       stanoxCode = initialState.stanoxRecords.last.stanoxCode,
-      originDepartureTimestamp = now,
-      plannedPassengerTimestamp = now + 1200000,
-      actualTimestamp = now + 1800000
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get) + 1800000
     )
 
     val departureLogWithDifferentScheduleTrainId = movementLogDeparture.copy(scheduleTrainId = ScheduleTrainId("93845"))
     val arrivalLogWithDifferentScheduleTrainId   = movementLogArrival.copy(scheduleTrainId = ScheduleTrainId("93845"))
 
     val departureLogWithDifferentStanox =
-      movementLogDeparture.copy(stanoxCode = initialState.stanoxRecords(3).stanoxCode)
+      movementLogDeparture.copy(
+        stanoxCode = initialState.stanoxRecords(3).stanoxCode,
+        plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords(3).departureTime.get),
+        actualTimestamp = todayMillisWith(initialState.scheduleLogRecords(3).departureTime.get) + 1800000
+      )
 
     withInitialState(testDatabaseConfig)(
       initialState.copy(movementLogs = List(
@@ -206,7 +223,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       response.status.code shouldBe 200
       response.as[HistoryQueryResponse].unsafeRunSync() shouldBe HistoryQueryResponse(
         movementLogDeparture.scheduleTrainId,
-        movementLogDeparture.toc,
+        initialState.scheduleLogRecords.find(_.stanoxCode == movementLogDeparture.stanoxCode).get.atocCode,
         movementLogDeparture.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == movementLogDeparture.stanoxCode).get.crs.get,
         movementLogArrival.stanoxCode,
@@ -214,43 +231,55 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture.plannedPassengerTime,
         movementLogArrival.plannedPassengerTime,
         List(
-          HistoryQueryRecord(
+          HistoryQueryMovementRecord(
             movementLogDeparture.originDepartureDate,
             movementLogDeparture.actualTime,
             Duration.between(movementLogDeparture.plannedPassengerTime, movementLogDeparture.actualTime).toMinutes,
             movementLogArrival.actualTime,
             Duration.between(movementLogArrival.plannedPassengerTime, movementLogArrival.actualTime).toMinutes
           )
-        )
+        ),
+        List.empty
       )
     }
   }
 
   it should "return a single history record for different departure/arrival combinations on the same route" in {
 
-    val now = System.currentTimeMillis()
+    val movementLogDeparture1 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Departure,
+      stanoxCode = initialState.stanoxRecords.head.stanoxCode,
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get)
+    )
 
-    val movementLogDeparture1 = createMovementLog(eventType = Departure,
-                                                  stanoxCode = initialState.stanoxRecords.head.stanoxCode,
-                                                  originDepartureTimestamp = now,
-                                                  plannedPassengerTimestamp = now)
+    val movementLogArrival2 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Arrival,
+      stanoxCode = initialState.stanoxRecords(1).stanoxCode,
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).arrivalTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).arrivalTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).arrivalTime.get) + 60000
+    )
 
-    val movementLogArrival2 = createMovementLog(eventType = Arrival,
-                                                stanoxCode = initialState.stanoxRecords(1).stanoxCode,
-                                                originDepartureTimestamp = now,
-                                                plannedPassengerTimestamp = now + 1200000)
-
-    val movementLogDeparture3 = createMovementLog(eventType = Departure,
-                                                  stanoxCode = initialState.stanoxRecords(1).stanoxCode,
-                                                  originDepartureTimestamp = now,
-                                                  plannedPassengerTimestamp = now + 1300000)
+    val movementLogDeparture3 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
+      eventType = Departure,
+      stanoxCode = initialState.stanoxRecords(1).stanoxCode,
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).departureTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords(1).departureTime.get) + 30000
+    )
 
     val movementLogArrival4 = createMovementLog(
+      scheduleTrainId = initialState.scheduleLogRecords.head.scheduleTrainId,
       eventType = Arrival,
       stanoxCode = initialState.stanoxRecords.last.stanoxCode,
-      originDepartureTimestamp = now,
-      plannedPassengerTimestamp = now + 1800000,
-      actualTimestamp = now + 1900000
+      originDepartureTimestamp = todayMillisWith(initialState.scheduleLogRecords.head.departureTime.get),
+      plannedPassengerTimestamp = todayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get),
+      actualTimestamp = todayMillisWith(initialState.scheduleLogRecords.last.arrivalTime.get) + 1900000
     )
 
     withInitialState(testDatabaseConfig)(
@@ -274,7 +303,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       response1.status.code shouldBe 200
       response1.as[HistoryQueryResponse].unsafeRunSync() shouldBe HistoryQueryResponse(
         movementLogDeparture1.scheduleTrainId,
-        movementLogDeparture1.toc,
+        initialState.scheduleLogRecords.find(_.stanoxCode == movementLogDeparture1.stanoxCode).get.atocCode,
         movementLogDeparture1.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == movementLogDeparture1.stanoxCode).get.crs.get,
         movementLogArrival4.stanoxCode,
@@ -282,14 +311,15 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture1.plannedPassengerTime,
         movementLogArrival4.plannedPassengerTime,
         List(
-          HistoryQueryRecord(
+          HistoryQueryMovementRecord(
             movementLogDeparture1.originDepartureDate,
             movementLogDeparture1.actualTime,
             Duration.between(movementLogDeparture1.plannedPassengerTime, movementLogDeparture1.actualTime).toMinutes,
             movementLogArrival4.actualTime,
             Duration.between(movementLogArrival4.plannedPassengerTime, movementLogArrival4.actualTime).toMinutes
           )
-        )
+        ),
+        List.empty
       )
 
       val queryParams2 = Map(
@@ -304,7 +334,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       response2.status.code shouldBe 200
       response2.as[HistoryQueryResponse].unsafeRunSync() shouldBe HistoryQueryResponse(
         movementLogDeparture3.scheduleTrainId,
-        movementLogDeparture3.toc,
+        initialState.scheduleLogRecords.find(_.stanoxCode == movementLogDeparture3.stanoxCode).get.atocCode,
         movementLogDeparture3.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == movementLogDeparture3.stanoxCode).get.crs.get,
         movementLogArrival4.stanoxCode,
@@ -312,14 +342,15 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture3.plannedPassengerTime,
         movementLogArrival4.plannedPassengerTime,
         List(
-          HistoryQueryRecord(
+          HistoryQueryMovementRecord(
             movementLogDeparture3.originDepartureDate,
             movementLogDeparture3.actualTime,
             Duration.between(movementLogDeparture3.plannedPassengerTime, movementLogDeparture3.actualTime).toMinutes,
             movementLogArrival4.actualTime,
             Duration.between(movementLogArrival4.plannedPassengerTime, movementLogArrival4.actualTime).toMinutes
           )
-        )
+        ),
+        List.empty
       )
 
       val queryParams3 = Map(
@@ -334,7 +365,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
       response3.status.code shouldBe 200
       response3.as[HistoryQueryResponse].unsafeRunSync() shouldBe HistoryQueryResponse(
         movementLogDeparture1.scheduleTrainId,
-        movementLogDeparture1.toc,
+        initialState.scheduleLogRecords.find(_.stanoxCode == movementLogDeparture1.stanoxCode).get.atocCode,
         movementLogDeparture1.stanoxCode,
         initialState.stanoxRecords.find(_.stanoxCode == movementLogDeparture1.stanoxCode).get.crs.get,
         movementLogArrival2.stanoxCode,
@@ -342,15 +373,31 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
         movementLogDeparture1.plannedPassengerTime,
         movementLogArrival2.plannedPassengerTime,
         List(
-          HistoryQueryRecord(
+          HistoryQueryMovementRecord(
             movementLogDeparture1.originDepartureDate,
             movementLogDeparture1.actualTime,
             Duration.between(movementLogDeparture1.plannedPassengerTime, movementLogDeparture1.actualTime).toMinutes,
             movementLogArrival2.actualTime,
             Duration.between(movementLogArrival2.plannedPassengerTime, movementLogArrival2.actualTime).toMinutes
           )
-        )
+        ),
+        List.empty
       )
     }
   }
+
+  private val timeZone = ZoneId.of("Europe/London")
+
+  private def todayMillisWith(localTime: LocalTime) = {
+    val now         = Instant.now()
+    val millisToAdd = Duration.between(LocalDateTime.ofInstant(now, timeZone).toLocalTime, localTime).toMillis
+    now.toEpochMilli + millisToAdd
+  }
+
+  private def yesterdayMillisWith(localTime: LocalTime) = {
+    val now         = Instant.now()
+    val millisToAdd = Duration.between(LocalDateTime.ofInstant(now, timeZone).toLocalTime, localTime).toMillis
+    now.toEpochMilli + millisToAdd - 86400000
+  }
+  //TODO test canellations in response
 }

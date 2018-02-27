@@ -21,9 +21,7 @@ trait ScheduleTable extends MemoizedTable[ScheduleLog] {
 
   def retrieveScheduleLogRecordsFor(from: StanoxCode, to: StanoxCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
 
-  def retrieveScheduleLogRecordsFor(from: StanoxCode,
-                                    trainId: ScheduleTrainId,
-                                    serviceCode: ServiceCode): IO[List[ScheduleLog]]
+  def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, stanoxCode: StanoxCode): IO[List[ScheduleLog]]
 
   def retrieveRecordBy(id: Int): IO[Option[ScheduleLog]]
 
@@ -215,15 +213,13 @@ object ScheduleTable extends StrictLogging {
          WHERE stanox_code = ${fromStation} AND days_run_pattern = ${daysRunPattern} AND ${toStation} = ANY(subsequent_stanox_codes)
           """.query[ScheduleLog]
 
-  def scheduleRecordsFor(fromStation: StanoxCode,
-                         trainId: ScheduleTrainId,
-                         serviceCode: ServiceCode): Query0[ScheduleLog] =
+  def scheduleRecordsFor(trainId: ScheduleTrainId, fromStation: StanoxCode): Query0[ScheduleLog] =
     sql"""  
          SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
          subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
-         WHERE schedule_train_id = ${trainId} AND service_code = ${serviceCode} AND stanox_code = ${fromStation}
+         WHERE schedule_train_id = ${trainId} AND stanox_code = ${fromStation}
           """.query[ScheduleLog]
 
   def scheduleRecordFor(id: Int) =
@@ -279,10 +275,8 @@ object ScheduleTable extends StrictLogging {
       override def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]] =
         ScheduleTable.distinctStanoxCodes.list.transact(db)
 
-      override def retrieveScheduleLogRecordsFor(from: StanoxCode,
-                                                 trainId: ScheduleTrainId,
-                                                 serviceCode: ServiceCode): IO[List[ScheduleLog]] =
-        ScheduleTable.scheduleRecordsFor(from, trainId, serviceCode).list.transact(db)
+      override def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, from: StanoxCode): IO[List[ScheduleLog]] =
+        ScheduleTable.scheduleRecordsFor(trainId, from).list.transact(db)
     }
 
 }

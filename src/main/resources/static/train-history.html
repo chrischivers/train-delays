@@ -95,30 +95,44 @@
 
                     var json = JSON.parse(data);
                     var scheduleTrainId = json.scheduleTrainId;
-                    var toc = json.toc;
+                    var atocCode = json.atocCode;
                     var fromStanoxCode = json.fromStanoxCode;
                     var fromCRS = json.fromCRS;
                     var toStanoxCode = json.toStanoxCode;
                     var toCRS = json.toCRS;
                     var expectedDepartureTime = json.expectedDepartureTime;
                     var expectedArrivalTime = json.expectedArrivalTime;
-                    var records = json.records;
+                    var movementRecords = json.movementRecords;
+                    var cancellationRecords = json.cancellationRecords;
 
-                    if (records.length > 0) {
-                        var rowArray = [];
-                        for (var i = 0; i < records.length; i++) {
-                            var departureDate = records[i].departureDate;
-                            var actualDepartureTime = records[i].actualDepartureTime;
-                            var differenceWithExpectedDeparture = records[i].differenceWithExpectedDeparture;
-                            var actualArrivalTime = records[i].actualArrivalTime;
-                            var differenceWithExpectedArrival = records[i].differenceWithExpectedArrival;
-                            var row = [departureDate, actualDepartureTime, timeDifferenceText(differenceWithExpectedDeparture), actualArrivalTime, timeDifferenceText(differenceWithExpectedArrival)];
-                            rowArray.push(row);
+                    dataTable.clear();
+
+                    if (movementRecords.length > 0) {
+                        var movementRecordRowArray = [];
+                        for (var i = 0; i < movementRecords.length; i++) {
+                            var departureDate = movementRecords[i].scheduledDepartureDate;
+                            var actualDepartureTime = movementRecords[i].actualDepartureTime;
+                            var differenceWithExpectedDeparture = movementRecords[i].differenceWithExpectedDeparture;
+                            var actualArrivalTime = movementRecords[i].actualArrivalTime;
+                            var differenceWithExpectedArrival = movementRecords[i].differenceWithExpectedArrival;
+                            var movementRow = [departureDate, actualDepartureTime, timeDifferenceText(differenceWithExpectedDeparture), actualArrivalTime, timeDifferenceText(differenceWithExpectedArrival)];
+                            movementRecordRowArray.push(movementRow);
                         }
-                        dataTable.clear();
-                        dataTable.rows.add(rowArray).draw();
+                        dataTable.rows.add(movementRecordRowArray)
                     }
-                    showRouteDetails(scheduleTrainId, toc, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime);
+                    if (cancellationRecords.length > 0) {
+                        var cancellationRecordRowArray = [];
+                        for (var i = 0; i < cancellationRecords.length; i++) {
+                            var departureDate = cancellationRecords[i].scheduledDepartureDate;
+                            var cancellationType = cancellationRecords[i].cancellationType;
+                            var cancellationReasonCode = cancellationRecords[i].cancellationReasonCode;
+                            var cancellationRow = [departureDate, "CANCELLED", "CANCELLED", "CANCELLED", "CANCELLED"];
+                            cancellationRecordRowArray.push(cancellationRow);
+                        }
+                        dataTable.rows.add(cancellationRecordRowArray)
+                    }
+                    dataTable.draw();
+                    showRouteDetails(scheduleTrainId, atocCode, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime);
                     $('.table').css( 'visibility', 'visible' );
                 },
                 error: function (response) {
@@ -144,7 +158,7 @@
         }
     }
 
-    function showRouteDetails(scheduleTrainId, toc, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime) {
+    function showRouteDetails(scheduleTrainId, atocCode, fromCRS, toCRS, expectedDepartureTime, expectedArrivalTime) {
         $( "#route-information-heading").append(
             "Route Information for train " + scheduleTrainId + " from " + fromCRS + " to " + toCRS);
         $( "#route-information").append(

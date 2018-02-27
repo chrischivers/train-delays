@@ -5,8 +5,9 @@ import java.time._
 import cats.effect.IO
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
-import io.circe.{Decoder, HCursor}
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import traindelays.networkrail.cache.TrainActivationCache
+import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 package object movementdata {
@@ -31,6 +32,7 @@ package object movementdata {
         case Departure.string => Departure
         case Arrival.string   => Arrival
       }
+    implicit val encoder: Encoder[EventType] = (a: EventType) => Json.fromString(a.string)
     implicit val decoder: Decoder[EventType] = Decoder.decodeString.map(fromString)
 
     implicit val meta: Meta[EventType] =
@@ -100,6 +102,8 @@ package object movementdata {
         case EnRoute.string   => EnRoute
         case OutOfPlan.string => OutOfPlan
       }
+
+    implicit val encoder: Encoder[CancellationType] = (a: CancellationType) => Json.fromString(a.string)
     implicit val decoder: Decoder[CancellationType] = Decoder.decodeString.map(fromString)
 
     implicit val meta: Meta[CancellationType] =
@@ -109,6 +113,7 @@ package object movementdata {
   case class TrainId(value: String)
   object TrainId {
     implicit val decoder: Decoder[TrainId] = Decoder.decodeString.map(TrainId(_))
+    implicit val encoder: Encoder[TrainId] = Encoder[TrainId](a => Json.fromString(a.value))
     implicit val meta: Meta[TrainId] =
       Meta[String].xmap(TrainId(_), _.value)
   }

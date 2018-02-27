@@ -60,9 +60,7 @@ object SubscriberHandler extends StrictLogging {
         subscribersOnRoute
           .map { subscriber =>
             scheduleTable
-              .retrieveScheduleLogRecordsFor(subscriber.fromStanoxCode,
-                                             subscriber.scheduleTrainId,
-                                             subscriber.serviceCode)
+              .retrieveScheduleLogRecordsFor(subscriber.scheduleTrainId, subscriber.fromStanoxCode)
               .map(s =>
                 subscriber -> s.exists(scheduleLog => {
                   val toStanoxCodeIdx       = scheduleLog.subsequentStanoxCodes.indexOf(subscriber.toStanoxCode)

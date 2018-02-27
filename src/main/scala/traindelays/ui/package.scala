@@ -12,11 +12,12 @@ import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
 import traindelays.networkrail.tocs.tocs
 import traindelays.networkrail.{CRS, StanoxCode, TOC}
 import io.circe.java8.time.{
-  decodeLocalTimeDefault,
   decodeLocalDateDefault,
-  encodeLocalTimeDefault,
-  encodeLocalDateDefault
+  decodeLocalTimeDefault,
+  encodeLocalDateDefault,
+  encodeLocalTimeDefault
 }
+import traindelays.networkrail.movementdata.CancellationType
 
 package object ui {
 
@@ -72,25 +73,36 @@ package object ui {
     implicit val encoder: Encoder[SubscribeRequest] = deriveEncoder[SubscribeRequest]
   }
 
-  case class HistoryQueryRecord(departureDate: LocalDate,
-                                actualDepartureTime: LocalTime,
-                                differenceWithExpectedDeparture: Long,
-                                actualArrivalTime: LocalTime,
-                                differenceWithExpectedArrival: Long)
+  case class HistoryQueryMovementRecord(scheduledDepartureDate: LocalDate,
+                                        actualDepartureTime: LocalTime,
+                                        differenceWithExpectedDeparture: Long,
+                                        actualArrivalTime: LocalTime,
+                                        differenceWithExpectedArrival: Long)
+
+  case class HistoryQueryCancellationRecord(scheduledDepartureDate: LocalDate,
+                                            cancellationType: CancellationType,
+                                            cancellationReasonCode: String)
+
   case class HistoryQueryResponse(scheduleTrainId: ScheduleTrainId,
-                                  toc: TOC,
+                                  atocCode: AtocCode,
                                   fromStanoxCode: StanoxCode,
                                   fromCRS: CRS,
                                   toStanoxCode: StanoxCode,
                                   toCRS: CRS,
                                   expectedDepartureTime: LocalTime,
                                   expectedArrivalTime: LocalTime,
-                                  records: List[HistoryQueryRecord])
+                                  movementRecords: List[HistoryQueryMovementRecord],
+                                  cancellationRecords: List[HistoryQueryCancellationRecord])
 
-  object HistoryQueryRecord {
+  object HistoryQueryMovementRecord {
+    implicit val decoder: Decoder[HistoryQueryMovementRecord] = deriveDecoder[HistoryQueryMovementRecord]
+    implicit val encoder: Encoder[HistoryQueryMovementRecord] = deriveEncoder[HistoryQueryMovementRecord]
+  }
 
-    implicit val decoder: Decoder[HistoryQueryRecord] = deriveDecoder[HistoryQueryRecord]
-    implicit val encoder: Encoder[HistoryQueryRecord] = deriveEncoder[HistoryQueryRecord]
+  object HistoryQueryCancellationRecord {
+
+    implicit val decoder: Decoder[HistoryQueryCancellationRecord] = deriveDecoder[HistoryQueryCancellationRecord]
+    implicit val encoder: Encoder[HistoryQueryCancellationRecord] = deriveEncoder[HistoryQueryCancellationRecord]
   }
 
   object HistoryQueryResponse {

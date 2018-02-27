@@ -1,6 +1,7 @@
 package traindelays.networkrail
 
 import cats.effect.IO
+import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
 import fs2.Stream
 import org.flywaydb.core.Flyway
 import traindelays.DatabaseConfig
@@ -20,13 +21,11 @@ package object db {
       transactor <- HikariTransactor[IO](config.driverClassName, config.url, config.username, config.password)
       _ <- transactor
         .configure { datasource =>
-          datasource.setMaximumPoolSize(config.maximumPoolSize)
           val flyway = new Flyway()
           flyway.setDataSource(datasource)
           flyway.setLocations(migrationLocation)
           beforeMigration(flyway)
           flyway.migrate()
-
         }
 
     } yield transactor

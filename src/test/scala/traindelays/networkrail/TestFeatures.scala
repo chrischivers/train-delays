@@ -32,7 +32,7 @@ import traindelays.networkrail._
 import traindelays.networkrail.metrics.TestMetricsLogging
 import traindelays.networkrail.movementdata.CancellationType.EnRoute
 import traindelays.networkrail.movementdata.EventType.Arrival
-import traindelays.ui.{AuthenticatedDetails, MockGoogleAuthenticator, Service}
+import traindelays.ui.{AuthenticatedDetails, HistoryService, MockGoogleAuthenticator, Service}
 
 import scala.concurrent.ExecutionContext
 import scala.util.Random
@@ -522,12 +522,19 @@ trait TestFeatures {
   def serviceFrom(fixture: TrainDelaysTestFixture,
                   uIConfig: UIConfig,
                   authenticatedDetails: AuthenticatedDetails): HttpService[IO] =
-    Service(fixture.scheduleTable,
-            fixture.stanoxTable,
-            fixture.subscriberTable,
-            fixture.movementLogTable,
-            uIConfig,
-            MockGoogleAuthenticator(authenticatedDetails))
+    Service(
+      HistoryService(fixture.movementLogTable,
+                     fixture.cancellationLogTable,
+                     fixture.stanoxTable,
+                     fixture.scheduleTable),
+      fixture.scheduleTable,
+      fixture.stanoxTable,
+      fixture.subscriberTable,
+      fixture.movementLogTable,
+      fixture.cancellationLogTable,
+      uIConfig,
+      MockGoogleAuthenticator(authenticatedDetails)
+    )
 
   def getFlushedRedisClient(implicit executionContext: ExecutionContext): IO[RedisClient] = {
     val redisClient = new RedisClient()
