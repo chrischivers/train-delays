@@ -10,7 +10,6 @@ import io.circe._
 import io.circe.Decoder.Result
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail._
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 
 trait DecodedScheduleRecord {
@@ -23,8 +22,8 @@ object DecodedScheduleRecord extends StrictLogging {
 
   case class Create(scheduleTrainId: ScheduleTrainId,
                     trainServiceCode: ServiceCode,
-                    trainCategory: TrainCategory,
-                    trainStatus: TrainStatus,
+                    trainCategory: Option[TrainCategory],
+                    trainStatus: Option[TrainStatus],
                     atocCode: Option[AtocCode],
                     daysRun: DaysRun,
                     scheduleStartDate: LocalDate,
@@ -171,10 +170,10 @@ object DecodedScheduleRecord extends StrictLogging {
       scheduleEndDate   <- scheduleObject.downField("schedule_end_date").as[LocalDate]
       stopIndicator     <- scheduleObject.downField("CIF_stp_indicator").as[StpIndicator]
       scheduleTrainUid  <- scheduleObject.downField("CIF_train_uid").as[ScheduleTrainId]
-      trainStatus       <- scheduleObject.downField("train_status").as[TrainStatus]
+      trainStatus       <- scheduleObject.downField("train_status").as[Option[TrainStatus]]
       scheduleSegment = scheduleObject.downField("schedule_segment")
       serviceCode         <- scheduleSegment.downField("CIF_train_service_code").as[ServiceCode]
-      trainCategory       <- scheduleSegment.downField("CIF_train_category").as[TrainCategory]
+      trainCategory       <- scheduleSegment.downField("CIF_train_category").as[Option[TrainCategory]]
       locationRecordArray <- scheduleSegment.downField("schedule_location").as[Option[List[ScheduleLocationRecord]]]
     } yield {
       DecodedScheduleRecord.Create(

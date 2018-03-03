@@ -8,7 +8,7 @@ import traindelays.networkrail.NetworkRailClient
 import traindelays.networkrail.db.{ScheduleTable, _}
 import traindelays.networkrail.scheduledata._
 
-//import scala.language.reflectiveCalls
+import scala.language.reflectiveCalls
 
 object FullPopulateScheduleTable extends App with StrictLogging {
 
@@ -25,11 +25,11 @@ object FullPopulateScheduleTable extends App with StrictLogging {
 
     fs2.Stream.eval {
       for {
-//        _ <- networkRailClient deleteTmpFiles ()
-//        _ <- IO.pure(logger.info("Downloading full schedule data"))
-//        _ <- networkRailClient.downloadFullScheduleData
-//        _ <- IO.pure(logger.info("Unpacking schedule data"))
-//        _ <- networkRailClient.unpackScheduleData
+        _ <- networkRailClient deleteTmpFiles ()
+        _ <- IO.pure(logger.info("Downloading full schedule data"))
+        _ <- networkRailClient.downloadFullScheduleData
+        _ <- IO.pure(logger.info("Unpacking schedule data"))
+        _ <- networkRailClient.unpackScheduleData
         _ <- IO.pure(logger.info("Writing stanox records"))
         _ <- writeStanoxRecords(stanoxTable, scheduleDataReader)
         _ <- IO.pure(logger.info("Writing schedule records"))

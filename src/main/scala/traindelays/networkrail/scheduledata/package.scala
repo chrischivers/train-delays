@@ -3,6 +3,7 @@ package traindelays.networkrail
 import java.time.format.DateTimeFormatter
 
 import cats.effect.IO
+import com.typesafe.scalalogging.StrictLogging
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
 import io.circe._
@@ -109,6 +110,81 @@ package object scheduledata {
 
     implicit val meta: Meta[StpIndicator] =
       Meta[String].xmap(str => StpIndicator.fromString(str).getOrElse(P), _.value)
+  }
+
+  trait AssociationCategory {
+    val value: String
+  }
+  case object AssociationCategory {
+
+    private val associationCategories = Seq(Join, Divide, Next)
+
+    case object Join extends AssociationCategory {
+      override val value: String = "JJ"
+    }
+
+    case object Divide extends AssociationCategory {
+      override val value: String = "VV"
+    }
+
+    case object Next extends AssociationCategory {
+      override val value: String = "NP"
+    }
+    def fromString(str: String): Option[AssociationCategory] =
+      associationCategories.find(_.value == str)
+
+    implicit val encoder: Encoder[AssociationCategory] = (a: AssociationCategory) => Json.fromString(a.value)
+    implicit val decoder: Decoder[AssociationCategory] = (c: HCursor) =>
+      c.as[String]
+        .flatMap(
+          x =>
+            fromString(x)
+              .fold[Result[AssociationCategory]](
+                Left(DecodingFailure("No match for association category", List.empty)))(Right(_)))
+
+    implicit val meta: Meta[AssociationCategory] =
+      Meta[String].xmap(str =>
+                          AssociationCategory
+                            .fromString(str)
+                            .getOrElse(throw new RuntimeException(s"No association category found for [$str]")),
+                        _.value)
+  }
+
+  sealed trait DaysRunPattern {
+    val string: String
+  }
+
+  object DaysRunPattern extends StrictLogging {
+
+    case object Weekdays extends DaysRunPattern {
+      override val string: String = "Weekdays"
+    }
+    case object Saturdays extends DaysRunPattern {
+      override val string: String = "Saturdays"
+    }
+    case object Sundays extends DaysRunPattern {
+      override val string: String = "Sundays"
+    }
+
+    import doobie.util.meta.Meta
+
+    def fromString(str: String): Option[DaysRunPattern] =
+      str match {
+        case Weekdays.string  => Some(Weekdays)
+        case Saturdays.string => Some(Saturdays)
+        case Sundays.string   => Some(Sundays)
+        case _                => None
+      }
+    implicit val decoder: Decoder[DaysRunPattern] = Decoder.decodeString.map(str =>
+      fromString(str).getOrElse {
+        logger.error(s"Unknown days run pattern [$str]. Defaulting to 'weekdays'")
+        Weekdays
+    })
+
+    implicit val encoder: Encoder[DaysRunPattern] = (a: DaysRunPattern) => Json.fromString(a.string)
+
+    implicit val meta: Meta[DaysRunPattern] =
+      Meta[String].xmap(str => DaysRunPattern.fromString(str).getOrElse(Weekdays), _.string)
   }
 
 }

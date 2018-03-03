@@ -6,13 +6,13 @@ import java.time.LocalTime
 import org.http4s.Uri
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern.{Saturdays, Weekdays}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType._
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.{CRS, StanoxCode, TestFeatures, TipLocCode}
 import traindelays.ScheduleDataConfig
+import traindelays.networkrail.scheduledata.DaysRunPattern.{Saturdays, Weekdays}
 
 import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global

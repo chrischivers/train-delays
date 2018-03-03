@@ -2,9 +2,8 @@ package traindelays.networkrail
 
 import doobie.util.meta.Meta
 import io.circe.Decoder
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.movementdata.MovementLog
-import traindelays.networkrail.scheduledata.ScheduleTrainId
+import traindelays.networkrail.scheduledata.{DaysRunPattern, ScheduleTrainId}
 
 package object subscribers {
 

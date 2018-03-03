@@ -1,13 +1,13 @@
 package traindelays.ui
 
 import cats.effect.IO
+import traindelays.networkrail.scheduledata.DaysRunPattern
 //import org.http4s.circe._
 import org.http4s.dsl.io._
 import org.http4s.{EntityDecoder, EntityEncoder, Request, Uri}
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.{StanoxCode, TestFeatures}
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.UIConfig
 
 import scala.concurrent.ExecutionContext

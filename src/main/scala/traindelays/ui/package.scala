@@ -12,10 +12,9 @@ import io.circe.java8.time.{
 }
 import io.circe.{Decoder, Encoder, Json}
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.movementdata.CancellationType
-import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
+import traindelays.networkrail.scheduledata.{AtocCode, DaysRunPattern, ScheduleTrainId}
 import traindelays.networkrail.subscribers.SubscriberRecord
 import traindelays.networkrail.{CRS, Definitions, StanoxCode}
 

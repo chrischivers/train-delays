@@ -4,11 +4,9 @@ import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
-import io.circe.{Decoder, Encoder, Json}
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
-import traindelays.networkrail.scheduledata.{AtocCode, DecodedScheduleRecord, ScheduleTrainId, StpIndicator}
+import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.{ServiceCode, StanoxCode, TrainCategory, TrainStatus}
 
 import scala.concurrent.duration.FiniteDuration
@@ -56,8 +54,8 @@ object ScheduleTable extends StrictLogging {
                             scheduleTrainId: ScheduleTrainId,
                             serviceCode: ServiceCode,
                             stpIndicator: StpIndicator,
-                            trainCategory: TrainCategory,
-                            trainStatus: TrainStatus,
+                            trainCategory: Option[TrainCategory],
+                            trainStatus: Option[TrainStatus],
                             atocCode: Option[AtocCode],
                             stopSequence: Int,
                             stanoxCode: StanoxCode,
@@ -75,62 +73,7 @@ object ScheduleTable extends StrictLogging {
                             scheduleEnd: LocalDate,
                             locationType: LocationType,
                             arrivalTime: Option[LocalTime],
-                            departureTime: Option[LocalTime]) {
-
-    val primaryKeyFields =
-      ScheduleRecord.KeyFields(scheduleTrainId, serviceCode, stanoxCode, stopSequence, scheduleStart, scheduleEnd)
-    def matchesKeyFields(that: ScheduleRecord): Boolean =
-      that.primaryKeyFields == this.primaryKeyFields
-  }
-  object ScheduleRecord {
-
-    case class KeyFields(scheduleTrainId: ScheduleTrainId,
-                         serviceCode: ServiceCode,
-                         stanoxCode: StanoxCode,
-                         stopSequence: Int,
-                         scheduleStart: LocalDate,
-                         scheduleEnd: LocalDate)
-
-    def toKeyFields(scheduleLogs: List[ScheduleRecord]): Set[KeyFields] =
-      scheduleLogs.map(rec => rec.primaryKeyFields).toSet
-
-    sealed trait DaysRunPattern {
-      val string: String
-    }
-
-    object DaysRunPattern {
-
-      case object Weekdays extends DaysRunPattern {
-        override val string: String = "Weekdays"
-      }
-      case object Saturdays extends DaysRunPattern {
-        override val string: String = "Saturdays"
-      }
-      case object Sundays extends DaysRunPattern {
-        override val string: String = "Sundays"
-      }
-
-      import doobie.util.meta.Meta
-
-      def fromString(str: String): Option[DaysRunPattern] =
-        str match {
-          case Weekdays.string  => Some(Weekdays)
-          case Saturdays.string => Some(Saturdays)
-          case Sundays.string   => Some(Sundays)
-          case _                => None
-        }
-      implicit val decoder: Decoder[DaysRunPattern] = Decoder.decodeString.map(str =>
-        fromString(str).getOrElse {
-          logger.error(s"Unknown days run pattern [$str]. Defaulting to 'weekdays'")
-          Weekdays
-      })
-
-      implicit val encoder: Encoder[DaysRunPattern] = (a: DaysRunPattern) => Json.fromString(a.string)
-
-      implicit val meta: Meta[DaysRunPattern] =
-        Meta[String].xmap(str => DaysRunPattern.fromString(str).getOrElse(Weekdays), _.string)
-    }
-  }
+                            departureTime: Option[LocalTime])
 
   def addScheduleLogRecord(log: ScheduleRecord): Update0 =
     sql"""
@@ -147,8 +90,8 @@ object ScheduleTable extends StrictLogging {
   type ScheduleLogToBeInserted = ((ScheduleTrainId,
                                    ServiceCode,
                                    StpIndicator,
-                                   TrainCategory,
-                                   TrainStatus,
+                                   Option[TrainCategory],
+                                   Option[TrainStatus],
                                    Option[AtocCode],
                                    Int,
                                    StanoxCode,

@@ -15,9 +15,8 @@ import org.scalatest.Matchers.fail
 import redis.RedisClient
 import traindelays._
 import traindelays.networkrail.cache.TrainActivationCache
+import traindelays.networkrail.db.AssociationTable.AssociationRecord
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern.Weekdays
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, _}
 import traindelays.networkrail.metrics.TestMetricsLogging
@@ -25,6 +24,7 @@ import traindelays.networkrail.movementdata.CancellationType.EnRoute
 import traindelays.networkrail.movementdata.EventType.Arrival
 import traindelays.networkrail.movementdata.VariationStatus.{Early, Late}
 import traindelays.networkrail.movementdata._
+import traindelays.networkrail.scheduledata.DaysRunPattern.Weekdays
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType.{
   OriginatingLocation,
@@ -59,10 +59,12 @@ trait TestFeatures {
         _ <- sql"DROP TABLE IF EXISTS movement_log".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS subscribers".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS cancellation_log".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS association".update.run.transact(db)
       } yield ()
   }
 
   case class AppInitialState(scheduleLogRecords: List[ScheduleRecord] = List.empty,
+                             associationRecords: List[AssociationRecord] = List.empty,
                              stanoxRecords: List[StanoxRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
                              subscriberRecords: List[SubscriberRecord] = List.empty,
@@ -74,6 +76,7 @@ trait TestFeatures {
 
   case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
                                     stanoxTable: StanoxTable,
+                                    associationTable: AssociationTable,
                                     movementLogTable: MovementLogTable,
                                     cancellationLogTable: CancellationLogTable,
                                     subscriberTable: SubscriberTable,
@@ -120,6 +123,7 @@ trait TestFeatures {
       val movementLogTable     = MovementLogTable(db)
       val subscriberTable      = SubscriberTable(db, subscribersConfig.memoizeFor)
       val scheduleTable        = ScheduleTable(db, scheduleDataConfig.memoizeFor)
+      val associationTable     = AssociationTable(db, scheduleDataConfig.memoizeFor)
       val emailer              = StubEmailer()
       val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
       val metricsLogging       = TestMetricsLogging(config.metricsConfig)
@@ -144,7 +148,16 @@ trait TestFeatures {
           }
           .sequence[IO, Int]
 
-        z <- initState.movementLogs
+        _ <- initState.associationRecords
+          .map { associationRecord =>
+            AssociationTable
+              .addAssociationRecord(associationRecord)
+              .run
+              .transact(db)
+          }
+          .sequence[IO, Int]
+
+        _ <- initState.movementLogs
           .map(record => {
             MovementLogTable
               .addMovementLogRecord(record)
@@ -173,15 +186,18 @@ trait TestFeatures {
 
       } yield
         f(
-          TrainDelaysTestFixture(scheduleTable,
-                                 stanoxTable,
-                                 movementLogTable,
-                                 CancellationLogTable(db),
-                                 subscriberTable,
-                                 trainActivationCache,
-                                 emailer,
-                                 subscriberHandler,
-                                 metricsLogging))
+          TrainDelaysTestFixture(
+            scheduleTable,
+            stanoxTable,
+            associationTable,
+            movementLogTable,
+            CancellationLogTable(db),
+            subscriberTable,
+            trainActivationCache,
+            emailer,
+            subscriberHandler,
+            metricsLogging
+          ))
     }
 
   def createMovementRecord(trainId: TrainId = TrainId("12345"),
@@ -280,8 +296,8 @@ trait TestFeatures {
 
   def createDecodedScheduleCreateRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
                                         trainServiceCode: ServiceCode = ServiceCode("24745000"),
-                                        trainCategory: TrainCategory = TrainCategory("OO"),
-                                        trainStatus: TrainStatus = TrainStatus("B"),
+                                        trainCategory: Option[TrainCategory] = Some(TrainCategory("OO")),
+                                        trainStatus: Option[TrainStatus] = Some(TrainStatus("B")),
                                         atocCode: Option[AtocCode] = Some(AtocCode("SN")),
                                         daysRun: DaysRun = DaysRun(monday = true,
                                                                    tuesday = true,
@@ -318,8 +334,8 @@ trait TestFeatures {
   def createScheduleLog(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
                         trainServiceCode: ServiceCode = ServiceCode("24745000"),
                         stpIndicator: StpIndicator = StpIndicator.P,
-                        trainCategory: TrainCategory = TrainCategory("OO"),
-                        trainStatus: TrainStatus = TrainStatus("B"),
+                        trainCategory: Option[TrainCategory] = Some(TrainCategory("OO")),
+                        trainStatus: Option[TrainStatus] = Some(TrainStatus("B")),
                         atocCode: Option[AtocCode] = Some(AtocCode("SN")),
                         monday: Boolean = true,
                         tuesday: Boolean = true,
@@ -364,6 +380,39 @@ trait TestFeatures {
       locationType,
       arrivalTime,
       departureTime
+    )
+  def createAssociationRecord(mainScheduleTrainID: ScheduleTrainId = ScheduleTrainId("G76481"),
+                              associatedScheduleTrainID: ScheduleTrainId = ScheduleTrainId("G12389"),
+                              associatedStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+                              associatedEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+                              stpIndicator: StpIndicator = StpIndicator.P,
+                              location: TipLocCode = TipLocCode("REDHILL"),
+                              monday: Boolean = true,
+                              tuesday: Boolean = true,
+                              wednesday: Boolean = true,
+                              thursday: Boolean = true,
+                              friday: Boolean = true,
+                              saturday: Boolean = false,
+                              sunday: Boolean = false,
+                              daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
+                              associationCategory: AssociationCategory = AssociationCategory.Join) =
+    AssociationRecord(
+      None,
+      mainScheduleTrainID,
+      associatedScheduleTrainID,
+      associatedStartDate,
+      associatedEndDate,
+      stpIndicator,
+      location,
+      monday,
+      tuesday,
+      wednesday,
+      thursday,
+      friday,
+      saturday,
+      sunday,
+      daysRunPattern,
+      associationCategory
     )
 
   def createCancellationLog(trainId: TrainId = TrainId("862F60MY30"),

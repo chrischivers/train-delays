@@ -4,7 +4,6 @@ import java.time.LocalTime
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.{DaysRun, ScheduleLocationRecord}

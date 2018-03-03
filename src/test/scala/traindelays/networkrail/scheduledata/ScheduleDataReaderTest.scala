@@ -25,8 +25,8 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
-      TrainCategory("OO"),
-      TrainStatus("P"),
+      Some(TrainCategory("OO")),
+      Some(TrainStatus("P")),
       Some(AtocCode("SN")),
       DaysRun(monday = true,
               tuesday = true,
@@ -76,8 +76,8 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
-      TrainCategory("OO"),
-      TrainStatus("P"),
+      Some(TrainCategory("OO")),
+      Some(TrainStatus("P")),
       Some(AtocCode("SN")),
       DaysRun(monday = true,
               tuesday = true,

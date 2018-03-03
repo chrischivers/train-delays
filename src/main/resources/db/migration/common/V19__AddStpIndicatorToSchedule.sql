@@ -1,7 +1,7 @@
 ALTER TABLE schedule
 ADD COLUMN stp_indicator VARCHAR(10) NOT NULL,
-ADD COLUMN train_category VARCHAR(10) NOT NULL,
-ADD COLUMN train_status VARCHAR(10) NOT NULL;
+ADD COLUMN train_category VARCHAR(10) NULL,
+ADD COLUMN train_status VARCHAR(10) NULL;
 
 ALTER TABLE schedule
 DROP CONSTRAINT  unique_cons;
