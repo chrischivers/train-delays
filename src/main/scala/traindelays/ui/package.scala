@@ -17,8 +17,7 @@ import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.movementdata.CancellationType
 import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
 import traindelays.networkrail.subscribers.SubscriberRecord
-import traindelays.networkrail.tocs.tocs
-import traindelays.networkrail.{CRS, StanoxCode}
+import traindelays.networkrail.{CRS, Definitions, StanoxCode}
 
 package object ui {
 
@@ -44,7 +43,7 @@ package object ui {
 
   case class ScheduleQueryResponse(id: Int,
                                    scheduleTrainId: ScheduleTrainId,
-                                   atocCode: AtocCode,
+                                   atocCode: Option[AtocCode],
                                    tocName: String,
                                    fromStanoxCode: StanoxCode,
                                    fromCRS: CRS,
@@ -85,7 +84,7 @@ package object ui {
                                             cancellationReasonCode: String)
 
   case class HistoryQueryResponse(scheduleTrainId: ScheduleTrainId,
-                                  atocCode: AtocCode,
+                                  atocCode: Option[AtocCode],
                                   fromStanoxCode: StanoxCode,
                                   fromCRS: CRS,
                                   toStanoxCode: StanoxCode,
@@ -122,7 +121,7 @@ package object ui {
       for {
         id            <- log.id
         departureTime <- log.departureTime
-        tocName       <- tocs.mapping.get(log.atocCode)
+        tocName       <- log.atocCode.flatMap(atoc => Definitions.atocToOperatorNameMapping.get(atoc))
         indexOfArrivalStopOpt = log.subsequentStanoxCodes.indexWhere(_ == toStanoxCode)
         indexOfArrivalStop <- if (indexOfArrivalStopOpt == -1) None else Some(indexOfArrivalStopOpt)
         arrivalTime = log.subsequentArrivalTimes(indexOfArrivalStop)

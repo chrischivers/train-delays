@@ -5,7 +5,7 @@ import fs2.Pipe
 import io.circe.Decoder.Result
 import io.circe._
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
-import traindelays.networkrail.{CRS, StanoxCode, TipLocCode}
+import traindelays.networkrail.{CRS, Definitions, StanoxCode, TipLocCode}
 
 trait DecodedStanoxRecord {
   val tipLocCode: TipLocCode
@@ -18,7 +18,10 @@ object DecodedStanoxRecord {
                     crs: Option[CRS],
                     description: Option[String])
       extends DecodedStanoxRecord {
-    def toStanoxRecord = StanoxRecord(tipLocCode, stanoxCode, crs, description)
+    def toStanoxRecord = {
+      val primary = stanoxCode.map(stanox => Definitions.primaryStanoxTiplocCombinations.contains((stanox, tipLocCode)))
+      StanoxRecord(tipLocCode, stanoxCode, crs, description, primary)
+    }
   }
 
   case class Delete(tipLocCode: TipLocCode) extends DecodedStanoxRecord
@@ -28,7 +31,10 @@ object DecodedStanoxRecord {
                     crs: Option[CRS],
                     description: Option[String])
       extends DecodedStanoxRecord {
-    def toStanoxRecord = StanoxRecord(tipLocCode, stanoxCode, crs, description)
+    def toStanoxRecord = {
+      val primary = stanoxCode.map(stanox => Definitions.primaryStanoxTiplocCombinations.contains((stanox, tipLocCode)))
+      StanoxRecord(tipLocCode, stanoxCode, crs, description, primary)
+    }
   }
 
   implicit case object JsonFilter extends JsonFilter[DecodedStanoxRecord] {

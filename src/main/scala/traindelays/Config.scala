@@ -17,7 +17,8 @@ case class NetworkRailConfig(host: String,
                              movements: MovementsConfig,
                              subscribersConfig: SubscribersConfig)
 
-case class ScheduleDataConfig(downloadUrl: Uri,
+case class ScheduleDataConfig(fullDownloadUrl: Uri,
+                              updateDownloadUrl: Uri,
                               tmpDownloadLocation: Path,
                               tmpUnzipLocation: Path,
                               memoizeFor: FiniteDuration)
@@ -68,7 +69,8 @@ object TrainDelaysConfig {
         config.getString("networkRail.password"),
         config.getInt("networkRail.maxRedirects"),
         ScheduleDataConfig(
-          Uri.unsafeFromString(config.getString("networkRail.scheduleData.uri")),
+          Uri.unsafeFromString(config.getString("networkRail.scheduleData.fullUri")),
+          Uri.unsafeFromString(config.getString("networkRail.scheduleData.updateUri")),
           Paths.get(config.getString("networkRail.scheduleData.tmpDownloadLocation")),
           Paths.get(config.getString("networkRail.scheduleData.tmpUnzipLocation")),
           FiniteDuration(config.getDuration("networkRail.scheduleData.memoizeFor").toMillis, TimeUnit.MILLISECONDS)

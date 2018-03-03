@@ -6,3 +6,6 @@ DROP CONSTRAINT  unique_cons;
 
 ALTER TABLE schedule
 ADD CONSTRAINT unique_cons UNIQUE(schedule_train_id, service_code, stanox_code, stop_sequence, schedule_start, schedule_end, stp_indicator);
+
+ALTER TABLE schedule
+  ALTER COLUMN atoc_code DROP NOT NULL;

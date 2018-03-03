@@ -232,8 +232,11 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     )
 
     withInitialState(testDatabaseConfig,
-                     scheduleDataConfig =
-                       ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 2 seconds))(
+                     scheduleDataConfig = ScheduleDataConfig(Uri.unsafeFromString(""),
+                                                             Uri.unsafeFromString(""),
+                                                             Paths.get(""),
+                                                             Paths.get(""),
+                                                             2 seconds))(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))

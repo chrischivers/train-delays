@@ -3,6 +3,7 @@ package traindelays.networkrail.scheduledata
 import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
+import com.typesafe.scalalogging.StrictLogging
 import doobie.util.meta.Meta
 import fs2.Pipe
 import io.circe._
@@ -18,11 +19,11 @@ trait DecodedScheduleRecord {
   val stpIndicator: StpIndicator
 }
 
-object DecodedScheduleRecord {
+object DecodedScheduleRecord extends StrictLogging {
 
   case class Create(scheduleTrainId: ScheduleTrainId,
                     trainServiceCode: ServiceCode,
-                    atocCode: AtocCode,
+                    atocCode: Option[AtocCode],
                     daysRun: DaysRun,
                     scheduleStartDate: LocalDate,
                     scheduleEndDate: LocalDate,
@@ -143,25 +144,32 @@ object DecodedScheduleRecord {
     override def apply(c: HCursor): Result[DecodedScheduleRecord] = {
       val cursor = c.downField("JsonScheduleV1")
       cursor.downField("transaction_type").as[TransactionType].flatMap {
-        case TransactionType.Create => decodeScheduleCreateRecord(cursor)
-        case TransactionType.Delete => decodeScheduleDeleteRecord(cursor)
-        case TransactionType.Update => Left(DecodingFailure("Update for JsonScheduleV1 not handled", c.history))
+        case TransactionType.Create => logDecodingErrors(c, decodeScheduleCreateRecord(cursor))
+        case TransactionType.Delete => logDecodingErrors(c, decodeScheduleDeleteRecord(cursor))
+        case TransactionType.Update =>
+          Left(DecodingFailure(s"Update for JsonScheduleV1 not handled ${c.value}", c.history))
       }
     }
+
+    def logDecodingErrors[A](cursor: HCursor, result: Either[DecodingFailure, A]): Either[DecodingFailure, A] =
+      result.fold(failure => {
+        logger.error(s"Error decoding ${cursor.value}", failure)
+        Left(failure)
+      }, _ => result)
   }
 
   private def decodeScheduleCreateRecord(scheduleObject: ACursor) =
     for {
       daysRun           <- scheduleObject.downField("schedule_days_runs").as[String]
       daysRunDecoded    <- DaysRun.daysRunFrom(daysRun)
-      atocCode          <- scheduleObject.downField("atoc_code").as[AtocCode]
+      atocCode          <- scheduleObject.downField("atoc_code").as[Option[AtocCode]]
       scheduleStartDate <- scheduleObject.downField("schedule_start_date").as[LocalDate]
       scheduleEndDate   <- scheduleObject.downField("schedule_end_date").as[LocalDate]
       stopIndicator     <- scheduleObject.downField("CIF_stp_indicator").as[StpIndicator]
       scheduleTrainUid  <- scheduleObject.downField("CIF_train_uid").as[ScheduleTrainId]
       scheduleSegment = scheduleObject.downField("schedule_segment")
       serviceCode         <- scheduleSegment.downField("CIF_train_service_code").as[ServiceCode]
-      locationRecordArray <- scheduleSegment.downField("schedule_location").as[List[ScheduleLocationRecord]]
+      locationRecordArray <- scheduleSegment.downField("schedule_location").as[Option[List[ScheduleLocationRecord]]]
     } yield {
       DecodedScheduleRecord.Create(scheduleTrainUid,
                                    serviceCode,
@@ -170,7 +178,7 @@ object DecodedScheduleRecord {
                                    scheduleStartDate,
                                    scheduleEndDate,
                                    stopIndicator,
-                                   locationRecordArray)
+                                   locationRecordArray.getOrElse(Nil))
     }
 
   private def decodeScheduleDeleteRecord(scheduleObject: ACursor) =

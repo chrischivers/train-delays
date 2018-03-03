@@ -53,15 +53,15 @@ object StanoxTable {
   def addStanoxRecord(record: StanoxRecord): Update0 =
     sql"""
       INSERT INTO stanox
-      (tiploc_code, stanox_code, crs, description)
-      VALUES(${record.tipLocCode}, ${record.stanoxCode}, ${record.crs}, ${record.description})
+      (tiploc_code, stanox_code, crs, description, primary_entry)
+      VALUES(${record.tipLocCode}, ${record.stanoxCode}, ${record.crs}, ${record.description}, ${record.primary})
      """.update
 
   def updateStanoxRecord(record: StanoxRecord): Update0 =
     sql"""
       INSERT INTO stanox
-      ( tiploc_code, stanox_code, crs, description)
-      VALUES(${record.tipLocCode}, ${record.stanoxCode}, ${record.crs}, ${record.description})
+      ( tiploc_code, stanox_code, crs, description, primary_entry)
+      VALUES(${record.tipLocCode}, ${record.stanoxCode}, ${record.crs}, ${record.description}, ${record.primary})
       ON CONFLICT (stanox_code, tiploc_code)
       DO UPDATE SET crs = ${record.crs}, description = ${record.description};
      """.update

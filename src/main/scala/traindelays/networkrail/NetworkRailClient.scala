@@ -1,19 +1,23 @@
 package traindelays.networkrail
 
 import java.nio.file.Path
+import java.text.SimpleDateFormat
+import java.util.Calendar
 
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import fs2.compress._
 import org.http4s.client.Client
 import org.http4s.headers.Authorization
-import org.http4s.{BasicCredentials, EntityBody, Headers, Request}
+import org.http4s.{BasicCredentials, EntityBody, Headers, Request, Uri}
 import traindelays.NetworkRailConfig
 import traindelays.stomp.{StompClient, StompStreamListener}
 
 trait NetworkRailClient {
 
-  def downloadScheduleData: IO[Unit]
+  def downloadFullScheduleData: IO[Unit]
+
+  def downloadUpdateScheduleData: IO[Unit]
 
   def unpackScheduleData: IO[Unit]
 
@@ -25,9 +29,21 @@ object NetworkRailClient extends StrictLogging {
 
     val credentials = BasicCredentials(config.username, config.password)
 
-    override def downloadScheduleData: IO[Unit] = {
+    override def downloadFullScheduleData: IO[Unit] = downloadFromUrl(config.scheduleData.fullDownloadUrl)
+
+    override def downloadUpdateScheduleData: IO[Unit] = {
+      val simpleDateFormat = new SimpleDateFormat("E")
+      val calendar         = Calendar.getInstance
+      calendar.add(Calendar.DAY_OF_MONTH, -1)
+      val day = simpleDateFormat.format(calendar.getTime).toLowerCase
+      val url = Uri.unsafeFromString(config.scheduleData.updateDownloadUrl.renderString.replace("DAY_FIELD", day))
+      logger.info(s"Getting updated schedule from URL $url")
+      downloadFromUrl(url)
+    }
+
+    private def downloadFromUrl(url: Uri) = {
       val request =
-        Request[IO](uri = config.scheduleData.downloadUrl).withHeaders(Headers(Authorization(credentials)))
+        Request[IO](uri = url).withHeaders(Headers(Authorization(credentials)))
       followRedirects(client, config.maxRedirects).fetch(request) { resp =>
         if (resp.status.isSuccess) {
           writeToFile(config.scheduleData.tmpDownloadLocation, resp.body).map(_ => ())

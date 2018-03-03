@@ -110,7 +110,7 @@ trait TestFeatures {
       databaseConfig: DatabaseConfig,
       subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute),
       scheduleDataConfig: ScheduleDataConfig =
-        ScheduleDataConfig(Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 1 minute),
+        ScheduleDataConfig(Uri.unsafeFromString(""), Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 1 minute),
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
       f: TrainDelaysTestFixture => A)(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
@@ -280,7 +280,7 @@ trait TestFeatures {
 
   def createDecodedScheduleCreateRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
                                         trainServiceCode: ServiceCode = ServiceCode("24745000"),
-                                        atocCode: AtocCode = AtocCode("SN"),
+                                        atocCode: Option[AtocCode] = Some(AtocCode("SN")),
                                         daysRun: DaysRun = DaysRun(monday = true,
                                                                    tuesday = true,
                                                                    wednesday = true,
@@ -314,7 +314,7 @@ trait TestFeatures {
   def createScheduleLog(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
                         trainServiceCode: ServiceCode = ServiceCode("24745000"),
                         stpIndicator: StpIndicator = StpIndicator.P,
-                        atocCode: AtocCode = AtocCode("SN"),
+                        atocCode: Option[AtocCode] = Some(AtocCode("SN")),
                         monday: Boolean = true,
                         tuesday: Boolean = true,
                         wednesday: Boolean = true,
