@@ -9,7 +9,7 @@ import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata.{AtocCode, DecodedScheduleRecord, ScheduleTrainId, StpIndicator}
-import traindelays.networkrail.{ServiceCode, StanoxCode}
+import traindelays.networkrail.{ServiceCode, StanoxCode, TrainCategory, TrainStatus}
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -56,6 +56,8 @@ object ScheduleTable extends StrictLogging {
                             scheduleTrainId: ScheduleTrainId,
                             serviceCode: ServiceCode,
                             stpIndicator: StpIndicator,
+                            trainCategory: TrainCategory,
+                            trainStatus: TrainStatus,
                             atocCode: Option[AtocCode],
                             stopSequence: Int,
                             stanoxCode: StanoxCode,
@@ -133,70 +135,74 @@ object ScheduleTable extends StrictLogging {
   def addScheduleLogRecord(log: ScheduleRecord): Update0 =
     sql"""
       INSERT INTO schedule
-      (schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+      (schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
       subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
       days_run_pattern, schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.stpIndicator}, ${log.atocCode}, ${log.stopSequence}, ${log.stanoxCode},
+      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.stpIndicator}, ${log.trainCategory}, ${log.trainStatus}, ${log.atocCode}, ${log.stopSequence}, ${log.stanoxCode},
       ${log.subsequentStanoxCodes}, ${log.subsequentArrivalTimes}, ${log.monday}, ${log.tuesday}, ${log.wednesday},
       ${log.thursday}, ${log.friday}, ${log.saturday}, ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart},
       ${log.scheduleEnd}, ${log.locationType}, ${log.arrivalTime}, ${log.departureTime})
      """.update
 
-  type ScheduleLogToBeInserted = (ScheduleTrainId,
-                                  ServiceCode,
-                                  StpIndicator,
-                                  Option[AtocCode],
-                                  Int,
-                                  StanoxCode,
-                                  List[StanoxCode],
-                                  List[LocalTime],
-                                  Boolean,
-                                  Boolean,
-                                  Boolean,
-                                  Boolean,
-                                  Boolean,
-                                  Boolean,
-                                  Boolean,
-                                  DaysRunPattern,
-                                  LocalDate,
-                                  LocalDate,
-                                  LocationType,
-                                  Option[LocalTime],
-                                  Option[LocalTime])
+  type ScheduleLogToBeInserted = ((ScheduleTrainId,
+                                   ServiceCode,
+                                   StpIndicator,
+                                   TrainCategory,
+                                   TrainStatus,
+                                   Option[AtocCode],
+                                   Int,
+                                   StanoxCode,
+                                   List[StanoxCode],
+                                   List[LocalTime]),
+                                  (Boolean,
+                                   Boolean,
+                                   Boolean,
+                                   Boolean,
+                                   Boolean,
+                                   Boolean,
+                                   Boolean,
+                                   DaysRunPattern,
+                                   LocalDate,
+                                   LocalDate,
+                                   LocationType,
+                                   Option[LocalTime],
+                                   Option[LocalTime]))
 
   def addScheduleLogRecords(logs: List[ScheduleRecord]): ConnectionIO[Int] = {
 
     val toBeInserted: List[ScheduleLogToBeInserted] = logs.map(
       log =>
-        (log.scheduleTrainId,
-         log.serviceCode,
-         log.stpIndicator,
-         log.atocCode,
-         log.stopSequence,
-         log.stanoxCode,
-         log.subsequentStanoxCodes,
-         log.subsequentArrivalTimes,
-         log.monday,
-         log.tuesday,
-         log.wednesday,
-         log.thursday,
-         log.friday,
-         log.saturday,
-         log.sunday,
-         log.daysRunPattern,
-         log.scheduleStart,
-         log.scheduleEnd,
-         log.locationType,
-         log.arrivalTime,
-         log.departureTime))
+        ((log.scheduleTrainId,
+          log.serviceCode,
+          log.stpIndicator,
+          log.trainCategory,
+          log.trainStatus,
+          log.atocCode,
+          log.stopSequence,
+          log.stanoxCode,
+          log.subsequentStanoxCodes,
+          log.subsequentArrivalTimes),
+         (log.monday,
+          log.tuesday,
+          log.wednesday,
+          log.thursday,
+          log.friday,
+          log.saturday,
+          log.sunday,
+          log.daysRunPattern,
+          log.scheduleStart,
+          log.scheduleEnd,
+          log.locationType,
+          log.arrivalTime,
+          log.departureTime)))
 
     val sql = s"""
        |   INSERT INTO schedule
-       |      (schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+       |      (schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
        |      subsequent_arrival_times,
        |      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
        |      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.stripMargin
 
     Update[ScheduleLogToBeInserted](sql).updateMany(toBeInserted)
@@ -204,7 +210,7 @@ object ScheduleTable extends StrictLogging {
 
   def allScheduleLogRecords(): Query0[ScheduleRecord] =
     sql"""
-      SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+      SELECT id, schedule_train_id, service_code,  stp_indicator,train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
       subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
       FROM schedule
@@ -215,7 +221,7 @@ object ScheduleTable extends StrictLogging {
                          daysRunPattern: DaysRunPattern,
                          stpIndicator: StpIndicator): Query0[ScheduleRecord] =
     sql"""
-         SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+         SELECT id, schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
          subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
@@ -227,7 +233,7 @@ object ScheduleTable extends StrictLogging {
 
   def scheduleRecordsFor(trainId: ScheduleTrainId, fromStation: StanoxCode): Query0[ScheduleRecord] =
     sql"""
-         SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+         SELECT id, schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
          subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
@@ -236,7 +242,7 @@ object ScheduleTable extends StrictLogging {
 
   def scheduleRecordFor(id: Int) =
     sql"""
-         SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+         SELECT id, schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
                 subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
                 schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule

@@ -10,7 +10,7 @@ import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocati
   TerminatingLocation
 }
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.{CRS, ServiceCode, StanoxCode, TipLocCode}
+import traindelays.networkrail._
 
 class ScheduleDataReaderTest extends FlatSpec {
 
@@ -25,6 +25,8 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
+      TrainCategory("OO"),
+      TrainStatus("P"),
       Some(AtocCode("SN")),
       DaysRun(monday = true,
               tuesday = true,
@@ -74,6 +76,8 @@ class ScheduleDataReaderTest extends FlatSpec {
     result.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
+      TrainCategory("OO"),
+      TrainStatus("P"),
       Some(AtocCode("SN")),
       DaysRun(monday = true,
               tuesday = true,

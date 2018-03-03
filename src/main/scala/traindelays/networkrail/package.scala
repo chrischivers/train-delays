@@ -16,6 +16,22 @@ package object networkrail {
       Meta[String].xmap(ServiceCode(_), _.value)
   }
 
+  case class TrainCategory(value: String)
+  object TrainCategory {
+    implicit val decoder: Decoder[TrainCategory] = Decoder.decodeString.map(TrainCategory(_))
+    implicit val encoder: Encoder[TrainCategory] = Encoder[TrainCategory](a => Json.fromString(a.value))
+    implicit val meta: Meta[TrainCategory] =
+      Meta[String].xmap(TrainCategory(_), _.value)
+  }
+
+  case class TrainStatus(value: String)
+  object TrainStatus {
+    implicit val decoder: Decoder[TrainStatus] = Decoder.decodeString.map(TrainStatus(_))
+    implicit val encoder: Encoder[TrainStatus] = Encoder[TrainStatus](a => Json.fromString(a.value))
+    implicit val meta: Meta[TrainStatus] =
+      Meta[String].xmap(TrainStatus(_), _.value)
+  }
+
   case class TOC(value: String)
   object TOC {
     implicit val decoder: Decoder[TOC] = Decoder.decodeString.map(TOC(_))

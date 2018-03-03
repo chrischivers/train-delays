@@ -9,7 +9,7 @@ import fs2.Pipe
 import io.circe._
 import io.circe.Decoder.Result
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
-import traindelays.networkrail.{ServiceCode, StanoxCode, TipLocCode}
+import traindelays.networkrail._
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 
@@ -23,6 +23,8 @@ object DecodedScheduleRecord extends StrictLogging {
 
   case class Create(scheduleTrainId: ScheduleTrainId,
                     trainServiceCode: ServiceCode,
+                    trainCategory: TrainCategory,
+                    trainStatus: TrainStatus,
                     atocCode: Option[AtocCode],
                     daysRun: DaysRun,
                     scheduleStartDate: LocalDate,
@@ -46,7 +48,7 @@ object DecodedScheduleRecord extends StrictLogging {
     override implicit val transform: Pipe[IO, DecodedScheduleRecord, DecodedScheduleRecord] =
       (in: _root_.fs2.Stream[IO, DecodedScheduleRecord]) =>
         in.map {
-          case rec @ DecodedScheduleRecord.Create(_, _, _, _, _, _, _, _) =>
+          case rec: DecodedScheduleRecord.Create =>
             rec.copy(locationRecords = rec.locationRecords.filterNot(locRec =>
               locRec.departureTime.isEmpty && locRec.arrivalTime.isEmpty))
           case other => other
@@ -111,6 +113,8 @@ object DecodedScheduleRecord extends StrictLogging {
       scheduleRecordCreate.scheduleTrainId,
       scheduleRecordCreate.trainServiceCode,
       scheduleRecordCreate.stpIndicator,
+      scheduleRecordCreate.trainCategory,
+      scheduleRecordCreate.trainStatus,
       scheduleRecordCreate.atocCode,
       index + 1,
       stanoxCode,
@@ -167,18 +171,24 @@ object DecodedScheduleRecord extends StrictLogging {
       scheduleEndDate   <- scheduleObject.downField("schedule_end_date").as[LocalDate]
       stopIndicator     <- scheduleObject.downField("CIF_stp_indicator").as[StpIndicator]
       scheduleTrainUid  <- scheduleObject.downField("CIF_train_uid").as[ScheduleTrainId]
+      trainStatus       <- scheduleObject.downField("train_status").as[TrainStatus]
       scheduleSegment = scheduleObject.downField("schedule_segment")
       serviceCode         <- scheduleSegment.downField("CIF_train_service_code").as[ServiceCode]
+      trainCategory       <- scheduleSegment.downField("CIF_train_category").as[TrainCategory]
       locationRecordArray <- scheduleSegment.downField("schedule_location").as[Option[List[ScheduleLocationRecord]]]
     } yield {
-      DecodedScheduleRecord.Create(scheduleTrainUid,
-                                   serviceCode,
-                                   atocCode,
-                                   daysRunDecoded,
-                                   scheduleStartDate,
-                                   scheduleEndDate,
-                                   stopIndicator,
-                                   locationRecordArray.getOrElse(Nil))
+      DecodedScheduleRecord.Create(
+        scheduleTrainUid,
+        serviceCode,
+        trainCategory,
+        trainStatus,
+        atocCode,
+        daysRunDecoded,
+        scheduleStartDate,
+        scheduleEndDate,
+        stopIndicator,
+        locationRecordArray.getOrElse(Nil)
+      )
     }
 
   private def decodeScheduleDeleteRecord(scheduleObject: ACursor) =

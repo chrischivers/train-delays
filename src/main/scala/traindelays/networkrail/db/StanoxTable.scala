@@ -24,9 +24,9 @@ trait StanoxTable extends MemoizedTable[StanoxRecord] {
   def retrieveAllNonEmptyRecords(forceRefesh: Boolean = false): IO[List[StanoxRecord]]
 
   val dbUpdater: fs2.Sink[IO, DecodedStanoxRecord] = fs2.Sink {
-    case rec @ DecodedStanoxRecord.Create(_, _, _, _) => addRecord(rec.toStanoxRecord)
-    case rec @ DecodedStanoxRecord.Update(_, _, _, _) => updateRecord(rec.toStanoxRecord)
-    case rec @ DecodedStanoxRecord.Delete(_)          => deleteRecord(rec.tipLocCode)
+    case rec: DecodedStanoxRecord.Create => addRecord(rec.toStanoxRecord)
+    case rec: DecodedStanoxRecord.Update => updateRecord(rec.toStanoxRecord)
+    case rec: DecodedStanoxRecord.Delete => deleteRecord(rec.tipLocCode)
   }
 
 }
@@ -63,7 +63,7 @@ object StanoxTable {
       ( tiploc_code, stanox_code, crs, description, primary_entry)
       VALUES(${record.tipLocCode}, ${record.stanoxCode}, ${record.crs}, ${record.description}, ${record.primary})
       ON CONFLICT (stanox_code, tiploc_code)
-      DO UPDATE SET crs = ${record.crs}, description = ${record.description};
+      DO UPDATE SET crs = ${record.crs}, description = ${record.description}, primary_entry = ${record.primary};
      """.update
 
   def addStanoxRecords(records: List[StanoxRecord]) = {

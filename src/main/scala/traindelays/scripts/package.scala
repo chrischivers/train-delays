@@ -26,9 +26,9 @@ package object scripts {
         DecodedScheduleRecord,
         Either[DecodedScheduleRecord.Delete, List[ScheduleRecord]]] = (in: fs2.Stream[IO, DecodedScheduleRecord]) => {
         in.map {
-          case rec @ DecodedScheduleRecord.Create(_, _, _, _, _, _, _, _) =>
+          case rec: DecodedScheduleRecord.Create =>
             Right(rec.toScheduleLogs(existingStanoxRecordsMap))
-          case rec @ DecodedScheduleRecord.Delete(_, _, _) => Left(rec)
+          case rec: DecodedScheduleRecord.Delete => Left(rec)
         }
       }
 
