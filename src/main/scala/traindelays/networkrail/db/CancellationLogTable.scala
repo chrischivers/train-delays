@@ -3,7 +3,7 @@ package traindelays.networkrail.db
 import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
-import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
+import traindelays.networkrail.movementdata.CancellationLog
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 trait CancellationLogTable extends NonMemoizedTable[CancellationLog] {

@@ -9,7 +9,7 @@ import io.circe.fs2._
 
 trait ScheduleDataReader extends StrictLogging {
 
-  def readData[A](implicit dec: Decoder[A], jsonFilter: JsonFilter[A], transformer: Transformer[A]): fs2.Stream[IO, A]
+  def readData[A](implicit dec: Decoder[A], jsonFilter: JsonFilter[A], trasformer: Transformer[A]): fs2.Stream[IO, A]
 }
 
 object ScheduleDataReader {

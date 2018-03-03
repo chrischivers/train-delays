@@ -1,14 +1,13 @@
 package traindelays.networkrail.subscribers
 
-import java.time.format.{DateTimeFormatter, FormatStyle}
 import java.time.{Instant, ZoneId, ZonedDateTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.TestFeatures
-import traindelays.networkrail.ServiceCode
+import traindelays.networkrail.{ServiceCode, TestFeatures}
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.movementdata._
-import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.{Random, Try}
@@ -283,10 +282,10 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
                                 stanoxRecords: List[StanoxRecord]) = {
     body should include(s"Train ID: ${activationRecord.scheduleTrainId.value}")
     body should include(s"Date: ${timestampToFormattedDate(activationRecord.originDepartureTimestamp)}")
-    val originStanox = stanoxRecords.find(_.stanoxCode == activationRecord.originStanox).get
+    val originStanox = stanoxRecords.find(_.stanoxCode.get == activationRecord.originStanox).get
     body should include(s"Train originated from: [${originStanox.crs.get.value}] ${originStanox.description.get}")
 
-    val stanoxAffected = stanoxRecords.find(_.stanoxCode == movementRecord.stanoxCode.get).get
+    val stanoxAffected = stanoxRecords.find(_.stanoxCode.get == movementRecord.stanoxCode.get).get
     body should include(s"Station affected: [${stanoxAffected.crs.get.value}] ${stanoxAffected.description.get}")
     body should include(s"Operator: ${movementRecord.toc.value}")
     body should include(s"Event type: ${movementRecord.eventType.string}")

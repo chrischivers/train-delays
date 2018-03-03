@@ -2,18 +2,13 @@ package traindelays.networkrail
 
 import java.nio.file.Paths
 
-import io.circe.parser._
 import org.scalactic.TripleEqualsSupport
-import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{BeforeAndAfterEach, FlatSpec}
-import traindelays.TestFeatures
-import traindelays.networkrail.movementdata._
-import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
 import traindelays.stomp.{StompClient, StompStreamListener}
 
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class MovementsListenerIntegrationTest
     extends FlatSpec

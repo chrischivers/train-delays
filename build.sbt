@@ -6,6 +6,8 @@ scalaVersion := "2.12.4"
 
 unmanagedJars in Compile += file("lib/gozirra-client-0.4.1.jar")
 
+scalacOptions ++= Seq("-feature", "-deprecation", "-Ywarn-unused-import", "-Xfatal-warnings")
+
 
 val circeVersion = "0.9.0-M2"
 val fs2Version = "0.10.0-M8"
@@ -62,6 +64,7 @@ libraryDependencies ++= Seq(
 )
 
 scalacOptions += "-Ypartial-unification"
+
 
 configs(IntegrationTest)
 

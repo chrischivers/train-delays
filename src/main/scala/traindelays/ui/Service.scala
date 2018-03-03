@@ -14,9 +14,10 @@ import org.http4s.{EntityDecoder, HttpService, Request, StaticFile}
 import org.postgresql.util.PSQLException
 import traindelays.UIConfig
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db._
-import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
+import traindelays.networkrail.scheduledata.{ScheduleTrainId, StpIndicator}
 import traindelays.networkrail.subscribers.SubscriberRecord
 
 import scala.concurrent.duration.FiniteDuration
@@ -68,16 +69,18 @@ object Service extends StrictLogging {
           (for {
             maybeAuthenticatedDetails <- req.idToken.fold[IO[Option[AuthenticatedDetails]]](IO.pure(None))(token =>
               googleAuthenticator.verifyToken(token))
-            stanoxRecordsWithCRS <- stanoxTable.retrieveAllRecordsWithCRS()
+            stanoxRecordsWithCRS <- stanoxTable.retrieveAllNonEmptyRecords()
             maybeExistingSubscriberRecords <- maybeAuthenticatedDetails.fold[IO[Option[List[SubscriberRecord]]]](
               IO.pure(None))(details => subscriberTable.subscriberRecordsFor(details.userId).map(Some(_)))
             queryResponses <- scheduleTable
-              .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern)
+              .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern, StpIndicator.P) //todo should this always be P
               .map { scheduleLogs =>
                 scheduleQueryResponsesFrom(
                   filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
                   req.toStanox,
-                  stanoxRecordsWithCRS.groupBy(_.stanoxCode),
+                  stanoxRecordsWithCRS
+                    .groupBy(_.stanoxCode)
+                    .collect { case (Some(stanoxCode), list) => stanoxCode -> list },
                   maybeExistingSubscriberRecords
                 )
               }
@@ -185,7 +188,7 @@ object Service extends StrictLogging {
     }
   }
 
-  private def filterOutInvalidOrDuplicates(scheduleLogs: List[ScheduleLog], minimumDaysScheduleDuration: Int) =
+  private def filterOutInvalidOrDuplicates(scheduleLogs: List[ScheduleRecord], minimumDaysScheduleDuration: Int) =
     scheduleLogs
       .filter(x => DAYS.between(x.scheduleStart, x.scheduleEnd) > minimumDaysScheduleDuration)
       .groupBy(x => (x.scheduleTrainId, x.serviceCode, x.stanoxCode, x.daysRunPattern))
@@ -200,17 +203,19 @@ object Service extends StrictLogging {
       for {
         stanoxRecords      <- stanoxTable.retrieveAllRecords()
         distinctInSchedule <- scheduleTable.retrieveAllDistinctStanoxCodes
-      } yield jsonStationsFrom(stanoxRecords.filter(x => distinctInSchedule.contains(x.stanoxCode))).noSpaces
+      } yield jsonStationsFrom(stanoxRecords.filter(_.stanoxCode.fold(false)(distinctInSchedule.contains))).noSpaces
     }
 
   private def jsonStationsFrom(stanoxRecords: List[StanoxRecord]): Json = {
 
-    val records = getMainStanoxRecords(stanoxRecords).map { record =>
-      Json.obj(
-        "key"   -> Json.fromString(record.stanoxCode.value),
-        "value" -> Json.fromString(s"${record.description.getOrElse("")} [${record.crs.map(_.value).getOrElse("")}]")
-      )
-    }
+    val records = getMainStanoxRecords(stanoxRecords)
+      .collect {
+        case StanoxRecord(_, Some(stanoxCode), crs, description, _) =>
+          Json.obj(
+            "key"   -> Json.fromString(stanoxCode.value),
+            "value" -> Json.fromString(s"${description.getOrElse("")} [${crs.map(_.value).getOrElse("")}]")
+          )
+      }
     Json.arr(records: _*)
   }
 

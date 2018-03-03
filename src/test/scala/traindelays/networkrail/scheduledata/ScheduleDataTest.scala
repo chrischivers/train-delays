@@ -4,11 +4,11 @@ import java.time.LocalTime
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.TestFeatures
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
-import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
-import traindelays.networkrail.{CRS, StanoxCode, TipLocCode}
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.{DaysRun, ScheduleLocationRecord}
+import traindelays.networkrail.{CRS, StanoxCode, TestFeatures, TipLocCode}
 
 class ScheduleDataTest extends FlatSpec with TestFeatures {
 
@@ -84,12 +84,13 @@ class ScheduleDataTest extends FlatSpec with TestFeatures {
                                                  Some(LocalTime.parse("0715", timeFormatter)),
                                                  None)
     val scheduleRecord =
-      createScheduleRecord(locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
+      createDecodedScheduleCreateRecord(
+        locationRecords = List(locationRecord1, locationRecord2, locationRecord3, locationRecord4))
 
-    val stanoxRecord1 = StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None)
-    val stanoxRecord2 = StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RDH")), None)
-    val stanoxRecord3 = StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
-    val stanoxRecord4 = StanoxRecord(StanoxCode("45678"), TipLocCode("EASTCROYDON"), Some(CRS("ECD")), None)
+    val stanoxRecord1 = StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None)
+    val stanoxRecord2 = StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RDH")), None)
+    val stanoxRecord3 = StanoxRecord(TipLocCode("MERSTHAM"), Some(StanoxCode("34567")), Some(CRS("MER")), None)
+    val stanoxRecord4 = StanoxRecord(TipLocCode("EASTCROYDON"), Some(StanoxCode("45678")), Some(CRS("ECD")), None)
 
     val scheduleLogs = scheduleRecord.toScheduleLogs(
       StanoxRecord.stanoxRecordsToMap(List(stanoxRecord1, stanoxRecord2, stanoxRecord3, stanoxRecord4)))
@@ -102,30 +103,30 @@ class ScheduleDataTest extends FlatSpec with TestFeatures {
     forAll(scheduleLogs)(_.scheduleEnd shouldBe scheduleRecord.scheduleEndDate)
 
     scheduleLogs(0).stopSequence shouldBe 1
-    scheduleLogs(0).stanoxCode shouldBe stanoxRecord1.stanoxCode
+    scheduleLogs(0).stanoxCode shouldBe stanoxRecord1.stanoxCode.get
     scheduleLogs(0).locationType shouldBe locationRecord1.locationType
     scheduleLogs(0).departureTime shouldBe locationRecord1.departureTime
     scheduleLogs(0).arrivalTime shouldBe locationRecord1.arrivalTime
-    scheduleLogs(0).subsequentStanoxCodes shouldBe List(stanoxRecord2.stanoxCode,
-                                                        stanoxRecord3.stanoxCode,
-                                                        stanoxRecord4.stanoxCode)
+    scheduleLogs(0).subsequentStanoxCodes shouldBe List(stanoxRecord2.stanoxCode.get,
+                                                        stanoxRecord3.stanoxCode.get,
+                                                        stanoxRecord4.stanoxCode.get)
 
     scheduleLogs(1).stopSequence shouldBe 2
-    scheduleLogs(1).stanoxCode shouldBe stanoxRecord2.stanoxCode
+    scheduleLogs(1).stanoxCode shouldBe stanoxRecord2.stanoxCode.get
     scheduleLogs(1).locationType shouldBe locationRecord2.locationType
     scheduleLogs(1).departureTime shouldBe locationRecord2.departureTime
     scheduleLogs(1).arrivalTime shouldBe locationRecord2.arrivalTime
-    scheduleLogs(1).subsequentStanoxCodes shouldBe List(stanoxRecord3.stanoxCode, stanoxRecord4.stanoxCode)
+    scheduleLogs(1).subsequentStanoxCodes shouldBe List(stanoxRecord3.stanoxCode.get, stanoxRecord4.stanoxCode.get)
 
     scheduleLogs(2).stopSequence shouldBe 3
-    scheduleLogs(2).stanoxCode shouldBe stanoxRecord3.stanoxCode
+    scheduleLogs(2).stanoxCode shouldBe stanoxRecord3.stanoxCode.get
     scheduleLogs(2).locationType shouldBe locationRecord3.locationType
     scheduleLogs(2).departureTime shouldBe locationRecord3.departureTime
     scheduleLogs(2).arrivalTime shouldBe locationRecord3.arrivalTime
-    scheduleLogs(2).subsequentStanoxCodes shouldBe List(stanoxRecord4.stanoxCode)
+    scheduleLogs(2).subsequentStanoxCodes shouldBe List(stanoxRecord4.stanoxCode.get)
 
     scheduleLogs(3).stopSequence shouldBe 4
-    scheduleLogs(3).stanoxCode shouldBe stanoxRecord4.stanoxCode
+    scheduleLogs(3).stanoxCode shouldBe stanoxRecord4.stanoxCode.get
     scheduleLogs(3).locationType shouldBe locationRecord4.locationType
     scheduleLogs(3).departureTime shouldBe locationRecord4.departureTime
     scheduleLogs(3).arrivalTime shouldBe locationRecord4.arrivalTime

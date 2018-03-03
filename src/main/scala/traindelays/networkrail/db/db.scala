@@ -1,13 +1,12 @@
 package traindelays.networkrail
 
 import cats.effect.IO
-import com.zaxxer.hikari.{HikariConfig, HikariDataSource}
+import com.typesafe.scalalogging.StrictLogging
 import fs2.Stream
 import org.flywaydb.core.Flyway
 import traindelays.DatabaseConfig
 import doobie.hikari._
 import doobie.hikari.implicits._
-import traindelays.networkrail.db.Table
 
 import scala.concurrent.duration.FiniteDuration
 import scalacache.memoization.memoizeF
@@ -48,7 +47,7 @@ package object db {
     }
   }
 
-  trait MemoizedTable[A] extends Table[A] {
+  trait MemoizedTable[A] extends Table[A] with StrictLogging {
 
     import scalacache.CatsEffect.modes._
     import scalacache._

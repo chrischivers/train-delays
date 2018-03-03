@@ -3,13 +3,10 @@ package traindelays.networkrail.cache
 import akka.util.ByteString
 import cats.Eval
 import cats.effect.IO
-import io.circe.Decoder.Result
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import redis.{ByteStringDeserializer, ByteStringSerializer, RedisClient}
 import traindelays.networkrail.movementdata.{TrainActivationRecord, TrainId}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import io.circe.generic.semiauto._
-import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.parser._
 import traindelays.networkrail.{ServiceCode, StanoxCode}

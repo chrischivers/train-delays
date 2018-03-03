@@ -2,11 +2,12 @@ package traindelays.networkrail.cache
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.TestFeatures
+import traindelays.networkrail.TestFeatures
 import traindelays.networkrail.movementdata.TrainId
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class TrainActivationCacheTest extends FlatSpec with TestFeatures {
 

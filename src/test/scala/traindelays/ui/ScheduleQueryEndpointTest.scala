@@ -1,23 +1,26 @@
 package traindelays.ui
 
 import cats.effect.IO
-import org.http4s.circe._
+//import org.http4s.circe._
 import org.http4s.dsl.io._
 import org.http4s.{EntityDecoder, EntityEncoder, Request, Uri}
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.{TestFeatures, UIConfig}
+import traindelays.networkrail.{StanoxCode, TestFeatures}
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
+import traindelays.UIConfig
 
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
 
   val uiTestConfig                                      = UIConfig(2, 1 minute, "")
   val defaultAuthenticatedDetails: AuthenticatedDetails = createAuthenticatedDetails()
   val initialState: AppInitialState                     = createDefaultInitialState()
+
+  implicit val executionContext = ExecutionContext.Implicits.global
 
   implicit val scheduleQueryResponseEntityDecoder: EntityDecoder[IO, List[ScheduleQueryResponse]] =
     org.http4s.circe.jsonOf[IO, List[ScheduleQueryResponse]]
@@ -74,10 +77,10 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
         firstScheduleLogRecord.atocCode,
         traindelays.networkrail.tocs.tocs.mapping(firstScheduleLogRecord.atocCode),
         firstScheduleLogRecord.stanoxCode,
-        initialState.stanoxRecords.find(_.stanoxCode == firstScheduleLogRecord.stanoxCode).get.crs.get,
+        initialState.stanoxRecords.find(_.stanoxCode.get == firstScheduleLogRecord.stanoxCode).get.crs.get,
         firstScheduleLogRecord.departureTime.get,
         lastScheduleLogRecord.stanoxCode,
-        initialState.stanoxRecords.find(_.stanoxCode == lastScheduleLogRecord.stanoxCode).get.crs.get,
+        initialState.stanoxRecords.find(_.stanoxCode.get == lastScheduleLogRecord.stanoxCode).get.crs.get,
         lastScheduleLogRecord.arrivalTime.get,
         firstScheduleLogRecord.daysRunPattern,
         firstScheduleLogRecord.scheduleStart,

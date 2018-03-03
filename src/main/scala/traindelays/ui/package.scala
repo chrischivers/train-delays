@@ -1,23 +1,24 @@
 package traindelays
 
-import java.time.{LocalDate, LocalTime}
 import java.time.format.DateTimeFormatter
+import java.time.{LocalDate, LocalTime}
 
-import io.circe.{Decoder, Encoder, Json}
 import io.circe.generic.semiauto._
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId, StanoxRecord}
-import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
-import traindelays.networkrail.tocs.tocs
-import traindelays.networkrail.{CRS, StanoxCode, TOC}
 import io.circe.java8.time.{
   decodeLocalDateDefault,
   decodeLocalTimeDefault,
   encodeLocalDateDefault,
   encodeLocalTimeDefault
 }
+import io.circe.{Decoder, Encoder, Json}
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.movementdata.CancellationType
+import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
+import traindelays.networkrail.subscribers.SubscriberRecord
+import traindelays.networkrail.tocs.tocs
+import traindelays.networkrail.{CRS, StanoxCode}
 
 package object ui {
 
@@ -113,7 +114,7 @@ package object ui {
 
   //TODO test this
   def scheduleQueryResponsesFrom(
-      scheduleLogs: List[ScheduleLog],
+      scheduleLogs: List[ScheduleRecord],
       toStanoxCode: StanoxCode,
       stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]],
       existingSubscriberRecords: Option[List[SubscriberRecord]]): List[ScheduleQueryResponse] =

@@ -5,7 +5,6 @@ import com.typesafe.scalalogging.StrictLogging
 import fs2.async.mutable.Queue
 import io.circe.parser._
 import traindelays.NetworkRailConfig
-import traindelays.metrics.MetricsLogging
 import traindelays.stomp.{StompClient, StompStreamListener}
 
 import scala.concurrent.ExecutionContext

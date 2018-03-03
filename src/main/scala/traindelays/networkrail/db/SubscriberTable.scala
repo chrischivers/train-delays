@@ -3,10 +3,9 @@ package traindelays.networkrail.db
 import cats.effect.IO
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
-import traindelays.networkrail.{ServiceCode, StanoxCode}
+import traindelays.networkrail.ServiceCode
 
 import scala.concurrent.duration.FiniteDuration
-import scalacache.memoization._
 
 trait SubscriberTable extends MemoizedTable[SubscriberRecord] {
   def subscriberRecordsFor(scheduleTrainId: ScheduleTrainId, serviceCode: ServiceCode): IO[List[SubscriberRecord]]

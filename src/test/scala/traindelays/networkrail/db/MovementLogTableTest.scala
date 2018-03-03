@@ -2,10 +2,9 @@ package traindelays.networkrail.db
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.{StanoxCode, TestFeatures}
 import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.networkrail.{ServiceCode, StanoxCode, TOC}
-import traindelays.{DatabaseConfig, TestFeatures}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 

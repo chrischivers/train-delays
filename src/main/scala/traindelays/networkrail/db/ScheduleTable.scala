@@ -5,30 +5,36 @@ import java.time.{LocalDate, LocalTime}
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.{Decoder, Encoder, Json}
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
-import traindelays.networkrail.scheduledata.{AtocCode, ScheduleTrainId}
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
+import traindelays.networkrail.scheduledata.{AtocCode, DecodedScheduleRecord, ScheduleTrainId, StpIndicator}
 import traindelays.networkrail.{ServiceCode, StanoxCode}
 
 import scala.concurrent.duration.FiniteDuration
 
-trait ScheduleTable extends MemoizedTable[ScheduleLog] {
+trait ScheduleTable extends MemoizedTable[ScheduleRecord] {
 
   def deleteAllRecords(): IO[Unit]
 
-  def addRecords(records: List[ScheduleLog]): IO[Unit]
+  def deleteRecord(scheduleTrainId: ScheduleTrainId, scheduleStartDate: LocalDate, stpIndicator: StpIndicator): IO[Unit]
 
-  def retrieveScheduleLogRecordsFor(from: StanoxCode, to: StanoxCode, pattern: DaysRunPattern): IO[List[ScheduleLog]]
+  def addRecords(records: List[ScheduleRecord]): IO[Unit]
 
-  def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, stanoxCode: StanoxCode): IO[List[ScheduleLog]]
+  def retrieveScheduleLogRecordsFor(from: StanoxCode,
+                                    to: StanoxCode,
+                                    pattern: DaysRunPattern,
+                                    stpIndicator: StpIndicator): IO[List[ScheduleRecord]]
 
-  def retrieveRecordBy(id: Int): IO[Option[ScheduleLog]]
+  def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, stanoxCode: StanoxCode): IO[List[ScheduleRecord]]
+
+  def retrieveRecordBy(id: Int): IO[Option[ScheduleRecord]]
 
   def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]]
 
-  val dbWriterMultiple: fs2.Sink[IO, List[ScheduleLog]] = fs2.Sink { records =>
-    addRecords(records)
+  val dbUpdater: fs2.Sink[IO, Either[DecodedScheduleRecord.Delete, List[ScheduleRecord]]] = fs2.Sink {
+    case Right(records) => addRecords(records)
+    case Left(delete)   => deleteRecord(delete.scheduleTrainId, delete.scheduleStartDate, delete.stpIndicator)
   }
 }
 
@@ -41,40 +47,40 @@ object ScheduleTable extends StrictLogging {
 
   implicit val localTimeMeta: doobie.Meta[LocalTime] = doobie
     .Meta[java.sql.Time]
-    .xmap(t => LocalTime.of(t.toLocalTime.getHour, t.toLocalTime.getMinute),
-          lt => new java.sql.Time(lt.getHour, lt.getMinute, lt.getSecond))
+    .xmap(t => LocalTime.of(t.toLocalTime.getHour, t.toLocalTime.getMinute), lt => java.sql.Time.valueOf(lt))
 
   implicit val localTimeListMeta: Meta[List[LocalTime]] =
     Meta[List[String]].xmap(_.map(t => LocalTime.parse(t)), lt => lt.map(_.toString))
 
-  case class ScheduleLog(id: Option[Int],
-                         scheduleTrainId: ScheduleTrainId,
-                         serviceCode: ServiceCode,
-                         atocCode: AtocCode,
-                         stopSequence: Int,
-                         stanoxCode: StanoxCode,
-                         subsequentStanoxCodes: List[StanoxCode],
-                         subsequentArrivalTimes: List[LocalTime],
-                         monday: Boolean,
-                         tuesday: Boolean,
-                         wednesday: Boolean,
-                         thursday: Boolean,
-                         friday: Boolean,
-                         saturday: Boolean,
-                         sunday: Boolean,
-                         daysRunPattern: DaysRunPattern,
-                         scheduleStart: LocalDate,
-                         scheduleEnd: LocalDate,
-                         locationType: LocationType,
-                         arrivalTime: Option[LocalTime],
-                         departureTime: Option[LocalTime]) {
+  case class ScheduleRecord(id: Option[Int],
+                            scheduleTrainId: ScheduleTrainId,
+                            serviceCode: ServiceCode,
+                            stpIndicator: StpIndicator,
+                            atocCode: AtocCode,
+                            stopSequence: Int,
+                            stanoxCode: StanoxCode,
+                            subsequentStanoxCodes: List[StanoxCode],
+                            subsequentArrivalTimes: List[LocalTime],
+                            monday: Boolean,
+                            tuesday: Boolean,
+                            wednesday: Boolean,
+                            thursday: Boolean,
+                            friday: Boolean,
+                            saturday: Boolean,
+                            sunday: Boolean,
+                            daysRunPattern: DaysRunPattern,
+                            scheduleStart: LocalDate,
+                            scheduleEnd: LocalDate,
+                            locationType: LocationType,
+                            arrivalTime: Option[LocalTime],
+                            departureTime: Option[LocalTime]) {
 
     val primaryKeyFields =
-      ScheduleLog.KeyFields(scheduleTrainId, serviceCode, stanoxCode, stopSequence, scheduleStart, scheduleEnd)
-    def matchesKeyFields(that: ScheduleLog): Boolean =
+      ScheduleRecord.KeyFields(scheduleTrainId, serviceCode, stanoxCode, stopSequence, scheduleStart, scheduleEnd)
+    def matchesKeyFields(that: ScheduleRecord): Boolean =
       that.primaryKeyFields == this.primaryKeyFields
   }
-  object ScheduleLog {
+  object ScheduleRecord {
 
     case class KeyFields(scheduleTrainId: ScheduleTrainId,
                          serviceCode: ServiceCode,
@@ -83,7 +89,7 @@ object ScheduleTable extends StrictLogging {
                          scheduleStart: LocalDate,
                          scheduleEnd: LocalDate)
 
-    def toKeyFields(scheduleLogs: List[ScheduleLog]): Set[KeyFields] =
+    def toKeyFields(scheduleLogs: List[ScheduleRecord]): Set[KeyFields] =
       scheduleLogs.map(rec => rec.primaryKeyFields).toSet
 
     sealed trait DaysRunPattern {
@@ -124,13 +130,13 @@ object ScheduleTable extends StrictLogging {
     }
   }
 
-  def addScheduleLogRecord(log: ScheduleLog): Update0 =
+  def addScheduleLogRecord(log: ScheduleRecord): Update0 =
     sql"""
       INSERT INTO schedule
-      (schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+      (schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
       subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
       days_run_pattern, schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.atocCode}, ${log.stopSequence}, ${log.stanoxCode},
+      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.stpIndicator}, ${log.atocCode}, ${log.stopSequence}, ${log.stanoxCode},
       ${log.subsequentStanoxCodes}, ${log.subsequentArrivalTimes}, ${log.monday}, ${log.tuesday}, ${log.wednesday},
       ${log.thursday}, ${log.friday}, ${log.saturday}, ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart},
       ${log.scheduleEnd}, ${log.locationType}, ${log.arrivalTime}, ${log.departureTime})
@@ -138,6 +144,7 @@ object ScheduleTable extends StrictLogging {
 
   type ScheduleLogToBeInserted = (ScheduleTrainId,
                                   ServiceCode,
+                                  StpIndicator,
                                   AtocCode,
                                   Int,
                                   StanoxCode,
@@ -157,12 +164,13 @@ object ScheduleTable extends StrictLogging {
                                   Option[LocalTime],
                                   Option[LocalTime])
 
-  def addScheduleLogRecords(logs: List[ScheduleLog]): ConnectionIO[Int] = {
+  def addScheduleLogRecords(logs: List[ScheduleRecord]): ConnectionIO[Int] = {
 
     val toBeInserted: List[ScheduleLogToBeInserted] = logs.map(
       log =>
         (log.scheduleTrainId,
          log.serviceCode,
+         log.stpIndicator,
          log.atocCode,
          log.stopSequence,
          log.stanoxCode,
@@ -184,52 +192,56 @@ object ScheduleTable extends StrictLogging {
 
     val sql = s"""
        |   INSERT INTO schedule
-       |      (schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+       |      (schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
        |      subsequent_arrival_times,
        |      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
        |      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """.stripMargin
 
     Update[ScheduleLogToBeInserted](sql).updateMany(toBeInserted)
   }
 
-  def allScheduleLogRecords(): Query0[ScheduleLog] =
+  def allScheduleLogRecords(): Query0[ScheduleRecord] =
     sql"""
-      SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+      SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
       subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
       schedule_start, schedule_end, location_type, arrival_time, departure_time
       FROM schedule
-      """.query[ScheduleLog]
+      """.query[ScheduleRecord]
 
   def scheduleRecordsFor(fromStation: StanoxCode,
                          toStation: StanoxCode,
-                         daysRunPattern: DaysRunPattern): Query0[ScheduleLog] =
-    sql"""  
-         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+                         daysRunPattern: DaysRunPattern,
+                         stpIndicator: StpIndicator): Query0[ScheduleRecord] =
+    sql"""
+         SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
          subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
-         WHERE stanox_code = ${fromStation} AND days_run_pattern = ${daysRunPattern} AND ${toStation} = ANY(subsequent_stanox_codes)
-          """.query[ScheduleLog]
+         WHERE stanox_code = ${fromStation}
+         AND days_run_pattern = ${daysRunPattern}
+         AND ${toStation} = ANY(subsequent_stanox_codes)
+         AND stp_indicator = ${stpIndicator}
+          """.query[ScheduleRecord]
 
-  def scheduleRecordsFor(trainId: ScheduleTrainId, fromStation: StanoxCode): Query0[ScheduleLog] =
-    sql"""  
-         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+  def scheduleRecordsFor(trainId: ScheduleTrainId, fromStation: StanoxCode): Query0[ScheduleRecord] =
+    sql"""
+         SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
          subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
          schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
          WHERE schedule_train_id = ${trainId} AND stanox_code = ${fromStation}
-          """.query[ScheduleLog]
+          """.query[ScheduleRecord]
 
   def scheduleRecordFor(id: Int) =
     sql"""
-         SELECT id, schedule_train_id, service_code, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
+         SELECT id, schedule_train_id, service_code, stp_indicator, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
                 subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
                 schedule_start, schedule_end, location_type, arrival_time, departure_time
          FROM schedule
          WHERE id = ${id}
-          """.query[ScheduleLog]
+          """.query[ScheduleRecord]
 
   def distinctStanoxCodes =
     sql"""
@@ -240,12 +252,22 @@ object ScheduleTable extends StrictLogging {
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
 
+  //TODO test this
+  def deleteRecord(scheduleTrainId: ScheduleTrainId,
+                   scheduleStartDate: LocalDate,
+                   stpIndicator: StpIndicator): Update0 =
+    sql"""DELETE FROM schedule
+          WHERE schedule_train_id = ${scheduleTrainId}
+          AND schedule_start = ${scheduleStartDate}
+          AND stp_indicator = ${stpIndicator}
+       """.update
+
   def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): ScheduleTable =
     new ScheduleTable {
 
       override val memoizeFor: FiniteDuration = memoizeDuration
 
-      override def addRecord(log: ScheduleLog): IO[Unit] =
+      override def addRecord(log: ScheduleRecord): IO[Unit] =
         ScheduleTable
           .addScheduleLogRecord(log)
           .run
@@ -255,10 +277,10 @@ object ScheduleTable extends StrictLogging {
       override def deleteAllRecords(): IO[Unit] =
         ScheduleTable.deleteAllScheduleLogRecords().run.transact(db).map(_ => ())
 
-      override def addRecords(records: List[ScheduleLog]): IO[Unit] =
+      override def addRecords(records: List[ScheduleRecord]): IO[Unit] =
         ScheduleTable.addScheduleLogRecords(records).transact(db).map(_ => ())
 
-      override protected def retrieveAll(): IO[List[ScheduleLog]] =
+      override protected def retrieveAll(): IO[List[ScheduleRecord]] =
         ScheduleTable
           .allScheduleLogRecords()
           .list
@@ -266,17 +288,23 @@ object ScheduleTable extends StrictLogging {
 
       override def retrieveScheduleLogRecordsFor(from: StanoxCode,
                                                  to: StanoxCode,
-                                                 pattern: DaysRunPattern): IO[List[ScheduleLog]] =
-        ScheduleTable.scheduleRecordsFor(from, to, pattern).list.transact(db)
+                                                 pattern: DaysRunPattern,
+                                                 stpIndicator: StpIndicator): IO[List[ScheduleRecord]] =
+        ScheduleTable.scheduleRecordsFor(from, to, pattern, stpIndicator).list.transact(db)
 
-      override def retrieveRecordBy(id: Int): IO[Option[ScheduleLog]] =
+      override def retrieveRecordBy(id: Int): IO[Option[ScheduleRecord]] =
         ScheduleTable.scheduleRecordFor(id).option.transact(db)
 
       override def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]] =
         ScheduleTable.distinctStanoxCodes.list.transact(db)
 
-      override def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, from: StanoxCode): IO[List[ScheduleLog]] =
+      override def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, from: StanoxCode): IO[List[ScheduleRecord]] =
         ScheduleTable.scheduleRecordsFor(trainId, from).list.transact(db)
+
+      override def deleteRecord(scheduleTrainId: ScheduleTrainId,
+                                scheduleStartDate: LocalDate,
+                                stpIndicator: StpIndicator): IO[Unit] =
+        ScheduleTable.deleteRecord(scheduleTrainId, scheduleStartDate, stpIndicator).run.transact(db).map(_ => ())
     }
 
 }

@@ -3,12 +3,13 @@ package traindelays.networkrail.movementdata
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import org.scalatest.concurrent.Eventually
-import traindelays.TestFeatures
+import traindelays.networkrail.TestFeatures
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.{Emailer, SubscriberHandler}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 

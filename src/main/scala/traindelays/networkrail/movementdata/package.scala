@@ -7,7 +7,6 @@ import doobie.util.meta.Meta
 import io.circe.Decoder.Result
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import traindelays.networkrail.cache.TrainActivationCache
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 package object movementdata {

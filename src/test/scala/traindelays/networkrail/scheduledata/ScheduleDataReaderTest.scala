@@ -5,11 +5,11 @@ import java.time.{LocalDate, LocalTime}
 
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType.{
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType.{
   OriginatingLocation,
   TerminatingLocation
 }
-import traindelays.networkrail.scheduledata.ScheduleRecord.{DaysRun, ScheduleLocationRecord}
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.{CRS, ServiceCode, StanoxCode, TipLocCode}
 
 class ScheduleDataReaderTest extends FlatSpec {
@@ -19,10 +19,10 @@ class ScheduleDataReaderTest extends FlatSpec {
     val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid.json").getPath)
     val reader = ScheduleDataReader(source)
 
-    val result = reader.readData[ScheduleRecord].runLog.unsafeRunSync().toList
+    val result = reader.readData[DecodedScheduleRecord].runLog.unsafeRunSync().toList
 
     result should have size 3
-    result.head shouldBe ScheduleRecord(
+    result.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
       AtocCode("SN"),
@@ -35,6 +35,7 @@ class ScheduleDataReaderTest extends FlatSpec {
               sunday = false),
       LocalDate.parse("2017-12-11"),
       LocalDate.parse("2017-12-29"),
+      StpIndicator.P,
       List(
         ScheduleLocationRecord(OriginatingLocation,
                                TipLocCode("REIGATE"),
@@ -53,10 +54,12 @@ class ScheduleDataReaderTest extends FlatSpec {
     val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid.json").getPath)
     val reader = ScheduleDataReader(source)
 
-    val result = reader.readData[StanoxRecord].runLog.unsafeRunSync().toList
-    result should have size 13
-    result should contain(StanoxRecord(StanoxCode("87722"), TipLocCode("REDHILL"), Some(CRS("RDH")), Some("REDHILL")))
-    result should contain(StanoxRecord(StanoxCode("87089"), TipLocCode("REIGATE"), Some(CRS("REI")), Some("REIGATE")))
+    val result = reader.readData[DecodedStanoxRecord].runLog.unsafeRunSync().toList
+    result should have size 14
+    result should contain(
+      DecodedStanoxRecord.Create(TipLocCode("REDHILL"), Some(StanoxCode("87722")), Some(CRS("RDH")), Some("REDHILL")))
+    result should contain(
+      DecodedStanoxRecord.Create(TipLocCode("REIGATE"), Some(StanoxCode("87089")), Some(CRS("REI")), Some("REIGATE")))
 
   }
 
@@ -65,10 +68,10 @@ class ScheduleDataReaderTest extends FlatSpec {
     val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid-with-interim-stop.json").getPath)
     val reader = ScheduleDataReader(source)
 
-    val result = reader.readData[ScheduleRecord].runLog.unsafeRunSync().toList
+    val result = reader.readData[DecodedScheduleRecord].runLog.unsafeRunSync().toList
 
     result should have size 1
-    result.head shouldBe ScheduleRecord(
+    result.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
       AtocCode("SN"),
@@ -81,6 +84,7 @@ class ScheduleDataReaderTest extends FlatSpec {
               sunday = false),
       LocalDate.parse("2018-01-01"),
       LocalDate.parse("2018-01-26"),
+      StpIndicator.P,
       List(
         ScheduleLocationRecord(OriginatingLocation,
                                TipLocCode("REIGATE"),

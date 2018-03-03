@@ -3,14 +3,13 @@ package traindelays.networkrail.movementdata
 import cats.effect.IO
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.TestFeatures
-import traindelays.networkrail.metrics.TestMetricsLogging
 import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.networkrail.{MockStompClient, ServiceCode, StanoxCode, TOC}
+import traindelays.networkrail._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.io.Source
+import scala.language.postfixOps
 
 class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
 

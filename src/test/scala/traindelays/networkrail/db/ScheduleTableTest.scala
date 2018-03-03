@@ -3,17 +3,18 @@ package traindelays.networkrail.db
 import java.nio.file.Paths
 import java.time.LocalTime
 
-import cats.effect.IO
 import org.http4s.Uri
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern.{Saturdays, Weekdays}
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType._
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord.DaysRunPattern.{Saturdays, Weekdays}
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord
+import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType._
 import traindelays.networkrail.scheduledata._
-import traindelays.networkrail.{CRS, StanoxCode, TipLocCode}
-import traindelays.{DatabaseConfig, ScheduleDataConfig, TestFeatures}
+import traindelays.networkrail.{CRS, StanoxCode, TestFeatures, TipLocCode}
+import traindelays.ScheduleDataConfig
 
+import scala.language.postfixOps
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ScheduleTableTest extends FlatSpec with TestFeatures {
@@ -43,16 +44,15 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       retrievedRecords.head shouldBe log1.copy(id = Some(1))
       retrievedRecords(1) shouldBe log2.copy(id = Some(2))
     }
-
   }
 
   it should "insert a schedule record and retrieve a schedule log record from the database" in {
 
-    val scheduleRecord = createScheduleRecord()
+    val scheduleRecord = createDecodedScheduleCreateRecord()
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -65,16 +65,50 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
       retrievedRecords.head.stanoxCode shouldBe StanoxCode("12345")
       retrievedRecords(1).stanoxCode shouldBe StanoxCode("23456")
     }
+  }
 
+  it should "delete all schedule log records from the database" in {
+
+    val scheduleLogRecord1 = createScheduleLog()
+    val scheduleLogRecord2 = createScheduleLog(scheduleTrainId = ScheduleTrainId("A87532"))
+
+    withInitialState(testDatabaseConfig)(
+      AppInitialState(scheduleLogRecords = List(scheduleLogRecord1, scheduleLogRecord2))
+    ) { fixture =>
+      val retrievedRecord1 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecord1 should have size 2
+      fixture.scheduleTable.deleteAllRecords().unsafeRunSync()
+      val retrievedRecord2 = fixture.scheduleTable.retrieveAllRecords(forceRefresh = true).unsafeRunSync()
+      retrievedRecord2 should have size 0
+    }
+  }
+
+  it should "delete a schedule log record from the database by id, start date and stpIndicator" in {
+
+    val scheduleLogRecord = createScheduleLog()
+
+    withInitialState(testDatabaseConfig)(
+      AppInitialState(scheduleLogRecords = List(scheduleLogRecord))
+    ) { fixture =>
+      val retrievedRecord1 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecord1 should have size 1
+      fixture.scheduleTable
+        .deleteRecord(scheduleLogRecord.scheduleTrainId,
+                      scheduleLogRecord.scheduleStart,
+                      scheduleLogRecord.stpIndicator)
+        .unsafeRunSync()
+      val retrievedRecord2 = fixture.scheduleTable.retrieveAllRecords(forceRefresh = true).unsafeRunSync()
+      retrievedRecord2 should have size 0
+    }
   }
 
   it should "retrieve inserted records from the database by id" in {
 
-    val scheduleRecord = createScheduleRecord()
+    val scheduleRecord = createDecodedScheduleCreateRecord()
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -103,12 +137,12 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                                       Some(LocalTime.parse("0659", timeFormatter)),
                                       None)
 
-    val scheduleRecord = createScheduleRecord(locationRecords = List(slr1, slr2, slr3))
+    val scheduleRecord = createDecodedScheduleCreateRecord(locationRecords = List(slr1, slr2, slr3))
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None),
-      StanoxRecord(StanoxCode("34567"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None),
+      StanoxRecord(TipLocCode("MERSTHAM"), Some(StanoxCode("34567")), Some(CRS("MER")), None)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -117,21 +151,21 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
         scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrieved1 = fixture.scheduleTable
-        .retrieveScheduleLogRecordsFor(StanoxCode("23456"), StanoxCode("34567"), Weekdays)
+        .retrieveScheduleLogRecordsFor(StanoxCode("23456"), StanoxCode("34567"), Weekdays, StpIndicator.P)
         .unsafeRunSync()
       retrieved1 should have size 1
       retrieved1.head.stanoxCode shouldBe StanoxCode("23456")
       retrieved1.head.subsequentStanoxCodes shouldBe List(StanoxCode("34567"))
 
       val retrieved2 = fixture.scheduleTable
-        .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Weekdays)
+        .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Weekdays, StpIndicator.P)
         .unsafeRunSync()
       retrieved2 should have size 1
       retrieved2.head.stanoxCode shouldBe StanoxCode("12345")
       retrieved2.head.subsequentStanoxCodes shouldBe List(StanoxCode("23456"), StanoxCode("34567"))
 
       val retrieved3 = fixture.scheduleTable
-        .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Saturdays)
+        .retrieveScheduleLogRecordsFor(StanoxCode("12345"), StanoxCode("34567"), Saturdays, StpIndicator.P)
         .unsafeRunSync()
       retrieved3 should have size 0
     }
@@ -139,12 +173,12 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   it should "retrieve distinct stanox codes from the DB" in {
 
-    val scheduleRecord1 = createScheduleRecord()
-    val scheduleRecord2 = createScheduleRecord(scheduleTrainId = ScheduleTrainId("5653864"))
+    val scheduleRecord1 = createDecodedScheduleCreateRecord()
+    val scheduleRecord2 = createDecodedScheduleCreateRecord(scheduleTrainId = ScheduleTrainId("5653864"))
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -162,12 +196,12 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   it should "retrieve multiple inserted records from the database" in {
 
-    val scheduleRecord1 = createScheduleRecord()
-    val scheduleRecord2 = createScheduleRecord().copy(scheduleTrainId = ScheduleTrainId("123456"))
+    val scheduleRecord1 = createDecodedScheduleCreateRecord()
+    val scheduleRecord2 = createDecodedScheduleCreateRecord().copy(scheduleTrainId = ScheduleTrainId("123456"))
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -190,11 +224,11 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
     import scala.concurrent.duration._
 
-    val scheduleRecord = createScheduleRecord()
+    val scheduleRecord = createDecodedScheduleCreateRecord()
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("1234"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("4567"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("1234")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("4567")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig,
@@ -224,11 +258,11 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
 
   it should "delete all records from the database" in {
 
-    val scheduleRecord = createScheduleRecord()
+    val scheduleRecord = createDecodedScheduleCreateRecord()
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig)(
@@ -261,12 +295,12 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                                       Some(LocalTime.parse("0659", timeFormatter)),
                                       None)
 
-    val scheduleRecord = createScheduleRecord(locationRecords = List(slr1, slr2, slr3))
+    val scheduleRecord = createDecodedScheduleCreateRecord(locationRecords = List(slr1, slr2, slr3))
 
     val stanoxRecords = List(
-      StanoxRecord(StanoxCode("12345"), TipLocCode("REIGATE"), Some(CRS("REI")), None),
-      StanoxRecord(StanoxCode("3456"), TipLocCode("MERSTHAM"), Some(CRS("MER")), None),
-      StanoxRecord(StanoxCode("23456"), TipLocCode("REDHILL"), Some(CRS("RED")), None)
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode("12345")), Some(CRS("REI")), None),
+      StanoxRecord(TipLocCode("MERSTHAM"), Some(StanoxCode("3456")), Some(CRS("MER")), None),
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("23456")), Some(CRS("RED")), None)
     )
 
     withInitialState(testDatabaseConfig)(

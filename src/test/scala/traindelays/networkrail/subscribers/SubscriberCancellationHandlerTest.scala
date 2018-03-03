@@ -1,18 +1,12 @@
 package traindelays.networkrail.subscribers
 
-import java.time.LocalTime
-
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
+import traindelays.networkrail.{ServiceCode, TestFeatures}
 import traindelays.networkrail.movementdata._
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord
-import traindelays.networkrail.scheduledata.ScheduleRecord.ScheduleLocationRecord.LocationType
-import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
-import traindelays.networkrail.{CRS, ServiceCode, StanoxCode, TipLocCode}
-import traindelays.{DatabaseConfig, TestFeatures}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Random
 
 class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
 

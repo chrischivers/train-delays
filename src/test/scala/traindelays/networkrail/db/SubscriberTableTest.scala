@@ -1,16 +1,13 @@
 package traindelays.networkrail.db
 
-import cats.effect.IO
 import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog.DaysRunPattern.Weekdays
-import traindelays.networkrail.scheduledata.ScheduleTrainId
-import traindelays.networkrail.subscribers.{SubscriberRecord, UserId}
-import traindelays.networkrail.{ServiceCode, StanoxCode}
-import traindelays.{DatabaseConfig, SubscribersConfig, TestFeatures}
+import traindelays.networkrail.subscribers.UserId
+import traindelays.SubscribersConfig
+import traindelays.networkrail.TestFeatures
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.postfixOps
 
 class SubscriberTableTest extends FlatSpec with TestFeatures {
 

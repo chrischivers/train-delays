@@ -3,21 +3,15 @@ package traindelays.networkrail.subscribers
 import java.time._
 import java.time.format.{DateTimeFormatter, FormatStyle}
 
-import cats.Functor
-import cats.data.OptionT
 import cats.effect.IO
 import cats.instances.list._
 import cats.syntax.traverse._
-import traindelays.networkrail.{ServiceCode, StanoxCode}
+import com.typesafe.scalalogging.StrictLogging
+import traindelays.networkrail.StanoxCode
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, StanoxTable, SubscriberTable}
 import traindelays.networkrail.movementdata.{CancellationLog, DBLog, MovementLog, VariationStatus}
-import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
 import traindelays.networkrail.subscribers.Emailer.Email
-import cats.instances.list._
-import cats.syntax.traverse._
-import com.typesafe.scalalogging.StrictLogging
-
-import scala.util.Try
 
 trait SubscriberHandler {
 

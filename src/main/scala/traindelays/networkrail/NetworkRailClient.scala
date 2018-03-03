@@ -8,7 +8,7 @@ import fs2.compress._
 import org.http4s.client.Client
 import org.http4s.headers.Authorization
 import org.http4s.{BasicCredentials, EntityBody, Headers, Request}
-import traindelays.{NetworkRailConfig, ScheduleDataConfig}
+import traindelays.NetworkRailConfig
 import traindelays.stomp.{StompClient, StompStreamListener}
 
 trait NetworkRailClient {

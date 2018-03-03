@@ -7,11 +7,12 @@ import io.circe.syntax._
 import org.http4s.Response
 import org.http4s.dsl.io.{NotFound, Ok, _}
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleLog
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{CancellationLogTable, MovementLogTable, ScheduleTable, StanoxTable}
 import traindelays.networkrail.movementdata.EventType.{Arrival, Departure}
 import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
-import traindelays.networkrail.scheduledata.{ScheduleTrainId, StanoxRecord}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.ui.Service.getMainStanoxRecords
 
 trait HistoryService {
@@ -43,8 +44,8 @@ object HistoryService {
                           stanoxRecords: List[StanoxRecord],
                           movementLogs: List[MovementLog],
                           cancellationLogs: List[CancellationLog],
-                          scheduleLogsFrom: List[ScheduleLog],
-                          scheduleLogsTo: List[ScheduleLog]): Option[HistoryQueryResponse] = {
+                          scheduleLogsFrom: List[ScheduleRecord],
+                          scheduleLogsTo: List[ScheduleRecord]): Option[HistoryQueryResponse] = {
 
           val mainStanoxRecords = getMainStanoxRecords(stanoxRecords)
 
@@ -91,8 +92,8 @@ object HistoryService {
               .sortBy(_.scheduledDepartureDate.toEpochDay)
 
           for {
-            fromCRS              <- mainStanoxRecords.find(_.stanoxCode == fromStanoxCode).flatMap(_.crs)
-            toCRS                <- mainStanoxRecords.find(_.stanoxCode == toStanoxCode).flatMap(_.crs)
+            fromCRS              <- mainStanoxRecords.find(_.stanoxCode.get == fromStanoxCode).flatMap(_.crs)
+            toCRS                <- mainStanoxRecords.find(_.stanoxCode.get == toStanoxCode).flatMap(_.crs)
             departureScheduleLog <- scheduleLogsFrom.find(_.stanoxCode == fromStanox)
             plannedDepartureTime <- departureScheduleLog.departureTime
             plannedArrivalTime <- scheduleLogsTo
@@ -128,7 +129,7 @@ object HistoryService {
                                                                       toTimestamp = toTimestamp)
           scheduleRecordsFrom <- scheduleTable.retrieveScheduleLogRecordsFor(scheduleTrainId, fromStanox)
           scheduleRecordsTo   <- scheduleTable.retrieveScheduleLogRecordsFor(scheduleTrainId, toStanox)
-          stanoxRecords       <- stanoxTable.retrieveAllRecordsWithCRS()
+          stanoxRecords       <- stanoxTable.retrieveAllNonEmptyRecords()
         } yield {
           logsToHistory(scheduleTrainId,
                         fromStanox,
