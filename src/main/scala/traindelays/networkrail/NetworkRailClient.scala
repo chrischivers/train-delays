@@ -19,6 +19,8 @@ trait NetworkRailClient {
 
   def downloadUpdateScheduleData: IO[Unit]
 
+  def deleteTmpFiles(): IO[Unit]
+
   def unpackScheduleData: IO[Unit]
 
   def subscribeToTopic(topic: String, listener: StompStreamListener)
@@ -65,7 +67,7 @@ object NetworkRailClient extends StrictLogging {
         .subscribe(topic, listener)
     }
 
-    def deleteTmpFiles() = IO {
+    override def deleteTmpFiles() = IO {
       config.scheduleData.tmpDownloadLocation.toFile.delete()
       config.scheduleData.tmpUnzipLocation.toFile.delete()
     }

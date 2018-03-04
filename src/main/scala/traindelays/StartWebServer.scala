@@ -4,7 +4,7 @@ import cats.effect.IO
 import org.http4s.server.blaze._
 import org.http4s.util.{ExitCode, StreamApp}
 import traindelays.networkrail.db._
-import traindelays.ui.{GoogleAuthenticator, HistoryService, Service}
+import traindelays.ui.{GoogleAuthenticator, HistoryService, ScheduleService, Service}
 
 object StartWebServer extends StreamApp[IO] {
 
@@ -19,15 +19,16 @@ object StartWebServer extends StreamApp[IO] {
       val cancellationLogTable = CancellationLogTable(db)
       val googleAuthenticator  = GoogleAuthenticator(config.uIConfig.clientId)
       val historyService       = HistoryService(movementLogTable, cancellationLogTable, stanoxTable, scheduleTable)
+      val scheduleService =
+        ScheduleService(stanoxTable, subscriberTable, scheduleTable, googleAuthenticator, config.uIConfig)
 
       BlazeBuilder[IO]
         .bindHttp(config.httpConfig.port, "localhost")
         .mountService(Service(historyService,
+                              scheduleService,
                               scheduleTable,
                               stanoxTable,
                               subscriberTable,
-                              movementLogTable,
-                              cancellationLogTable,
                               config.uIConfig,
                               googleAuthenticator),
                       "/")

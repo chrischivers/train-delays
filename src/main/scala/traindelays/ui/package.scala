@@ -11,12 +11,9 @@ import io.circe.java8.time.{
   encodeLocalTimeDefault
 }
 import io.circe.{Decoder, Encoder, Json}
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
-import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.movementdata.CancellationType
 import traindelays.networkrail.scheduledata.{AtocCode, DaysRunPattern, ScheduleTrainId}
-import traindelays.networkrail.subscribers.SubscriberRecord
-import traindelays.networkrail.{CRS, Definitions, StanoxCode}
+import traindelays.networkrail.{CRS, StanoxCode}
 
 package object ui {
 
@@ -109,53 +106,6 @@ package object ui {
     implicit val encoder: Encoder[HistoryQueryResponse] = deriveEncoder[HistoryQueryResponse]
 
   }
-
-  //TODO test this
-  def scheduleQueryResponsesFrom(
-      scheduleLogs: List[ScheduleRecord],
-      toStanoxCode: StanoxCode,
-      stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]],
-      existingSubscriberRecords: Option[List[SubscriberRecord]]): List[ScheduleQueryResponse] =
-    scheduleLogs.flatMap { log =>
-      for {
-        id            <- log.id
-        departureTime <- log.departureTime
-        tocName       <- log.atocCode.flatMap(atoc => Definitions.atocToOperatorNameMapping.get(atoc))
-        indexOfArrivalStopOpt = log.subsequentStanoxCodes.indexWhere(_ == toStanoxCode)
-        indexOfArrivalStop <- if (indexOfArrivalStopOpt == -1) None else Some(indexOfArrivalStopOpt)
-        arrivalTime = log.subsequentArrivalTimes(indexOfArrivalStop)
-      } yield {
-        ScheduleQueryResponse(
-          id,
-          log.scheduleTrainId,
-          log.atocCode,
-          tocName,
-          log.stanoxCode,
-          cRSFrom(log.stanoxCode, stanoxRecordsWithCRS).getOrElse(CRS("N/A")),
-          departureTime,
-          toStanoxCode,
-          cRSFrom(toStanoxCode, stanoxRecordsWithCRS).getOrElse(CRS("N/A")),
-          arrivalTime,
-          log.daysRunPattern,
-          log.scheduleStart,
-          log.scheduleEnd,
-          existingSubscriberRecords.fold(false)(
-            _.exists(
-              rec =>
-                rec.scheduleTrainId == log.scheduleTrainId &&
-                  rec.fromStanoxCode == log.stanoxCode &&
-                  rec.toStanoxCode == toStanoxCode &&
-                  rec.serviceCode == log.serviceCode &&
-                  rec.daysRunPattern == log.daysRunPattern))
-        )
-      }
-    }
-
-  private def cRSFrom(stanoxCode: StanoxCode, stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]]): Option[CRS] =
-    stanoxRecordsWithCRS
-      .get(stanoxCode)
-      .map(x => x.find(_.primary.contains(true)).getOrElse(x.head))
-      .flatMap(_.crs)
 
   private def scheduleStartFormat(scheduleStart: LocalDate): String = {
     val now = LocalDate.now()

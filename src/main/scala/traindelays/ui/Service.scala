@@ -1,23 +1,20 @@
 package traindelays.ui
 
 import java.time.Instant
-import java.time.temporal.ChronoUnit.DAYS
 
 import _root_.cats.effect.IO
 import cats.kernel.Order
 import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
-import io.circe.syntax._
 import org.http4s.circe._
 import org.http4s.dsl.io._
 import org.http4s.{EntityDecoder, HttpService, Request, StaticFile}
 import org.postgresql.util.PSQLException
 import traindelays.UIConfig
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db._
-import traindelays.networkrail.scheduledata.{ScheduleTrainId, StpIndicator}
+import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.SubscriberRecord
 
 import scala.concurrent.duration.FiniteDuration
@@ -46,11 +43,10 @@ object Service extends StrictLogging {
   implicit protected val memoizeRoutesCache: Cache[String] = GuavaCache[String]
 
   def apply(historyService: HistoryService,
+            scheduleService: ScheduleService,
             scheduleTable: ScheduleTable,
             stanoxTable: StanoxTable,
             subscriberTable: SubscriberTable,
-            movementLogTable: MovementLogTable,
-            cancellationLogTable: CancellationLogTable,
             uiConfig: UIConfig,
             googleAuthenticator: GoogleAuthenticator) = HttpService[IO] {
 
@@ -60,36 +56,14 @@ object Service extends StrictLogging {
     case request @ GET -> Root / path if List(".js", ".css", ".html").exists(path.endsWith) =>
       static(path, request)
 
-    case request @ GET -> Root / "stations" =>
+    case _ @GET -> Root / "stations" =>
       Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTable))
 
     case request @ POST -> Root / "schedule-query" =>
       //TODO add in association records
       request.as[ScheduleQueryRequest].attempt.flatMap {
         case Right(req) =>
-          (for {
-            maybeAuthenticatedDetails <- req.idToken.fold[IO[Option[AuthenticatedDetails]]](IO.pure(None))(token =>
-              googleAuthenticator.verifyToken(token))
-            stanoxRecordsWithCRS <- stanoxTable.retrieveAllNonEmptyRecords()
-            maybeExistingSubscriberRecords <- maybeAuthenticatedDetails.fold[IO[Option[List[SubscriberRecord]]]](
-              IO.pure(None))(details => subscriberTable.subscriberRecordsFor(details.userId).map(Some(_)))
-            queryResponses <- scheduleTable
-              .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern, StpIndicator.P) // This will always be P as we are dealing with permanent records
-              .map { scheduleLogs =>
-                scheduleQueryResponsesFrom(
-                  filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),
-                  req.toStanox,
-                  stanoxRecordsWithCRS
-                    .groupBy(_.stanoxCode)
-                    .collect { case (Some(stanoxCode), list) => stanoxCode -> list },
-                  maybeExistingSubscriberRecords
-                )
-              }
-
-          } yield queryResponses).attempt.flatMap(_.fold(err => {
-            logger.error("Error processing schedule query request", err)
-            InternalServerError()
-          }, lst => Ok(lst.asJson.noSpaces)))
+          scheduleService.handleScheduleRequest(req)
         case Left(err) =>
           logger.error(s"Unable to decode schedule-query ${request.toString()}", err)
           BadRequest()
@@ -188,14 +162,6 @@ object Service extends StrictLogging {
       StaticFile.fromResource(s"/static/$prefix" + file, Some(request)).getOrElseF(NotFound())
     }
   }
-
-  private def filterOutInvalidOrDuplicates(scheduleLogs: List[ScheduleRecord], minimumDaysScheduleDuration: Int) =
-    scheduleLogs
-      .filter(x => DAYS.between(x.scheduleStart, x.scheduleEnd) > minimumDaysScheduleDuration)
-      .groupBy(x => (x.scheduleTrainId, x.serviceCode, x.stanoxCode, x.daysRunPattern))
-      .values
-      .map(_.head)
-      .toList
 
   private def stationsList(memoizeRouteListFor: FiniteDuration,
                            stanoxTable: StanoxTable,

@@ -22,7 +22,7 @@ class ScheduleDataReaderTest extends FlatSpec {
     val decodedScheduleRecordResult =
       reader.readData.runLog.unsafeRunSync().toList.collect { case (r: DecodedScheduleRecord) => r }
 
-    decodedScheduleRecordResult should have size 3
+    decodedScheduleRecordResult should have size 2
     decodedScheduleRecordResult.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
@@ -73,7 +73,7 @@ class ScheduleDataReaderTest extends FlatSpec {
 
     val decodedAssociationRecordResult =
       reader.readData.runLog.unsafeRunSync().toList.collect { case (r: DecodedAssociationRecord) => r }
-    decodedAssociationRecordResult should have size 2
+    decodedAssociationRecordResult should have size 1
     println(decodedAssociationRecordResult)
 
     decodedAssociationRecordResult should contain(
@@ -105,6 +105,7 @@ class ScheduleDataReaderTest extends FlatSpec {
 
   }
 
+  //TODO fix
   it should "remove location records where departure time and arrival time are both None" in {
 
     val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid-with-interim-stop.json").getPath)

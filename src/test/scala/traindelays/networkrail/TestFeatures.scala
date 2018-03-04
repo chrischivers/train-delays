@@ -33,7 +33,7 @@ import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocati
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.{DaysRun, ScheduleLocationRecord}
 import traindelays.networkrail.scheduledata._
 import traindelays.networkrail.subscribers._
-import traindelays.ui.{AuthenticatedDetails, HistoryService, MockGoogleAuthenticator, Service}
+import traindelays.ui.{timeFormatter => _, _}
 
 import scala.concurrent.ExecutionContext
 import scala.language.postfixOps
@@ -583,20 +583,26 @@ trait TestFeatures {
 
   def serviceFrom(fixture: TrainDelaysTestFixture,
                   uIConfig: UIConfig,
-                  authenticatedDetails: AuthenticatedDetails): HttpService[IO] =
+                  authenticatedDetails: AuthenticatedDetails): HttpService[IO] = {
+
+    val googleAuthenticator = MockGoogleAuthenticator(authenticatedDetails)
     Service(
       HistoryService(fixture.movementLogTable,
                      fixture.cancellationLogTable,
                      fixture.stanoxTable,
                      fixture.scheduleTable),
+      ScheduleService(fixture.stanoxTable,
+                      fixture.subscriberTable,
+                      fixture.scheduleTable,
+                      googleAuthenticator,
+                      uIConfig),
       fixture.scheduleTable,
       fixture.stanoxTable,
       fixture.subscriberTable,
-      fixture.movementLogTable,
-      fixture.cancellationLogTable,
       uIConfig,
-      MockGoogleAuthenticator(authenticatedDetails)
+      googleAuthenticator
     )
+  }
 
   def getFlushedRedisClient(implicit executionContext: ExecutionContext): IO[RedisClient] = {
     val redisClient = new RedisClient()
