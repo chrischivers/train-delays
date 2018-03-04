@@ -2,7 +2,7 @@ package traindelays.scripts
 
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
-import org.http4s.client.blaze.PooledHttp1Client
+import org.http4s.client.blaze.Http1Client
 import traindelays.TrainDelaysConfig
 import traindelays.networkrail.NetworkRailClient
 import traindelays.networkrail.db.{ScheduleTable, _}
@@ -17,12 +17,11 @@ trait PopulateScheduleTable extends App with StrictLogging {
     val scheduleTable    = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
     val associationTable = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
-    val client             = PooledHttp1Client[IO]()
-    val networkRailClient  = NetworkRailClient(config.networkRailConfig, client)
-    val scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
-
     fs2.Stream.eval {
       for {
+        client <- Http1Client[IO]()
+        networkRailClient  = NetworkRailClient(config.networkRailConfig, client)
+        scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
         _ <- networkRailClient.deleteTmpFiles()
         _ <- IO.pure(logger.info("Downloading schedule data"))
         _ <- downloadScheduleData(networkRailClient)
@@ -33,7 +32,7 @@ trait PopulateScheduleTable extends App with StrictLogging {
         _ <- IO.pure(logger.info("Schedule Table population complete"))
       } yield ()
     }
-  }.run
+  }.compile.drain
 
   app.unsafeRunSync()
 

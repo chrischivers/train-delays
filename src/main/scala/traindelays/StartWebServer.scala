@@ -1,12 +1,14 @@
 package traindelays
 
 import cats.effect.IO
+import fs2.StreamApp.ExitCode
 import org.http4s.server.blaze._
-import org.http4s.util.{ExitCode, StreamApp}
 import traindelays.networkrail.db._
 import traindelays.ui.{GoogleAuthenticator, HistoryService, ScheduleService, Service}
 
-object StartWebServer extends StreamApp[IO] {
+import scala.concurrent.ExecutionContext.Implicits.global
+
+object StartWebServer extends fs2.StreamApp[IO] {
 
   def config = TrainDelaysConfig()
 

@@ -38,7 +38,8 @@ object StartMovementListener extends App with StrictLogging {
                                        trainActivationQueue,
                                        trainCancellationQueue,
                                        metricsLogging))
-      .run
+      .compile
+      .drain
   } yield ()
 
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],

@@ -18,7 +18,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
     withQueues { queues =>
       val fixture = setUpClientAndHandler(queues)
       fixture.mockStompClient.sendMessage("test/topic", sampleActivationMovementMessage)
-      fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
+      fixture.messageHandlerStream.compile.drain.unsafeRunTimed(2 seconds)
       fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainActivationQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
       queueMessages should have size 1
@@ -35,7 +35,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
     withQueues { queues =>
       val fixture = setUpClientAndHandler(queues)
       fixture.mockStompClient.sendMessage("test/topic", sampleMovementMessage)
-      fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
+      fixture.messageHandlerStream.compile.drain.unsafeRunTimed(2 seconds)
       fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainMovementQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
       queueMessages should have size 2
@@ -71,7 +71,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
     withQueues { queues =>
       val fixture = setUpClientAndHandler(queues)
       fixture.mockStompClient.sendMessage("test/topic", sampleCancellationMovementMessage)
-      fixture.messageHandlerStream.run.unsafeRunTimed(2 seconds)
+      fixture.messageHandlerStream.compile.drain.unsafeRunTimed(2 seconds)
       fixture.movementMessageHandlerWatcher.rawMessagesReceived should have size 1
       val queueMessages = queues.trainCancellationQueue.dequeueBatch1(Integer.MAX_VALUE).unsafeRunSync().toList
       queueMessages should have size 1

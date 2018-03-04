@@ -227,23 +227,23 @@ object ScheduleTable extends StrictLogging {
       override protected def retrieveAll(): IO[List[ScheduleRecord]] =
         ScheduleTable
           .allScheduleLogRecords()
-          .list
+          .to[List]
           .transact(db)
 
       override def retrieveScheduleLogRecordsFor(from: StanoxCode,
                                                  to: StanoxCode,
                                                  pattern: DaysRunPattern,
                                                  stpIndicator: StpIndicator): IO[List[ScheduleRecord]] =
-        ScheduleTable.scheduleRecordsFor(from, to, pattern, stpIndicator).list.transact(db)
+        ScheduleTable.scheduleRecordsFor(from, to, pattern, stpIndicator).to[List].transact(db)
 
       override def retrieveRecordBy(id: Int): IO[Option[ScheduleRecord]] =
         ScheduleTable.scheduleRecordFor(id).option.transact(db)
 
       override def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]] =
-        ScheduleTable.distinctStanoxCodes.list.transact(db)
+        ScheduleTable.distinctStanoxCodes.to[List].transact(db)
 
       override def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, from: StanoxCode): IO[List[ScheduleRecord]] =
-        ScheduleTable.scheduleRecordsFor(trainId, from).list.transact(db)
+        ScheduleTable.scheduleRecordsFor(trainId, from).to[List].transact(db)
 
       override def deleteRecord(scheduleTrainId: ScheduleTrainId,
                                 scheduleStartDate: LocalDate,

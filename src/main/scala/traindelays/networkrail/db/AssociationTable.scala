@@ -88,7 +88,7 @@ object AssociationTable extends StrictLogging {
       override protected def retrieveAll(): IO[List[AssociationRecord]] =
         AssociationTable
           .allAssociationRecordsRecords()
-          .list
+          .to[List]
           .transact(db)
 
       override def deleteRecord(mainScheduleTrainId: ScheduleTrainId,

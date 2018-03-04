@@ -33,13 +33,13 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
-                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
                                fixture.trainActivationCache,
-                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -81,14 +81,14 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
-                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
                                fixture.trainActivationCache,
-                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -130,7 +130,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
-                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         val trainMovementProcessor = TrainMovementProcessor(queues.trainMovementQueue,
@@ -139,7 +139,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                                                             fixture.trainActivationCache,
                                                             fixture.metricsLogging.incrMovementRecordsReceived)
 
-        trainMovementProcessor.stream.run
+        trainMovementProcessor.stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -157,7 +157,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         Thread.sleep(3000)
         queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
 
-        trainMovementProcessor.stream.run
+        trainMovementProcessor.stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -191,14 +191,14 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
-                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
                                fixture.trainActivationCache,
-                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.movementLogTable
@@ -233,7 +233,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
-                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
         TrainCancellationProcessor(
           queues.trainCancellationQueue,
@@ -241,7 +241,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           fixture.cancellationLogTable,
           fixture.trainActivationCache,
           fixture.metricsLogging.incrCancellationRecordsReceived
-        ).stream.run
+        ).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.cancellationLogTable
@@ -279,13 +279,13 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
-                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
         TrainMovementProcessor(queues.trainMovementQueue,
                                fixture.movementLogTable,
                                subscriberHandler,
                                fixture.trainActivationCache,
-                               fixture.metricsLogging.incrMovementRecordsReceived).stream.run
+                               fixture.metricsLogging.incrMovementRecordsReceived).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         TrainCancellationProcessor(
@@ -294,7 +294,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           fixture.cancellationLogTable,
           fixture.trainActivationCache,
           fixture.metricsLogging.incrCancellationRecordsReceived
-        ).stream.run
+        ).stream.compile.drain
           .unsafeRunTimed(1 second)
 
         fixture.metricsLogging.getActivationRecordsCount shouldBe 1

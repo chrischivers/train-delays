@@ -48,7 +48,7 @@ object NetworkRailClient extends StrictLogging {
         Request[IO](uri = url).withHeaders(Headers(Authorization(credentials)))
       followRedirects(client, config.maxRedirects).fetch(request) { resp =>
         if (resp.status.isSuccess) {
-          writeToFile(config.scheduleData.tmpDownloadLocation, resp.body).map(_ => ())
+          writeToFile(config.scheduleData.tmpDownloadLocation, resp.body).compile.drain.map(x => println("X: " + x))
         } else throw new IllegalStateException(s"Call to download schedule unsuccessful. Status code [${resp.status}")
       }
     }
@@ -59,7 +59,8 @@ object NetworkRailClient extends StrictLogging {
         .drop(10) //drops gzip header
         .through(inflate(nowrap = true))
         .to(fs2.io.file.writeAll[IO](config.scheduleData.tmpUnzipLocation))
-        .run
+        .compile
+        .drain
 
     override def subscribeToTopic(topic: String, listener: StompStreamListener): Unit = {
       logger.info(s"Subscribing to $topic")
@@ -74,9 +75,8 @@ object NetworkRailClient extends StrictLogging {
 
   }
 
-  private def writeToFile(path: Path, data: EntityBody[IO]): IO[Option[Unit]] =
+  private def writeToFile(path: Path, data: EntityBody[IO]): fs2.Stream[IO, Unit] =
     data
       .to(fs2.io.file.writeAll(path))
-      .runLast
 
 }

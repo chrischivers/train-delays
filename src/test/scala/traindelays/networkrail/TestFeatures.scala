@@ -90,7 +90,7 @@ trait TestFeatures {
   val testTransactor     = setUpTransactor(testDatabaseConfig)(_.clean())
 
   def withDatabase[A](databaseConfig: DatabaseConfig)(f: HikariTransactor[IO] => IO[A]): A =
-    withTransactor(databaseConfig)(_.clean)(x => Stream.eval(f(x))).runLast
+    withTransactor(databaseConfig)(_.clean)(transactor => Stream.eval(f(transactor))).compile.last
       .unsafeRunSync()
       .getOrElse(fail(s"Unable to perform the operation"))
 
@@ -129,7 +129,7 @@ trait TestFeatures {
       val metricsLogging       = TestMetricsLogging(config.metricsConfig)
 
       for {
-        _ <- IO.fromFuture(cats.Eval.always(redisClient.flushall()))
+        _ <- IO.fromFuture(IO(redisClient.flushall()))
         _ <- initState.stanoxRecords
           .map(record => {
             StanoxTable
@@ -505,7 +505,7 @@ trait TestFeatures {
 
     TrainActivationProcessor(queues.trainActivationQueue,
                              fixture.trainActivationCache,
-                             fixture.metricsLogging.incrActivationRecordsReceived).stream.run
+                             fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
       .unsafeRunTimed(1 second)
     TrainMovementProcessor(
       queues.trainMovementQueue,
@@ -513,14 +513,14 @@ trait TestFeatures {
       fixture.subscriberHandler,
       fixture.trainActivationCache,
       fixture.metricsLogging.incrMovementRecordsReceived
-    ).stream.run.unsafeRunTimed(1 second)
+    ).stream.compile.drain.unsafeRunTimed(1 second)
     TrainCancellationProcessor(
       queues.trainCancellationQueue,
       fixture.subscriberHandler,
       fixture.cancellationLogTable,
       fixture.trainActivationCache,
       fixture.metricsLogging.incrCancellationRecordsReceived
-    ).stream.run.unsafeRunTimed(1 second)
+    ).stream.compile.drain.unsafeRunTimed(1 second)
 
   }
 
@@ -605,8 +605,8 @@ trait TestFeatures {
   }
 
   def getFlushedRedisClient(implicit executionContext: ExecutionContext): IO[RedisClient] = {
-    val redisClient = new RedisClient()
-    IO.fromFuture(cats.Eval.always(redisClient.flushall())).map(_ => redisClient)
+    val redisClient = RedisClient()
+    IO.fromFuture(IO(redisClient.flushall())).map(_ => redisClient)
   }
 
   def toScheduleLogs(scheduleRecordCreate: DecodedScheduleRecord.Create,

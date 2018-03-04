@@ -115,7 +115,7 @@ object StanoxTable {
       override def stanoxRecordsFor(stanoxCode: StanoxCode): IO[List[StanoxRecord]] =
         StanoxTable
           .stanoxRecordFor(stanoxCode)
-          .list
+          .to[List]
           .transact(db)
 
       override def addRecords(records: List[StanoxRecord]): IO[Unit] =
@@ -124,7 +124,7 @@ object StanoxTable {
       override protected def retrieveAll(): IO[List[StanoxRecord]] =
         StanoxTable
           .allStanoxRecords()
-          .list
+          .to[List]
           .transact(db)
 
       override def deleteAllRecords(): IO[Unit] =
@@ -136,13 +136,13 @@ object StanoxTable {
         if (forceRefresh) {
           StanoxTable
             .allNonEmptyStanoxRecords()
-            .list
+            .to[List]
             .transact(db)
         } else {
           memoizeF(Some(memoizeFor))(
             StanoxTable
               .allNonEmptyStanoxRecords()
-              .list
+              .to[List]
               .transact(db)
           )(memoizeCacheWithCRS, scalacache.CatsEffect.modes.io, Flags.defaultFlags)
         }

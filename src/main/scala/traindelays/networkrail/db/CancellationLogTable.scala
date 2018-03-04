@@ -67,7 +67,7 @@ object CancellationLogTable {
       override protected def retrieveAll(): IO[List[CancellationLog]] =
         CancellationLogTable
           .allCancellationLogRecords()
-          .list
+          .to[List]
           .transact(db)
 
       override def retrieveRecordsFor(scheduleTrainId: ScheduleTrainId,
@@ -75,7 +75,7 @@ object CancellationLogTable {
                                       toTimestamp: Option[Long]): IO[List[CancellationLog]] =
         CancellationLogTable
           .cancellationLogsFor(scheduleTrainId, fromTimestamp.getOrElse(0), toTimestamp.getOrElse(Long.MaxValue))
-          .list
+          .to[List]
           .transact(db)
     }
 }

@@ -17,16 +17,17 @@ package object db {
 
   def setUpTransactor(config: DatabaseConfig)(beforeMigration: Flyway => Unit = _ => ()) =
     for {
-      transactor <- HikariTransactor[IO](config.driverClassName, config.url, config.username, config.password)
-      _ <- transactor
-        .configure { datasource =>
+      transactor <- HikariTransactor
+        .newHikariTransactor[IO](config.driverClassName, config.url, config.username, config.password)
+      _ <- transactor.configure { datasource =>
+        IO {
           val flyway = new Flyway()
           flyway.setDataSource(datasource)
           flyway.setLocations(migrationLocation)
           beforeMigration(flyway)
           flyway.migrate()
         }
-
+      }
     } yield transactor
 
   def withTransactor[A](config: DatabaseConfig)(beforeMigration: Flyway => Unit = _ => ())(

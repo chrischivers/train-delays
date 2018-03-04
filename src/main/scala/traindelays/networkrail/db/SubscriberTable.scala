@@ -52,7 +52,7 @@ object SubscriberTable {
           service_code, from_stanox_code, to_stanox_code, days_run_pattern
           FROM subscribers
           WHERE schedule_train_id = ${scheduleTrainId} AND service_code = ${serviceCode}
-      """.query[SubscriberRecord].list.transact(db)
+      """.query[SubscriberRecord].to[List].transact(db)
 
       override def deleteAllRecords(): IO[Unit] =
         SubscriberTable.deleteAllSubscriberRecords().run.transact(db).map(_ => ())
@@ -60,7 +60,7 @@ object SubscriberTable {
       override protected def retrieveAll(): IO[List[SubscriberRecord]] =
         SubscriberTable
           .allSubscriberRecords()
-          .list
+          .to[List]
           .transact(db)
 
       override def subscriberRecordsFor(userId: UserId): IO[List[SubscriberRecord]] =
@@ -69,7 +69,7 @@ object SubscriberTable {
           service_code, from_stanox_code, to_stanox_code, days_run_pattern
           FROM subscribers
           WHERE user_id = ${userId}
-      """.query[SubscriberRecord].list.transact(db)
+      """.query[SubscriberRecord].to[List].transact(db)
     }
 
   def deleteAllSubscriberRecords(): Update0 =

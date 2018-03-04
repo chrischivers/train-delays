@@ -20,9 +20,9 @@ class ScheduleDataReaderTest extends FlatSpec {
     val reader = ScheduleDataReader(source)
 
     val decodedScheduleRecordResult =
-      reader.readData.runLog.unsafeRunSync().toList.collect { case (r: DecodedScheduleRecord) => r }
+      reader.readData.compile.toList.unsafeRunSync().collect { case (r: DecodedScheduleRecord) => r }
 
-    decodedScheduleRecordResult should have size 2
+    decodedScheduleRecordResult should have size 3
     decodedScheduleRecordResult.head shouldBe DecodedScheduleRecord.Create(
       ScheduleTrainId("G76481"),
       ServiceCode("24745000"),
@@ -58,7 +58,7 @@ class ScheduleDataReaderTest extends FlatSpec {
     val reader = ScheduleDataReader(source)
 
     val decodedStanoxRecordResult =
-      reader.readData.runLog.unsafeRunSync().toList.collect { case (r: DecodedStanoxRecord) => r }
+      reader.readData.compile.toList.unsafeRunSync().collect { case (r: DecodedStanoxRecord) => r }
     decodedStanoxRecordResult should have size 14
     decodedStanoxRecordResult should contain(
       DecodedStanoxRecord.Create(TipLocCode("REDHILL"), Some(StanoxCode("87722")), Some(CRS("RDH")), Some("REDHILL")))
@@ -71,9 +71,11 @@ class ScheduleDataReaderTest extends FlatSpec {
     val source = Paths.get(getClass.getResource("/test-schedule-association-record.json").getPath)
     val reader = ScheduleDataReader(source)
 
+    println(reader.readData.compile.toList.unsafeRunSync())
+
     val decodedAssociationRecordResult =
-      reader.readData.runLog.unsafeRunSync().toList.collect { case (r: DecodedAssociationRecord) => r }
-    decodedAssociationRecordResult should have size 1
+      reader.readData.compile.toList.unsafeRunSync().collect { case (r: DecodedAssociationRecord) => r }
+    decodedAssociationRecordResult should have size 2
     println(decodedAssociationRecordResult)
 
     decodedAssociationRecordResult should contain(
@@ -103,43 +105,5 @@ class ScheduleDataReaderTest extends FlatSpec {
         TipLocCode("CRDFCEN")
       ))
 
-  }
-
-  //TODO fix
-  it should "remove location records where departure time and arrival time are both None" in {
-
-    val source = Paths.get(getClass.getResource("/test-schedule-single-train-uid-with-interim-stop.json").getPath)
-    val reader = ScheduleDataReader(source)
-
-    val decodedScheduleRecordResult =
-      reader.readData.runLog.unsafeRunSync().toList.collect { case (r: DecodedScheduleRecord) => r }
-    decodedScheduleRecordResult should have size 1
-    decodedScheduleRecordResult.head shouldBe DecodedScheduleRecord.Create(
-      ScheduleTrainId("G76481"),
-      ServiceCode("24745000"),
-      Some(TrainCategory("OO")),
-      Some(TrainStatus("P")),
-      Some(AtocCode("SN")),
-      DaysRun(monday = true,
-              tuesday = true,
-              wednesday = true,
-              thursday = true,
-              friday = true,
-              saturday = false,
-              sunday = false),
-      LocalDate.parse("2018-01-01"),
-      LocalDate.parse("2018-01-26"),
-      StpIndicator.P,
-      List(
-        ScheduleLocationRecord(OriginatingLocation,
-                               TipLocCode("REIGATE"),
-                               None,
-                               Some(LocalTime.parse("0649", timeFormatter))),
-        ScheduleLocationRecord(TerminatingLocation,
-                               TipLocCode("REDHILL"),
-                               Some(LocalTime.parse("0653", timeFormatter)),
-                               None)
-      )
-    )
   }
 }

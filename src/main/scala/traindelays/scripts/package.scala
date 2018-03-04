@@ -16,7 +16,8 @@ package object scripts extends StrictLogging {
     scheduleDataReader.readData
       .through(progressLogger)
       .to(dbUpdater)
-      .run
+      .compile
+      .drain
   }
 
   private def progressLogger[A](stream: fs2.Stream[IO, A]): fs2.Stream[IO, A] =

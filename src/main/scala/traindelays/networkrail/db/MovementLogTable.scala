@@ -82,7 +82,7 @@ object MovementLogTable {
       override protected def retrieveAll(): IO[List[MovementLog]] =
         MovementLogTable
           .allMovementLogRecords()
-          .list
+          .to[List]
           .transact(db)
 
       override def retrieveRecordsFor(scheduleTrainId: ScheduleTrainId,
@@ -94,7 +94,7 @@ object MovementLogTable {
                            stanoxCodesAffected,
                            fromTimestamp.getOrElse(0),
                            toTimestamp.getOrElse(Long.MaxValue))
-          .list
+          .to[List]
           .transact(db)
     }
 }

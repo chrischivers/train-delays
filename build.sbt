@@ -9,18 +9,19 @@ unmanagedJars in Compile += file("lib/gozirra-client-0.4.1.jar")
 scalacOptions ++= Seq("-feature", "-deprecation", "-Ywarn-unused-import", "-Xfatal-warnings")
 
 
-val circeVersion = "0.9.0-M2"
-val fs2Version = "0.10.0-M8"
-val http4sVersion = "0.18.0-M5"
-val doobieVersion  = "0.5.0-M9"
-val scalacacheVersion  = "0.21.0"
+val circeVersion = "0.9.0"
+val fs2Version = "0.10.2"
+val http4sVersion = "0.18.0"
+val doobieVersion  = "0.5.1"
+val scalacacheVersion  = "0.22.0"
 
 
 libraryDependencies ++= Seq(
   "io.circe" %% "circe-core",
   "io.circe" %% "circe-generic",
   "io.circe" %% "circe-parser",
-  "io.circe" %% "circe-java8"
+  "io.circe" %% "circe-java8",
+  "io.circe" %% "circe-fs2"
 ).map(_ % circeVersion)
 
 libraryDependencies ++= Seq(

@@ -1,7 +1,6 @@
 package traindelays.networkrail.cache
 
 import akka.util.ByteString
-import cats.Eval
 import cats.effect.IO
 import io.circe.{Decoder, Encoder, HCursor, Json}
 import redis.{ByteStringDeserializer, ByteStringSerializer, RedisClient}
@@ -59,16 +58,15 @@ object TrainActivationCache {
     new TrainActivationCache {
 
       override def addToCache(trainActivationRecord: TrainActivationRecord): IO[Boolean] =
-        IO.fromFuture {
-          Eval.always(
-            redisClient
-              .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis)))
-        }
+        IO.fromFuture(IO {
+          redisClient
+            .set(trainActivationRecord.trainId.value, trainActivationRecord, pxMilliseconds = Some(expiry.toMillis))
+        })
 
       override def getFromCache(trainId: TrainId): IO[Option[TrainActivationRecord]] =
-        IO.fromFuture {
-          Eval.always(redisClient.get[TrainActivationRecord](trainId.value))
-        }
+        IO.fromFuture(IO {
+          redisClient.get[TrainActivationRecord](trainId.value)
+        })
     }
 
 }
