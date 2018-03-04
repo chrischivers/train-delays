@@ -19,16 +19,6 @@ trait AssociationTable extends MemoizedTable[AssociationRecord] {
                    associationStartDate: LocalDate,
                    stpIndicator: StpIndicator,
                    location: TipLocCode): IO[Unit]
-
-  val dbUpdater: fs2.Sink[IO, DecodedAssociationRecord] = fs2.Sink {
-    case rec: DecodedAssociationRecord.Create => rec.toAssociationRecord.fold(IO.unit)(addRecord)
-    case rec: DecodedStanoxRecord.Delete =>
-      deleteRecord(rec.mainScheduleTrainId,
-                   rec.associatedScheduleTrainId,
-                   rec.associationStartDate,
-                   rec.stpIndicator,
-                   rec.location)
-  }
 }
 
 object AssociationTable extends StrictLogging {
@@ -51,7 +41,7 @@ object AssociationTable extends StrictLogging {
                                saturday: Boolean,
                                sunday: Boolean,
                                daysRunPattern: DaysRunPattern,
-                               associationCategory: AssociationCategory)
+                               associationCategory: Option[AssociationCategory])
 
   def addAssociationRecord(log: AssociationRecord): Update0 =
     sql"""
@@ -61,6 +51,7 @@ object AssociationTable extends StrictLogging {
       VALUES(${log.mainScheduleTrainId}, ${log.associatedScheduleTrainId}, ${log.associatedStart}, ${log.associatedEnd}, ${log.stpIndicator}, 
       ${log.location}, ${log.monday}, ${log.tuesday}, ${log.wednesday},
       ${log.thursday}, ${log.friday}, ${log.saturday}, ${log.sunday}, ${log.daysRunPattern}, ${log.associationCategory})
+      ON CONFLICT DO NOTHING
      """.update
 
   def allAssociationRecordsRecords(): Query0[AssociationRecord] =

@@ -395,7 +395,7 @@ trait TestFeatures {
                               saturday: Boolean = false,
                               sunday: Boolean = false,
                               daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
-                              associationCategory: AssociationCategory = AssociationCategory.Join) =
+                              associationCategory: Option[AssociationCategory] = Some(AssociationCategory.Join)) =
     AssociationRecord(
       None,
       mainScheduleTrainID,
@@ -567,7 +567,7 @@ trait TestFeatures {
     )
 
     AppInitialState(
-      scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)),
+      scheduleLogRecords = toScheduleLogs(scheduleRecord, StanoxRecord.stanoxRecordsToMap(stanoxRecords)),
       stanoxRecords = stanoxRecords
     )
   }
@@ -602,4 +602,8 @@ trait TestFeatures {
     val redisClient = new RedisClient()
     IO.fromFuture(cats.Eval.always(redisClient.flushall())).map(_ => redisClient)
   }
+
+  def toScheduleLogs(scheduleRecordCreate: DecodedScheduleRecord.Create,
+                     existingStanoxRecordsMap: Map[TipLocCode, StanoxCode]): List[ScheduleRecord] =
+    DecodedScheduleRecord.decodedScheduleRecordToScheduleLogs(scheduleRecordCreate, existingStanoxRecordsMap)
 }

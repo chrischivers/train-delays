@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS association (
   sunday   BOOLEAN NOT NULL,
   days_run_pattern VARCHAR(10) NOT NULL,
   association_category VARCHAR(10) NOT NULL,
-  CONSTRAINT unique_cons_association UNIQUE(main_schedule_train_id, associated_schedule_train_id, location, association_category, associated_start, associated_end)
+  CONSTRAINT unique_cons_association UNIQUE(main_schedule_train_id, associated_schedule_train_id, location, association_category, associated_start, associated_end, stp_indicator)
 );
 
 CREATE INDEX association_idx ON association (main_schedule_train_id, associated_schedule_train_id, association_category, associated_start, associated_end);

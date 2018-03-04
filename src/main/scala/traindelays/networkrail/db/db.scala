@@ -42,9 +42,6 @@ package object db {
 
     protected def retrieveAll(): IO[List[A]]
 
-    val dbWriter: fs2.Sink[IO, A] = fs2.Sink { record =>
-      addRecord(record)
-    }
   }
 
   trait MemoizedTable[A] extends Table[A] with StrictLogging {

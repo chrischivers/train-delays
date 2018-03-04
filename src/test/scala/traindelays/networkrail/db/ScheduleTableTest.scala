@@ -58,7 +58,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 2
@@ -114,7 +114,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrievedRecord = fixture.scheduleTable.retrieveRecordBy(2).unsafeRunSync()
       retrievedRecord.get.stanoxCode shouldBe StanoxCode("23456")
@@ -148,7 +148,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrieved1 = fixture.scheduleTable
         .retrieveScheduleLogRecordsFor(StanoxCode("23456"), StanoxCode("34567"), Weekdays, StpIndicator.P)
@@ -184,8 +184,9 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord1.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)) ++ scheduleRecord2
-          .toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord1, stanoxRecordsToMap(stanoxRecords)) ++ toScheduleLogs(
+          scheduleRecord2,
+          stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val distinctStanoxCodes = fixture.scheduleTable.retrieveAllDistinctStanoxCodes.unsafeRunSync()
       distinctStanoxCodes should have size 2
@@ -207,8 +208,9 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord1.toScheduleLogs(stanoxRecordsToMap(stanoxRecords)) ++ scheduleRecord2
-          .toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord1, stanoxRecordsToMap(stanoxRecords)) ++ toScheduleLogs(
+          scheduleRecord2,
+          stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 4
@@ -239,7 +241,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
                                                              2 seconds))(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrievedRecords1 = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
 
@@ -271,7 +273,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrievedRecords = (for {
         _         <- fixture.scheduleTable.deleteAllRecords()
@@ -309,7 +311,7 @@ class ScheduleTableTest extends FlatSpec with TestFeatures {
     withInitialState(testDatabaseConfig)(
       AppInitialState(
         stanoxRecords = stanoxRecords,
-        scheduleLogRecords = scheduleRecord.toScheduleLogs(stanoxRecordsToMap(stanoxRecords))
+        scheduleLogRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
       )) { fixture =>
       val retrievedRecords = fixture.scheduleTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 3

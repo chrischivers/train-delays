@@ -10,6 +10,10 @@ trait CancellationLogTable extends NonMemoizedTable[CancellationLog] {
   def retrieveRecordsFor(scheduleTrainId: ScheduleTrainId,
                          fromTimestamp: Option[Long],
                          toTimestamp: Option[Long]): IO[List[CancellationLog]]
+
+  val dbWriter: fs2.Sink[IO, CancellationLog] = fs2.Sink { record =>
+    addRecord(record)
+  }
 }
 
 object CancellationLogTable {

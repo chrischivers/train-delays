@@ -7,7 +7,7 @@ import com.typesafe.scalalogging.StrictLogging
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata._
-import traindelays.networkrail.{ServiceCode, StanoxCode, TrainCategory, TrainStatus}
+import traindelays.networkrail._
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -30,10 +30,6 @@ trait ScheduleTable extends MemoizedTable[ScheduleRecord] {
 
   def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]]
 
-  val dbUpdater: fs2.Sink[IO, Either[DecodedScheduleRecord.Delete, List[ScheduleRecord]]] = fs2.Sink {
-    case Right(records) => addRecords(records)
-    case Left(delete)   => deleteRecord(delete.scheduleTrainId, delete.scheduleStartDate, delete.stpIndicator)
-  }
 }
 
 object ScheduleTable extends StrictLogging {
@@ -201,7 +197,6 @@ object ScheduleTable extends StrictLogging {
   def deleteAllScheduleLogRecords(): Update0 =
     sql"""DELETE FROM schedule""".update
 
-  //TODO test this
   def deleteRecord(scheduleTrainId: ScheduleTrainId,
                    scheduleStartDate: LocalDate,
                    stpIndicator: StpIndicator): Update0 =

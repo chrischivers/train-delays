@@ -5,14 +5,15 @@ import java.time.{LocalDate, LocalTime}
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import doobie.util.meta.Meta
-import fs2.Pipe
-import io.circe._
 import io.circe.Decoder.Result
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import io.circe._
 import traindelays.networkrail._
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.StanoxTable
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 
-trait DecodedScheduleRecord {
+trait DecodedScheduleRecord extends DecodedRecord {
   val scheduleTrainId: ScheduleTrainId
   val scheduleStartDate: LocalDate
   val stpIndicator: StpIndicator
@@ -32,32 +33,21 @@ object DecodedScheduleRecord extends StrictLogging {
                     locationRecords: List[ScheduleLocationRecord])
       extends DecodedScheduleRecord {
 
-    def toScheduleLogs(stanoxRecords: Map[TipLocCode, StanoxCode]): List[ScheduleRecord] =
-      decodedScheduleRecordToScheduleLogs(this, stanoxRecords)
+    def toScheduleLogs(stanoxTable: StanoxTable): IO[List[ScheduleRecord]] =
+      for {
+        existingStanoxRecords <- stanoxTable.retrieveAllRecords()
+        existingStanoxRecordsMap = StanoxRecord.stanoxRecordsToMap(existingStanoxRecords)
+      } yield decodedScheduleRecordToScheduleLogs(this, existingStanoxRecordsMap)
+
   }
 
   case class Delete(scheduleTrainId: ScheduleTrainId, scheduleStartDate: LocalDate, stpIndicator: StpIndicator)
       extends DecodedScheduleRecord
 
-  implicit case object JsonFilter extends JsonFilter[DecodedScheduleRecord] {
-    override implicit val jsonFilter: Json => Boolean = _.hcursor.downField("JsonScheduleV1").succeeded
-  }
-
-  implicit case object ScheduleRecordCreateTransformer extends Transformer[DecodedScheduleRecord] {
-    override implicit val transform: Pipe[IO, DecodedScheduleRecord, DecodedScheduleRecord] =
-      (in: _root_.fs2.Stream[IO, DecodedScheduleRecord]) =>
-        in.map {
-          case rec: DecodedScheduleRecord.Create =>
-            rec.copy(locationRecords = rec.locationRecords.filterNot(locRec =>
-              locRec.departureTime.isEmpty && locRec.arrivalTime.isEmpty))
-          case other => other
-      }
-
-  }
-
   def decodedScheduleRecordToScheduleLogs(scheduleRecordCreate: DecodedScheduleRecord.Create,
                                           stanoxRecords: Map[TipLocCode, StanoxCode]): List[ScheduleRecord] = {
     val locationRecordsWithIndex = scheduleRecordCreate.locationRecords
+      .filterNot(rec => rec.arrivalTime.isEmpty && rec.departureTime.isEmpty)
       .filter(locRec => stanoxRecords.get(locRec.tipLocCode).isDefined)
       .zipWithIndex
     locationRecordsWithIndex.flatMap {
@@ -97,7 +87,7 @@ object DecodedScheduleRecord extends StrictLogging {
               s"Unable to find stanox record for tiplocCode ${scheduleLocationRecord.tipLocCode}")) -> scheduleLocationRecord.arrivalTime
             .orElse(scheduleLocationRecord.departureTime)
             .getOrElse(throw new IllegalStateException(
-              s"Arrival time and departure time not included for a subsequent stops [$scheduleLocationRecord]")) //TODO do this in a better way
+              s"Arrival time and departure time not included for a subsequent stop [$scheduleLocationRecord]")) //TODO do this in a better way
       }
 
   private def createScheduleRecordFrom(scheduleRecordCreate: DecodedScheduleRecord.Create,
@@ -134,13 +124,13 @@ object DecodedScheduleRecord extends StrictLogging {
       locationRecord.departureTime
     )
 
-  implicit val localDateDecoder: Decoder[LocalDate] {
+  implicit private val localDateDecoder: Decoder[LocalDate] {
     def apply(c: HCursor): Result[LocalDate]
   } = new Decoder[LocalDate] {
     override def apply(c: HCursor): Result[LocalDate] = c.as[String].map(LocalDate.parse(_))
   }
 
-  implicit val scheduleRecordDecoder: Decoder[DecodedScheduleRecord] {
+  val scheduleRecordDecoder: Decoder[DecodedScheduleRecord] {
     def apply(c: HCursor): Result[DecodedScheduleRecord]
   } = new Decoder[DecodedScheduleRecord] {
 
@@ -153,12 +143,6 @@ object DecodedScheduleRecord extends StrictLogging {
           Left(DecodingFailure(s"Update for JsonScheduleV1 not handled ${c.value}", c.history))
       }
     }
-
-    def logDecodingErrors[A](cursor: HCursor, result: Either[DecodingFailure, A]): Either[DecodingFailure, A] =
-      result.fold(failure => {
-        logger.error(s"Error decoding ${cursor.value}", failure)
-        Left(failure)
-      }, _ => result)
   }
 
   private def decodeScheduleCreateRecord(scheduleObject: ACursor) =
@@ -168,7 +152,7 @@ object DecodedScheduleRecord extends StrictLogging {
       atocCode          <- scheduleObject.downField("atoc_code").as[Option[AtocCode]]
       scheduleStartDate <- scheduleObject.downField("schedule_start_date").as[LocalDate]
       scheduleEndDate   <- scheduleObject.downField("schedule_end_date").as[LocalDate]
-      stopIndicator     <- scheduleObject.downField("CIF_stp_indicator").as[StpIndicator]
+      stpIndicator      <- scheduleObject.downField("CIF_stp_indicator").as[StpIndicator]
       scheduleTrainUid  <- scheduleObject.downField("CIF_train_uid").as[ScheduleTrainId]
       trainStatus       <- scheduleObject.downField("train_status").as[Option[TrainStatus]]
       scheduleSegment = scheduleObject.downField("schedule_segment")
@@ -185,7 +169,7 @@ object DecodedScheduleRecord extends StrictLogging {
         daysRunDecoded,
         scheduleStartDate,
         scheduleEndDate,
-        stopIndicator,
+        stpIndicator,
         locationRecordArray.getOrElse(Nil)
       )
     }

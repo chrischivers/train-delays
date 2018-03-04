@@ -1,7 +1,8 @@
 package traindelays.ui
 
-import java.time.LocalTime
+import java.time.{LocalDate, LocalTime}
 
+import cats.Order
 import cats.effect.IO
 import io.circe.syntax._
 import org.http4s.Response
@@ -11,7 +12,7 @@ import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{CancellationLogTable, MovementLogTable, ScheduleTable, StanoxTable}
 import traindelays.networkrail.movementdata.EventType.{Arrival, Departure}
-import traindelays.networkrail.movementdata.{CancellationLog, MovementLog}
+import traindelays.networkrail.movementdata.{CancellationLog, MovementLog, TrainId}
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.ui.Service.getMainStanoxRecords
 
@@ -76,12 +77,14 @@ object HistoryService {
               .toList
               .sortBy(_.scheduledDepartureDate.toEpochDay)
 
-          def getHistoryRecordsFromCancellationLogs: List[HistoryQueryCancellationRecord] =
+          def getHistoryRecordsFromCancellationLogs: List[HistoryQueryCancellationRecord] = {
+            import cats.implicits._
+            implicit val ordering: Order[(ScheduleTrainId, TrainId, LocalDate)] =
+              cats.Order.by[(ScheduleTrainId, TrainId, LocalDate), String](_._3.toString)
             filteredCancellationLogs
-              .groupBy(l => (l.scheduleTrainId, l.trainId, l.originDepartureDate))
+              .groupByNel(l => (l.scheduleTrainId, l.trainId, l.originDepartureDate))
               .map {
                 case (group, list) =>
-                  //TODO use cats NEL to make head safe
                   HistoryQueryCancellationRecord(
                     group._3,
                     list.head.cancellationType,
@@ -90,6 +93,7 @@ object HistoryService {
               }
               .toList
               .sortBy(_.scheduledDepartureDate.toEpochDay)
+          }
 
           for {
             fromCRS              <- mainStanoxRecords.find(_.stanoxCode.get == fromStanoxCode).flatMap(_.crs)

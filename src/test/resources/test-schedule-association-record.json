@@ -1,0 +1,29 @@
+{
+  "JsonAssociationV1": {
+    "transaction_type": "Create",
+    "main_train_uid": "W65286",
+    "assoc_train_uid": "W65188",
+    "assoc_start_date": "2018-05-26T00:00:00Z",
+    "assoc_end_date": "2018-12-08T00:00:00Z",
+    "assoc_days": "0000010",
+    "category": "JJ",
+    "date_indicator": "S",
+    "location": "HYWRDSH",
+    "base_location_suffix": null,
+    "assoc_location_suffix": null,
+    "diagram_type": "T",
+    "CIF_stp_indicator": "P"
+  }
+}
+{
+  "JsonAssociationV1": {
+    "transaction_type": "Delete",
+    "main_train_uid": "C50125",
+    "assoc_train_uid": "C51070",
+    "assoc_start_date": "2018-04-01T00:00:00Z",
+    "location": "CRDFCEN",
+    "base_location_suffix": null,
+    "diagram_type": "T",
+    "CIF_stp_indicator": "C"
+  }
+}

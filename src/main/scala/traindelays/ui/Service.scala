@@ -64,6 +64,7 @@ object Service extends StrictLogging {
       Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTable))
 
     case request @ POST -> Root / "schedule-query" =>
+      //TODO add in association records
       request.as[ScheduleQueryRequest].attempt.flatMap {
         case Right(req) =>
           (for {
@@ -73,7 +74,7 @@ object Service extends StrictLogging {
             maybeExistingSubscriberRecords <- maybeAuthenticatedDetails.fold[IO[Option[List[SubscriberRecord]]]](
               IO.pure(None))(details => subscriberTable.subscriberRecordsFor(details.userId).map(Some(_)))
             queryResponses <- scheduleTable
-              .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern, StpIndicator.P) //todo should this always be P
+              .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern, StpIndicator.P) // This will always be P as we are dealing with permanent records
               .map { scheduleLogs =>
                 scheduleQueryResponsesFrom(
                   filterOutInvalidOrDuplicates(scheduleLogs, uiConfig.minimumDaysScheduleDuration),

@@ -8,7 +8,7 @@ import traindelays.networkrail.NetworkRailClient
 import traindelays.networkrail.db.{ScheduleTable, _}
 import traindelays.networkrail.scheduledata._
 
-import scala.language.reflectiveCalls
+//import scala.language.reflectiveCalls
 
 object FullPopulateScheduleTable extends App with StrictLogging {
 
@@ -20,20 +20,19 @@ object FullPopulateScheduleTable extends App with StrictLogging {
 
   val app = withTransactor(
     config.databaseConfig.copy(url = "jdbc:postgresql://localhost/traindelays", username = "postgres"))() { db =>
-    val stanoxTable   = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-    val scheduleTable = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val stanoxTable      = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val scheduleTable    = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val associationTable = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
     fs2.Stream.eval {
       for {
-        _ <- networkRailClient deleteTmpFiles ()
-        _ <- IO.pure(logger.info("Downloading full schedule data"))
-        _ <- networkRailClient.downloadFullScheduleData
-        _ <- IO.pure(logger.info("Unpacking schedule data"))
-        _ <- networkRailClient.unpackScheduleData
-        _ <- IO.pure(logger.info("Writing stanox records"))
-        _ <- writeStanoxRecords(stanoxTable, scheduleDataReader)
-        _ <- IO.pure(logger.info("Writing schedule records"))
-        _ <- writeScheduleRecords(stanoxTable, scheduleTable, scheduleDataReader)
+//        _ <- networkRailClient deleteTmpFiles()
+//        _ <- IO.pure(logger.info("Downloading full schedule data"))
+//        _ <- networkRailClient.downloadFullScheduleData
+//        _ <- IO.pure(logger.info("Unpacking schedule data"))
+//        _ <- networkRailClient.unpackScheduleData
+        _ <- IO.pure(logger.info("Writing schedule data records"))
+        _ <- writeScheduleDataRecords(stanoxTable, scheduleTable, associationTable, scheduleDataReader)
         _ <- IO.pure(logger.info("Schedule Table population complete"))
       } yield ()
     }

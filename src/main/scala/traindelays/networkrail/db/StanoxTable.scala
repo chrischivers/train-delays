@@ -2,7 +2,6 @@ package traindelays.networkrail.db
 
 import cats.effect.IO
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
-import traindelays.networkrail.scheduledata.DecodedStanoxRecord
 import traindelays.networkrail.{CRS, StanoxCode, TipLocCode}
 
 import scala.concurrent.duration.FiniteDuration
@@ -22,12 +21,6 @@ trait StanoxTable extends MemoizedTable[StanoxRecord] {
   def deleteRecord(tipLocCode: TipLocCode): IO[Unit]
 
   def retrieveAllNonEmptyRecords(forceRefesh: Boolean = false): IO[List[StanoxRecord]]
-
-  val dbUpdater: fs2.Sink[IO, DecodedStanoxRecord] = fs2.Sink {
-    case rec: DecodedStanoxRecord.Create => addRecord(rec.toStanoxRecord)
-    case rec: DecodedStanoxRecord.Update => updateRecord(rec.toStanoxRecord)
-    case rec: DecodedStanoxRecord.Delete => deleteRecord(rec.tipLocCode)
-  }
 
 }
 

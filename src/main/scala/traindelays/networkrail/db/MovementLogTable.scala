@@ -12,6 +12,10 @@ trait MovementLogTable extends NonMemoizedTable[MovementLog] {
                          stanoxCodesAffected: Option[List[StanoxCode]],
                          fromTimestamp: Option[Long],
                          toTimestamp: Option[Long]): IO[List[MovementLog]]
+
+  val dbWriter: fs2.Sink[IO, MovementLog] = fs2.Sink { record =>
+    addRecord(record)
+  }
 }
 
 object MovementLogTable {
@@ -81,7 +85,6 @@ object MovementLogTable {
           .list
           .transact(db)
 
-      //TODO test this
       override def retrieveRecordsFor(scheduleTrainId: ScheduleTrainId,
                                       stanoxCodesAffected: Option[List[StanoxCode]],
                                       fromTimestamp: Option[Long],

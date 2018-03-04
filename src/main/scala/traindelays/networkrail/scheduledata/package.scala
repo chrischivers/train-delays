@@ -2,23 +2,37 @@ package traindelays.networkrail
 
 import java.time.format.DateTimeFormatter
 
-import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import doobie.util.meta.Meta
 import io.circe.Decoder.Result
 import io.circe._
 
-package object scheduledata {
+package object scheduledata extends StrictLogging {
+
+  trait DecodedRecord
+
+  case class OtherDecodedRecord(label: String) extends DecodedRecord
+
+  object DecodedRecord {
+    implicit val decoder = new Decoder[DecodedRecord] {
+      override def apply(c: HCursor): Result[DecodedRecord] =
+        c.keys
+          .flatMap(_.headOption)
+          .fold[Decoder.Result[DecodedRecord]](
+            Left(DecodingFailure(s"Unable to get head record ${c.value}", c.history))) {
+            case "JsonAssociationV1" => DecodedAssociationRecord.associationRecordDecoder(c)
+            case "JsonScheduleV1"    => DecodedScheduleRecord.scheduleRecordDecoder(c)
+            case "TiplocV1"          => DecodedStanoxRecord.stanoxRecordDecoder(c)
+            case "JsonTimetableV1"   => Right(OtherDecodedRecord("JsonTimetableV1"))
+            case other =>
+              val msg = s"Unhandled record type $other while decoding."
+              logger.error(msg)
+              Left(DecodingFailure(msg, c.history))
+          }
+    }
+  }
 
   val timeFormatter = DateTimeFormatter.ofPattern("HHmm")
-
-  trait JsonFilter[A] {
-    implicit val jsonFilter: (Json => Boolean)
-  }
-
-  trait Transformer[A] {
-    implicit val transform: _root_.fs2.Pipe[IO, A, A]
-  }
 
   case class ScheduleTrainId(value: String)
   object ScheduleTrainId {
@@ -154,7 +168,7 @@ package object scheduledata {
     val string: String
   }
 
-  object DaysRunPattern extends StrictLogging {
+  object DaysRunPattern {
 
     case object Weekdays extends DaysRunPattern {
       override val string: String = "Weekdays"
@@ -187,4 +201,9 @@ package object scheduledata {
       Meta[String].xmap(str => DaysRunPattern.fromString(str).getOrElse(Weekdays), _.string)
   }
 
+  def logDecodingErrors[A](cursor: HCursor, result: Either[DecodingFailure, A]): Either[DecodingFailure, A] =
+    result.fold(failure => {
+      logger.error(s"Error decoding ${cursor.value}", failure)
+      Left(failure)
+    }, _ => result)
 }
