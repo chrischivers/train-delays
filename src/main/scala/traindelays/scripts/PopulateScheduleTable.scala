@@ -24,17 +24,17 @@ trait PopulateScheduleTable extends App with StrictLogging {
         scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
         _ <- networkRailClient.deleteTmpFiles()
         _ <- IO.pure(logger.info("Downloading schedule data"))
-        _ <- downloadScheduleData(networkRailClient)
+        _ <- downloadScheduleData(networkRailClient).compile.drain
         _ <- IO.pure(logger.info("Unpacking schedule data"))
-        _ <- networkRailClient.unpackScheduleData
+        _ <- networkRailClient.unpackScheduleData.compile.drain
         _ <- IO.pure(logger.info("Writing schedule data records"))
-        _ <- writeScheduleDataRecords(stanoxTable, scheduleTable, associationTable, scheduleDataReader)
+        _ <- writeScheduleDataRecords(stanoxTable, scheduleTable, associationTable, scheduleDataReader).compile.drain
         _ <- IO.pure(logger.info("Schedule Table population complete"))
       } yield ()
     }
-  }.compile.drain
+  }
 
-  app.unsafeRunSync()
+  app.compile.drain.unsafeRunSync()
 
-  protected def downloadScheduleData(networkRailClient: NetworkRailClient): IO[Unit]
+  protected def downloadScheduleData(networkRailClient: NetworkRailClient): fs2.Stream[IO, Unit]
 }

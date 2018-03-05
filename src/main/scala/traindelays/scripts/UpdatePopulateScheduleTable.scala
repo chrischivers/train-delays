@@ -4,6 +4,6 @@ import cats.effect.IO
 import traindelays.networkrail.NetworkRailClient
 
 object UpdatePopulateScheduleTable extends PopulateScheduleTable {
-  override protected def downloadScheduleData(networkRailClient: NetworkRailClient) =
-    networkRailClient.downloadFullScheduleData.flatMap(_ => IO(logger.info("Downloaded updated schedule data")))
+  override protected def downloadScheduleData(networkRailClient: NetworkRailClient): fs2.Stream[IO, Unit] =
+    networkRailClient.downloadFullScheduleData
 }

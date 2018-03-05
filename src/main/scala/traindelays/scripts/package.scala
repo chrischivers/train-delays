@@ -10,14 +10,12 @@ package object scripts extends StrictLogging {
   def writeScheduleDataRecords(stanoxTable: StanoxTable,
                                scheduleTable: ScheduleTable,
                                associationTable: AssociationTable,
-                               scheduleDataReader: ScheduleDataReader): IO[Unit] = {
+                               scheduleDataReader: ScheduleDataReader): fs2.Stream[IO, Unit] = {
     val dbUpdater = databaseHandler(scheduleTable, stanoxTable, associationTable)
 
     scheduleDataReader.readData
       .through(progressLogger)
       .to(dbUpdater)
-      .compile
-      .drain
   }
 
   private def progressLogger[A](stream: fs2.Stream[IO, A]): fs2.Stream[IO, A] =
