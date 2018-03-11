@@ -51,8 +51,8 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
 
   it should "fetch a list of schedule records given a query" in {
 
-    val firstScheduleLogRecord = initialState.scheduleLogRecords.head
-    val lastScheduleLogRecord  = initialState.scheduleLogRecords.last
+    val firstScheduleLogRecord = initialState.schedulePrimaryRecords.head
+    val lastScheduleLogRecord  = initialState.schedulePrimaryRecords.last
 
     val scheduleQueryRequest = ScheduleQueryRequest(
       idToken = None,
@@ -91,7 +91,7 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
   }
   it should "return an empty list if from/to stanox are the same " in {
 
-    val firstScheduleLogRecord = initialState.scheduleLogRecords.head
+    val firstScheduleLogRecord = initialState.schedulePrimaryRecords.head
 
     val scheduleQueryRequest = ScheduleQueryRequest(
       idToken = None,

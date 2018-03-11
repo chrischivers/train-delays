@@ -17,8 +17,8 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
                                                   serviceCode = serviceCode,
                                                   fromStanoxCode = fromStanoxCode,
@@ -48,8 +48,8 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.drop(1).head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.dropRight(1).last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.drop(1).head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.dropRight(1).last.stanoxCode
 
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
                                                   serviceCode = serviceCode,
@@ -59,11 +59,11 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val activationRecord = createActivationRecord(scheduleTrainId,
                                                   serviceCode,
                                                   trainId,
-                                                  originStanox = initialState.scheduleLogRecords.head.stanoxCode)
+                                                  originStanox = initialState.schedulePrimaryRecords.head.stanoxCode)
     val cancellationRecord1 =
       createCancellationRecord(trainId = trainId,
                                trainServiceCode = serviceCode,
-                               stanoxCode = initialState.scheduleLogRecords.head.stanoxCode)
+                               stanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode)
 
     withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
@@ -84,8 +84,8 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = ScheduleTrainId(randomGen),
                                                   serviceCode = serviceCode,
                                                   fromStanoxCode = fromStanoxCode,
@@ -113,8 +113,8 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.drop(1).head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.dropRight(1).last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.drop(1).head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.dropRight(1).last.stanoxCode
 
     val subscriberRecord1 = createSubscriberRecord(
       userId = UserId(randomGen),
@@ -133,7 +133,7 @@ class SubscriberCancellationHandlerTest extends FlatSpec with TestFeatures {
     val activationRecord = createActivationRecord(scheduleTrainId,
                                                   serviceCode,
                                                   trainId,
-                                                  originStanox = initialState.scheduleLogRecords.head.stanoxCode)
+                                                  originStanox = initialState.schedulePrimaryRecords.head.stanoxCode)
     val cancellationRecord =
       createCancellationRecord(trainId = trainId, trainServiceCode = serviceCode, stanoxCode = fromStanoxCode)
 

@@ -12,6 +12,8 @@ import scalacache.memoization.memoizeF
 trait StanoxTable extends MemoizedTable[StanoxRecord] {
   def stanoxRecordsFor(stanoxCode: StanoxCode): IO[List[StanoxRecord]]
 
+  def stanoxRecordsFor(tipLocCode: TipLocCode): IO[List[StanoxRecord]]
+
   def updateRecord(record: StanoxRecord): IO[Unit]
 
   def addRecords(records: List[StanoxRecord]): IO[Unit]
@@ -92,6 +94,13 @@ object StanoxTable {
     WHERE stanox_code = ${stanoxCode.value}
       """.query[StanoxRecord]
 
+  def stanoxRecordFor(tipLocCode: TipLocCode) =
+    sql"""
+    SELECT tiploc_code, stanox_code, crs, description, primary_entry
+    FROM stanox
+    WHERE tiploc_code = ${tipLocCode.value}
+      """.query[StanoxRecord]
+
   def deleteAllStanoxRecords(): Update0 =
     sql"""DELETE FROM stanox""".update
 
@@ -152,5 +161,8 @@ object StanoxTable {
 
       override def deleteRecord(tipLocCode: TipLocCode): IO[Unit] =
         StanoxTable.deleteRecord(tipLocCode).run.transact(db).map(_ => ())
+
+      override def stanoxRecordsFor(tipLocCode: TipLocCode): IO[List[StanoxRecord]] =
+        StanoxTable.stanoxRecordFor(tipLocCode).to[List].transact(db)
     }
 }

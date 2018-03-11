@@ -21,8 +21,8 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
                                                   serviceCode = serviceCode,
                                                   fromStanoxCode = fromStanoxCode,
@@ -59,8 +59,8 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       val trainId         = TrainId(randomGen)
 
       val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-      val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-      val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+      val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+      val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
       val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
                                                     serviceCode = serviceCode,
                                                     fromStanoxCode = fromStanoxCode,
@@ -96,8 +96,8 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
                                                   serviceCode = serviceCode,
                                                   fromStanoxCode = fromStanoxCode,
@@ -129,10 +129,10 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
 
-    val midPointStanoxCode = Random.shuffle(initialState.scheduleLogRecords.drop(1).dropRight(1)).head.stanoxCode
+    val midPointStanoxCode = Random.shuffle(initialState.schedulePrimaryRecords.drop(1).dropRight(1)).head.stanoxCode
     assert(midPointStanoxCode != fromStanoxCode && midPointStanoxCode != toStanoxCode)
 
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
@@ -166,8 +166,8 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.drop(1).head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.dropRight(1).last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.drop(1).head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.dropRight(1).last.stanoxCode
 
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
                                                   serviceCode = serviceCode,
@@ -178,12 +178,12 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val movementRecord1 =
       createMovementRecord(trainId = trainId,
                            trainServiceCode = serviceCode,
-                           stanoxCode = Some(initialState.scheduleLogRecords.head.stanoxCode))
+                           stanoxCode = Some(initialState.schedulePrimaryRecords.head.stanoxCode))
 
     val movementRecord2 =
       createMovementRecord(trainId = trainId,
                            trainServiceCode = serviceCode,
-                           stanoxCode = Some(initialState.scheduleLogRecords.last.stanoxCode))
+                           stanoxCode = Some(initialState.schedulePrimaryRecords.last.stanoxCode))
 
     withInitialState(testDatabaseConfig)(initialState.copy(subscriberRecords = List(subscriberRecord))) { fixture =>
       withQueues { queues =>
@@ -203,8 +203,8 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
     val subscriberRecord = createSubscriberRecord(scheduleTrainId = ScheduleTrainId(randomGen),
                                                   serviceCode = serviceCode,
                                                   fromStanoxCode = fromStanoxCode,
@@ -232,8 +232,8 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val trainId         = TrainId(randomGen)
 
     val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
-    val fromStanoxCode = initialState.scheduleLogRecords.drop(1).head.stanoxCode
-    val toStanoxCode   = initialState.scheduleLogRecords.dropRight(1).last.stanoxCode
+    val fromStanoxCode = initialState.schedulePrimaryRecords.drop(1).head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.dropRight(1).last.stanoxCode
 
     val subscriberRecord1 = createSubscriberRecord(
       userId = UserId(randomGen),
@@ -257,7 +257,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
     val movementRecord =
       createMovementRecord(trainId = trainId,
                            trainServiceCode = serviceCode,
-                           stanoxCode = Some(initialState.scheduleLogRecords(3).stanoxCode))
+                           stanoxCode = Some(initialState.schedulePrimaryRecords(3).stanoxCode))
 
     withInitialState(testDatabaseConfig)(
       initialState.copy(subscriberRecords = List(subscriberRecord1, subscriberRecord2))) { fixture =>

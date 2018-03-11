@@ -51,10 +51,11 @@ object StartMovementListener extends App with StrictLogging {
       val movementLogTable     = MovementLogTable(db)
       val cancellationLogTable = CancellationLogTable(db)
       val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
-      val scheduleTable        = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val scheduleMainTable    = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val stanoxTable          = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val emailer              = Emailer(config.emailerConfig, metricsLogging)
-      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
+      val subscriberHandler =
+        SubscriberHandler(movementLogTable, subscriberTable, scheduleMainTable, stanoxTable, emailer)
 
       val redisClient =
         RedisClient(config.redisConfig.host, config.redisConfig.port, password = None, Some(config.redisConfig.dbIndex))

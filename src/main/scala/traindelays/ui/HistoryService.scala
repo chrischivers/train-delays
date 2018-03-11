@@ -8,7 +8,7 @@ import io.circe.syntax._
 import org.http4s.Response
 import org.http4s.dsl.io.{NotFound, Ok, _}
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{CancellationLogTable, MovementLogTable, ScheduleTable, StanoxTable}
 import traindelays.networkrail.movementdata.EventType.{Arrival, Departure}
@@ -29,7 +29,7 @@ object HistoryService {
   def apply(movementLogTable: MovementLogTable,
             cancellationLogTable: CancellationLogTable,
             stanoxTable: StanoxTable,
-            scheduleTable: ScheduleTable) =
+            scheduleTable: ScheduleTable[ScheduleRecordPrimary]) =
     new HistoryService {
 
       override def handleHistoryRequest(scheduleTrainId: ScheduleTrainId,
@@ -45,8 +45,8 @@ object HistoryService {
                           stanoxRecords: List[StanoxRecord],
                           movementLogs: List[MovementLog],
                           cancellationLogs: List[CancellationLog],
-                          scheduleLogsFrom: List[ScheduleRecord],
-                          scheduleLogsTo: List[ScheduleRecord]): Option[HistoryQueryResponse] = {
+                          scheduleLogsFrom: List[ScheduleRecordPrimary],
+                          scheduleLogsTo: List[ScheduleRecordPrimary]): Option[HistoryQueryResponse] = {
 
           val mainStanoxRecords = getMainStanoxRecords(stanoxRecords)
 
@@ -131,8 +131,8 @@ object HistoryService {
           cancellationLogs <- cancellationLogTable.retrieveRecordsFor(scheduleTrainId = scheduleTrainId,
                                                                       fromTimestamp = fromTimestamp,
                                                                       toTimestamp = toTimestamp)
-          scheduleRecordsFrom <- scheduleTable.retrieveScheduleLogRecordsFor(scheduleTrainId, fromStanox)
-          scheduleRecordsTo   <- scheduleTable.retrieveScheduleLogRecordsFor(scheduleTrainId, toStanox)
+          scheduleRecordsFrom <- scheduleTable.retrieveScheduleRecordsFor(scheduleTrainId, fromStanox)
+          scheduleRecordsTo   <- scheduleTable.retrieveScheduleRecordsFor(scheduleTrainId, toStanox)
           stanoxRecords       <- stanoxTable.retrieveAllNonEmptyRecords()
         } yield {
           logsToHistory(scheduleTrainId,

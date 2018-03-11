@@ -6,6 +6,8 @@ import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
 import traindelays.networkrail.db.AssociationTable.AssociationRecord
 import traindelays.networkrail.TipLocCode
+import traindelays.networkrail.db.ScheduleTable.{ScheduleRecordSecondary, ScheduleRecordPrimary}
+import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.scheduledata._
 
 import scala.concurrent.duration.FiniteDuration
@@ -41,7 +43,93 @@ object AssociationTable extends StrictLogging {
                                saturday: Boolean,
                                sunday: Boolean,
                                daysRunPattern: DaysRunPattern,
-                               associationCategory: Option[AssociationCategory])
+                               associationCategory: Option[AssociationCategory]) {
+
+    def toAssociationScheduleRecords(
+        scheduleRecordsForMainId: List[ScheduleRecordPrimary],
+        scheduleRecordsForAssociatedId: List[ScheduleRecordPrimary],
+        stanoxRecordForAssocationLocation: List[StanoxRecord]): Option[List[ScheduleRecordSecondary]] =
+      AssociationRecord.toAssociationScheduleRecords(this,
+                                                     scheduleRecordsForMainId,
+                                                     scheduleRecordsForAssociatedId,
+                                                     stanoxRecordForAssocationLocation)
+
+  }
+
+  object AssociationRecord {
+    def toAssociationScheduleRecords(
+        associationRecord: AssociationRecord,
+        scheduleRecordsForMainId: List[ScheduleRecordPrimary],
+        scheduleRecordsForAssociatedId: List[ScheduleRecordPrimary],
+        stanoxRecordForAssocationLocation: List[StanoxRecord]): Option[List[ScheduleRecordSecondary]] = {
+
+      val relevantScheduleRecordsForMainId = relevantScheduleRecords(scheduleRecordsForMainId, associationRecord)
+      val relevantScheduleRecordsForAssociatedId =
+        relevantScheduleRecords(scheduleRecordsForAssociatedId, associationRecord)
+
+      associationRecord.associationCategory.flatMap {
+        case AssociationCategory.Join =>
+          val assembledScheduleRecords = relevantScheduleRecordsForAssociatedId.flatMap(associatedRecs =>
+            relevantScheduleRecordsForMainId.map(mainRecs =>
+              associatedRecs ++ mainRecs.dropWhile(x =>
+                !stanoxRecordForAssocationLocation.exists(_.stanoxCode.contains(x.stanoxCode)))))
+
+          associationRecord.id.flatMap { id =>
+            assembledScheduleRecords.map(records => {
+              records.zipWithIndex.map {
+                case (record, index) => {
+                  val subsequentRecords = records.dropWhile(_.stanoxCode != record.stanoxCode).drop(1)
+                  ScheduleRecordSecondary(
+                    None,
+                    record.scheduleTrainId,
+                    record.serviceCode,
+                    associationRecord.stpIndicator,
+                    record.trainCategory,
+                    record.trainStatus,
+                    record.atocCode,
+                    index,
+                    record.stanoxCode,
+                    subsequentRecords.map(_.stanoxCode),
+                    subsequentRecords.map(subsRec =>
+                      subsRec.arrivalTime.getOrElse(subsRec.departureTime.getOrElse(throw new RuntimeException(
+                        "Not found arrival or departure time for subsequent stop")))), //todo make this better
+                    associationRecord.monday,
+                    associationRecord.tuesday,
+                    associationRecord.wednesday,
+                    associationRecord.thursday,
+                    associationRecord.friday,
+                    associationRecord.saturday,
+                    associationRecord.sunday,
+                    associationRecord.daysRunPattern,
+                    associationRecord.associatedStart,
+                    associationRecord.associatedEnd,
+                    record.locationType,
+                    record.arrivalTime,
+                    record.departureTime,
+                    id
+                  )
+                }
+              }
+            })
+          }
+        case _ => throw new RuntimeException("Not implemented other cases")
+      }
+    }
+
+    private def relevantScheduleRecords(scheduleRecords: List[ScheduleRecordPrimary],
+                                        associationRecord: AssociationRecord) =
+      scheduleRecords
+        .filter(rec => dateOverlaps(rec, associationRecord))
+        .filter(rec => rec.daysRunPattern == associationRecord.daysRunPattern)
+        .groupBy(_.scheduleStart)
+        .values
+        .headOption
+        .map(_.sortBy(_.stopSequence))
+    private def dateOverlaps(scheduleRecord: ScheduleRecordPrimary, associationRecord: AssociationRecord) =
+      scheduleRecord.scheduleStart.isBefore(associationRecord.associatedEnd) &&
+        scheduleRecord.scheduleEnd.isAfter(associationRecord.associatedStart)
+
+  }
 
   def addAssociationRecord(log: AssociationRecord): Update0 =
     sql"""

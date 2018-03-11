@@ -8,6 +8,7 @@ import cats.instances.list._
 import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
 import traindelays.networkrail.StanoxCode
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, StanoxTable, SubscriberTable}
 import traindelays.networkrail.movementdata.{CancellationLog, DBLog, MovementLog, VariationStatus}
@@ -24,7 +25,7 @@ object SubscriberHandler extends StrictLogging {
 
   def apply(movementLogTable: MovementLogTable,
             subscriberTable: SubscriberTable,
-            scheduleTable: ScheduleTable,
+            scheduleTable: ScheduleTable[ScheduleRecordPrimary],
             stanoxTable: StanoxTable,
             emailer: Emailer) =
     new SubscriberHandler {
@@ -48,13 +49,14 @@ object SubscriberHandler extends StrictLogging {
         } yield ()
       }
 
-      private def filterSubscribersOnStanoxRange(subscribersOnRoute: List[SubscriberRecord],
-                                                 affectedStanoxCode: StanoxCode,
-                                                 scheduleTable: ScheduleTable): IO[List[SubscriberRecord]] =
+      private def filterSubscribersOnStanoxRange(
+          subscribersOnRoute: List[SubscriberRecord],
+          affectedStanoxCode: StanoxCode,
+          scheduleTable: ScheduleTable[ScheduleRecordPrimary]): IO[List[SubscriberRecord]] =
         subscribersOnRoute
           .map { subscriber =>
             scheduleTable
-              .retrieveScheduleLogRecordsFor(subscriber.scheduleTrainId, subscriber.fromStanoxCode)
+              .retrieveScheduleRecordsFor(subscriber.scheduleTrainId, subscriber.fromStanoxCode)
               .map(s =>
                 subscriber -> s.exists(scheduleLog => {
                   val toStanoxCodeIdx       = scheduleLog.subsequentStanoxCodes.indexOf(subscriber.toStanoxCode)

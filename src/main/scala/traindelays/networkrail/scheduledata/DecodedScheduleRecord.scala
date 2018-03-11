@@ -8,7 +8,7 @@ import doobie.util.meta.Meta
 import io.circe.Decoder.Result
 import io.circe._
 import traindelays.networkrail._
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
 import traindelays.networkrail.db.StanoxTable
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
@@ -33,7 +33,7 @@ object DecodedScheduleRecord extends StrictLogging {
                     locationRecords: List[ScheduleLocationRecord])
       extends DecodedScheduleRecord {
 
-    def toScheduleLogs(stanoxTable: StanoxTable): IO[List[ScheduleRecord]] =
+    def toScheduleLogs(stanoxTable: StanoxTable): IO[List[ScheduleRecordPrimary]] =
       for {
         existingStanoxRecords <- stanoxTable.retrieveAllRecords()
         existingStanoxRecordsMap = StanoxRecord.stanoxRecordsToMap(existingStanoxRecords)
@@ -45,7 +45,7 @@ object DecodedScheduleRecord extends StrictLogging {
       extends DecodedScheduleRecord
 
   def decodedScheduleRecordToScheduleLogs(scheduleRecordCreate: DecodedScheduleRecord.Create,
-                                          stanoxRecords: Map[TipLocCode, StanoxCode]): List[ScheduleRecord] = {
+                                          stanoxRecords: Map[TipLocCode, StanoxCode]): List[ScheduleRecordPrimary] = {
     val locationRecordsWithIndex = scheduleRecordCreate.locationRecords
       .filterNot(rec => rec.arrivalTime.isEmpty && rec.departureTime.isEmpty)
       .filter(locRec => stanoxRecords.get(locRec.tipLocCode).isDefined)
@@ -97,7 +97,7 @@ object DecodedScheduleRecord extends StrictLogging {
                                        subsequentStanoxCodes: List[StanoxCode],
                                        subsequentArrivalTimes: List[LocalTime],
                                        daysRunPattern: DaysRunPattern) =
-    ScheduleRecord(
+    ScheduleRecordPrimary(
       None,
       scheduleRecordCreate.scheduleTrainId,
       scheduleRecordCreate.trainServiceCode,

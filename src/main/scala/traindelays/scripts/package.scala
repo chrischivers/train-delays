@@ -1,14 +1,18 @@
 package traindelays
 
 import cats.effect.IO
+import cats.instances.list._
+import cats.syntax.functor._
+import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
 import traindelays.networkrail.db.{AssociationTable, ScheduleTable, StanoxTable}
 import traindelays.networkrail.scheduledata._
 
 package object scripts extends StrictLogging {
 
   def writeScheduleDataRecords(stanoxTable: StanoxTable,
-                               scheduleTable: ScheduleTable,
+                               scheduleTable: ScheduleTable[ScheduleRecordPrimary],
                                associationTable: AssociationTable,
                                scheduleDataReader: ScheduleDataReader): fs2.Stream[IO, Unit] = {
     val dbUpdater = databaseHandler(scheduleTable, stanoxTable, associationTable)
@@ -25,11 +29,12 @@ package object scripts extends StrictLogging {
       }
       .map { case (data, _) => data }
 
-  def databaseHandler(scheduleTable: ScheduleTable,
+  def databaseHandler(scheduleTable: ScheduleTable[ScheduleRecordPrimary],
                       stanoxTable: StanoxTable,
                       associationTable: AssociationTable): fs2.Sink[IO, DecodedRecord] = fs2.Sink {
 
-    case rec: DecodedScheduleRecord.Create => rec.toScheduleLogs(stanoxTable).flatMap(scheduleTable.addRecords)
+    case rec: DecodedScheduleRecord.Create =>
+      rec.toScheduleLogs(stanoxTable).flatMap(_.traverse(scheduleTable.addRecord).void)
     case rec: DecodedScheduleRecord.Delete =>
       scheduleTable.deleteRecord(rec.scheduleTrainId, rec.scheduleStartDate, rec.stpIndicator)
     case rec: DecodedStanoxRecord.Create      => stanoxTable.addRecord(rec.toStanoxRecord)

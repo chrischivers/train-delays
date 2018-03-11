@@ -16,7 +16,7 @@ import redis.RedisClient
 import traindelays._
 import traindelays.networkrail.cache.TrainActivationCache
 import traindelays.networkrail.db.AssociationTable.AssociationRecord
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.ScheduleTable.{ScheduleRecordSecondary, ScheduleRecordPrimary}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, SubscriberTable, _}
 import traindelays.networkrail.metrics.TestMetricsLogging
@@ -55,6 +55,7 @@ trait TestFeatures {
     def clean: IO[Unit] =
       for {
         _ <- sql"DROP TABLE IF EXISTS schedule".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS schedule_association".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS stanox".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS movement_log".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS subscribers".update.run.transact(db)
@@ -63,7 +64,8 @@ trait TestFeatures {
       } yield ()
   }
 
-  case class AppInitialState(scheduleLogRecords: List[ScheduleRecord] = List.empty,
+  case class AppInitialState(schedulePrimaryRecords: List[ScheduleRecordPrimary] = List.empty,
+                             scheduleSecondaryRecords: List[ScheduleRecordSecondary] = List.empty,
                              associationRecords: List[AssociationRecord] = List.empty,
                              stanoxRecords: List[StanoxRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
@@ -74,7 +76,8 @@ trait TestFeatures {
     def empty = AppInitialState()
   }
 
-  case class TrainDelaysTestFixture(scheduleTable: ScheduleTable,
+  case class TrainDelaysTestFixture(schedulePrimaryTable: ScheduleTable[ScheduleRecordPrimary],
+                                    scheduleSecondaryTable: ScheduleTable[ScheduleRecordSecondary],
                                     stanoxTable: StanoxTable,
                                     associationTable: AssociationTable,
                                     movementLogTable: MovementLogTable,
@@ -117,16 +120,18 @@ trait TestFeatures {
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
       f: TrainDelaysTestFixture => A)(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
-      val redisClient          = RedisClient()
-      val trainActivationCache = TrainActivationCache(redisClient, redisCacheExpiry)
-      val stanoxTable          = StanoxTable(db, scheduleDataConfig.memoizeFor)
-      val movementLogTable     = MovementLogTable(db)
-      val subscriberTable      = SubscriberTable(db, subscribersConfig.memoizeFor)
-      val scheduleTable        = ScheduleTable(db, scheduleDataConfig.memoizeFor)
-      val associationTable     = AssociationTable(db, scheduleDataConfig.memoizeFor)
-      val emailer              = StubEmailer()
-      val subscriberHandler    = SubscriberHandler(movementLogTable, subscriberTable, scheduleTable, stanoxTable, emailer)
-      val metricsLogging       = TestMetricsLogging(config.metricsConfig)
+      val redisClient              = RedisClient()
+      val trainActivationCache     = TrainActivationCache(redisClient, redisCacheExpiry)
+      val stanoxTable              = StanoxTable(db, scheduleDataConfig.memoizeFor)
+      val movementLogTable         = MovementLogTable(db)
+      val subscriberTable          = SubscriberTable(db, subscribersConfig.memoizeFor)
+      val schedulePrimaryTable     = SchedulePrimaryTable(db, scheduleDataConfig.memoizeFor)
+      val scheduleAssociationTable = ScheduleSecondaryTable(db, scheduleDataConfig.memoizeFor)
+      val associationTable         = AssociationTable(db, scheduleDataConfig.memoizeFor)
+      val emailer                  = StubEmailer()
+      val subscriberHandler =
+        SubscriberHandler(movementLogTable, subscriberTable, schedulePrimaryTable, stanoxTable, emailer)
+      val metricsLogging = TestMetricsLogging(config.metricsConfig)
 
       for {
         _ <- IO.fromFuture(IO(redisClient.flushall()))
@@ -139,7 +144,16 @@ trait TestFeatures {
           })
           .sequence[IO, Int]
 
-        _ <- initState.scheduleLogRecords
+        _ <- initState.schedulePrimaryRecords
+          .map { scheduleLog =>
+            ScheduleTable
+              .addScheduleLogRecord(scheduleLog)
+              .run
+              .transact(db)
+          }
+          .sequence[IO, Int]
+
+        _ <- initState.scheduleSecondaryRecords
           .map { scheduleLog =>
             ScheduleTable
               .addScheduleLogRecord(scheduleLog)
@@ -187,7 +201,8 @@ trait TestFeatures {
       } yield
         f(
           TrainDelaysTestFixture(
-            scheduleTable,
+            schedulePrimaryTable,
+            scheduleAssociationTable,
             stanoxTable,
             associationTable,
             movementLogTable,
@@ -331,31 +346,32 @@ trait TestFeatures {
       locationRecords
     )
 
-  def createScheduleLog(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
-                        trainServiceCode: ServiceCode = ServiceCode("24745000"),
-                        stpIndicator: StpIndicator = StpIndicator.P,
-                        trainCategory: Option[TrainCategory] = Some(TrainCategory("OO")),
-                        trainStatus: Option[TrainStatus] = Some(TrainStatus("B")),
-                        atocCode: Option[AtocCode] = Some(AtocCode("SN")),
-                        monday: Boolean = true,
-                        tuesday: Boolean = true,
-                        wednesday: Boolean = true,
-                        thursday: Boolean = true,
-                        friday: Boolean = true,
-                        saturday: Boolean = false,
-                        sunday: Boolean = false,
-                        daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
-                        index: Int = 1,
-                        stanoxCode: StanoxCode = StanoxCode("12345"),
-                        subsequentStanoxCodes: List[StanoxCode] = List(StanoxCode("23456"), StanoxCode("34567")),
-                        subsequentArrivalTimes: List[LocalTime] =
-                          List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
-                        scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
-                        scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
-                        locationType: LocationType = OriginatingLocation,
-                        arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
-                        departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter))) =
-    ScheduleRecord(
+  def createScheduleRecordPrimary(
+      scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+      trainServiceCode: ServiceCode = ServiceCode("24745000"),
+      stpIndicator: StpIndicator = StpIndicator.P,
+      trainCategory: Option[TrainCategory] = Some(TrainCategory("OO")),
+      trainStatus: Option[TrainStatus] = Some(TrainStatus("B")),
+      atocCode: Option[AtocCode] = Some(AtocCode("SN")),
+      monday: Boolean = true,
+      tuesday: Boolean = true,
+      wednesday: Boolean = true,
+      thursday: Boolean = true,
+      friday: Boolean = true,
+      saturday: Boolean = false,
+      sunday: Boolean = false,
+      daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
+      index: Int = 1,
+      stanoxCode: StanoxCode = StanoxCode("12345"),
+      subsequentStanoxCodes: List[StanoxCode] = List(StanoxCode("23456"), StanoxCode("34567")),
+      subsequentArrivalTimes: List[LocalTime] =
+        List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
+      scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+      scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+      locationType: LocationType = OriginatingLocation,
+      arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
+      departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter))) =
+    ScheduleRecordPrimary(
       None,
       scheduleTrainId,
       trainServiceCode,
@@ -381,7 +397,63 @@ trait TestFeatures {
       arrivalTime,
       departureTime
     )
-  def createAssociationRecord(mainScheduleTrainID: ScheduleTrainId = ScheduleTrainId("G76481"),
+
+  def createScheduleRecordSecondary(
+      scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
+      trainServiceCode: ServiceCode = ServiceCode("24745000"),
+      stpIndicator: StpIndicator = StpIndicator.P,
+      trainCategory: Option[TrainCategory] = Some(TrainCategory("OO")),
+      trainStatus: Option[TrainStatus] = Some(TrainStatus("B")),
+      atocCode: Option[AtocCode] = Some(AtocCode("SN")),
+      monday: Boolean = true,
+      tuesday: Boolean = true,
+      wednesday: Boolean = true,
+      thursday: Boolean = true,
+      friday: Boolean = true,
+      saturday: Boolean = false,
+      sunday: Boolean = false,
+      daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
+      index: Int = 1,
+      stanoxCode: StanoxCode = StanoxCode("12345"),
+      subsequentStanoxCodes: List[StanoxCode] = List(StanoxCode("23456"), StanoxCode("34567")),
+      subsequentArrivalTimes: List[LocalTime] =
+        List(LocalTime.parse("0710", timeFormatter), LocalTime.parse("0725", timeFormatter)),
+      scheduleStartDate: LocalDate = LocalDate.parse("2017-12-11"),
+      scheduleEndDate: LocalDate = LocalDate.parse("2017-12-29"),
+      locationType: LocationType = OriginatingLocation,
+      arrivalTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
+      departureTime: Option[LocalTime] = Some(LocalTime.parse("0649", timeFormatter)),
+      associationId: Int = 1) =
+    ScheduleRecordSecondary(
+      None,
+      scheduleTrainId,
+      trainServiceCode,
+      stpIndicator,
+      trainCategory,
+      trainStatus,
+      atocCode,
+      index,
+      stanoxCode,
+      subsequentStanoxCodes,
+      subsequentArrivalTimes,
+      monday,
+      tuesday,
+      wednesday,
+      thursday,
+      friday,
+      saturday,
+      sunday,
+      daysRunPattern,
+      scheduleStartDate,
+      scheduleEndDate,
+      locationType,
+      arrivalTime,
+      departureTime,
+      associationId
+    )
+
+  def createAssociationRecord(id: Option[Int] = Some(1),
+                              mainScheduleTrainID: ScheduleTrainId = ScheduleTrainId("G76481"),
                               associatedScheduleTrainID: ScheduleTrainId = ScheduleTrainId("G12389"),
                               associatedStartDate: LocalDate = LocalDate.parse("2017-12-11"),
                               associatedEndDate: LocalDate = LocalDate.parse("2017-12-29"),
@@ -397,7 +469,7 @@ trait TestFeatures {
                               daysRunPattern: DaysRunPattern = DaysRunPattern.Weekdays,
                               associationCategory: Option[AssociationCategory] = Some(AssociationCategory.Join)) =
     AssociationRecord(
-      None,
+      id,
       mainScheduleTrainID,
       associatedScheduleTrainID,
       associatedStartDate,
@@ -567,7 +639,79 @@ trait TestFeatures {
     )
 
     AppInitialState(
-      scheduleLogRecords = toScheduleLogs(scheduleRecord, StanoxRecord.stanoxRecordsToMap(stanoxRecords)),
+      schedulePrimaryRecords = toScheduleLogs(scheduleRecord, StanoxRecord.stanoxRecordsToMap(stanoxRecords)),
+      stanoxRecords = stanoxRecords
+    )
+  }
+
+  def createDefaultInitialStateWithAssociation(
+      mainScheduleTrainId: ScheduleTrainId = ScheduleTrainId("12345"),
+      mainServiceCode: ServiceCode = ServiceCode("799984"),
+      associatedScheduleTrainId: ScheduleTrainId = ScheduleTrainId("98573"),
+      associatedServiceCode: ServiceCode = ServiceCode("62882")): AppInitialState = {
+
+    val stanoxRecord1 =
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode(randomGen)), Some(CRS("REI")), Some("Reigate"), None)
+    val stanoxRecord2 =
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode(randomGen)), Some(CRS("RDH")), Some("Redhill"), None)
+    val stanoxRecord3 =
+      StanoxRecord(TipLocCode("MERSTHAM"), Some(StanoxCode(randomGen)), Some(CRS("MER")), Some("Merstham"), None)
+    val stanoxRecord4 =
+      StanoxRecord(TipLocCode("EASTCRYD"), Some(StanoxCode(randomGen)), Some(CRS("ECR")), Some("East Croydon"), None)
+    val stanoxRecord5 =
+      StanoxRecord(TipLocCode("LONVIC"), Some(StanoxCode(randomGen)), Some(CRS("VIC")), Some("London Victoria"), None)
+    val stanoxRecord6 =
+      StanoxRecord(TipLocCode("GATWICK"), Some(StanoxCode(randomGen)), Some(CRS("GTW")), Some("Gatwick Airport"), None)
+
+    val stanoxRecords = List(stanoxRecord1, stanoxRecord2, stanoxRecord3, stanoxRecord4, stanoxRecord5, stanoxRecord6)
+
+    val decodedScheduleCreateRecord1 = createDecodedScheduleCreateRecord(
+      trainServiceCode = mainServiceCode,
+      scheduleTrainId = mainScheduleTrainId,
+      locationRecords = List(
+        ScheduleLocationRecord(LocationType.OriginatingLocation,
+                               stanoxRecord1.tipLocCode,
+                               None,
+                               Some(LocalTime.parse("12:10"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord2.tipLocCode,
+                               Some(LocalTime.parse("12:14")),
+                               Some(LocalTime.parse("12:15"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord3.tipLocCode,
+                               Some(LocalTime.parse("12:24")),
+                               Some(LocalTime.parse("12:25"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord4.tipLocCode,
+                               Some(LocalTime.parse("12:35")),
+                               Some(LocalTime.parse("12:36"))),
+        ScheduleLocationRecord(LocationType.TerminatingLocation,
+                               stanoxRecord5.tipLocCode,
+                               Some(LocalTime.parse("12:45")),
+                               None)
+      )
+    )
+
+    val decodedScheduleCreateRecord2 = createDecodedScheduleCreateRecord(
+      trainServiceCode = associatedServiceCode,
+      scheduleTrainId = associatedScheduleTrainId,
+      locationRecords = List(
+        ScheduleLocationRecord(LocationType.OriginatingLocation,
+                               stanoxRecord6.tipLocCode,
+                               None,
+                               Some(LocalTime.parse("12:00"))),
+        ScheduleLocationRecord(LocationType.TerminatingLocation,
+                               stanoxRecord1.tipLocCode,
+                               Some(LocalTime.parse("12:08")),
+                               None)
+      )
+    )
+
+    AppInitialState(
+      schedulePrimaryRecords = toScheduleLogs(decodedScheduleCreateRecord1,
+                                              StanoxRecord.stanoxRecordsToMap(stanoxRecords)) ++ toScheduleLogs(
+        decodedScheduleCreateRecord2,
+        StanoxRecord.stanoxRecordsToMap(stanoxRecords)),
       stanoxRecords = stanoxRecords
     )
   }
@@ -590,13 +734,13 @@ trait TestFeatures {
       HistoryService(fixture.movementLogTable,
                      fixture.cancellationLogTable,
                      fixture.stanoxTable,
-                     fixture.scheduleTable),
+                     fixture.schedulePrimaryTable),
       ScheduleService(fixture.stanoxTable,
                       fixture.subscriberTable,
-                      fixture.scheduleTable,
+                      fixture.schedulePrimaryTable,
                       googleAuthenticator,
                       uIConfig),
-      fixture.scheduleTable,
+      fixture.schedulePrimaryTable,
       fixture.stanoxTable,
       fixture.subscriberTable,
       uIConfig,
@@ -610,6 +754,6 @@ trait TestFeatures {
   }
 
   def toScheduleLogs(scheduleRecordCreate: DecodedScheduleRecord.Create,
-                     existingStanoxRecordsMap: Map[TipLocCode, StanoxCode]): List[ScheduleRecord] =
+                     existingStanoxRecordsMap: Map[TipLocCode, StanoxCode]): List[ScheduleRecordPrimary] =
     DecodedScheduleRecord.decodedScheduleRecordToScheduleLogs(scheduleRecordCreate, existingStanoxRecordsMap)
 }

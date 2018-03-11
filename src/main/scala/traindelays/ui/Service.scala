@@ -12,6 +12,7 @@ import org.http4s.{EntityDecoder, HttpService, Request, StaticFile}
 import org.postgresql.util.PSQLException
 import traindelays.UIConfig
 import traindelays.networkrail.StanoxCode
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
@@ -44,7 +45,7 @@ object Service extends StrictLogging {
 
   def apply(historyService: HistoryService,
             scheduleService: ScheduleService,
-            scheduleTable: ScheduleTable,
+            scheduleTable: ScheduleTable[ScheduleRecordPrimary],
             stanoxTable: StanoxTable,
             subscriberTable: SubscriberTable,
             uiConfig: UIConfig,
@@ -108,7 +109,7 @@ object Service extends StrictLogging {
   }
 
   private def processSubscriberRequest(subscribeRequest: SubscribeRequest,
-                                       scheduleTable: ScheduleTable,
+                                       scheduleTable: ScheduleTable[ScheduleRecordPrimary],
                                        subscriberTable: SubscriberTable,
                                        googleAuthenticator: GoogleAuthenticator): IO[Unit] =
     for {
@@ -165,7 +166,7 @@ object Service extends StrictLogging {
 
   private def stationsList(memoizeRouteListFor: FiniteDuration,
                            stanoxTable: StanoxTable,
-                           scheduleTable: ScheduleTable): IO[String] =
+                           scheduleTable: ScheduleTable[ScheduleRecordPrimary]): IO[String] =
     memoizeF(Some(memoizeRouteListFor)) {
       for {
         stanoxRecords      <- stanoxTable.retrieveAllRecords()

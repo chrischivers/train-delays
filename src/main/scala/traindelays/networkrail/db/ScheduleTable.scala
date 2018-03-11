@@ -4,29 +4,27 @@ import java.time.{LocalDate, LocalTime}
 
 import cats.effect.IO
 import com.typesafe.scalalogging.StrictLogging
+import traindelays.networkrail._
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata._
-import traindelays.networkrail._
 
-import scala.concurrent.duration.FiniteDuration
-
-trait ScheduleTable extends MemoizedTable[ScheduleRecord] {
+trait ScheduleTable[A <: ScheduleRecord] extends MemoizedTable[A] {
 
   def deleteAllRecords(): IO[Unit]
 
   def deleteRecord(scheduleTrainId: ScheduleTrainId, scheduleStartDate: LocalDate, stpIndicator: StpIndicator): IO[Unit]
 
-  def addRecords(records: List[ScheduleRecord]): IO[Unit]
+  def retrieveScheduleRecordsFor(from: StanoxCode,
+                                 to: StanoxCode,
+                                 pattern: DaysRunPattern,
+                                 stpIndicator: StpIndicator): IO[List[A]]
 
-  def retrieveScheduleLogRecordsFor(from: StanoxCode,
-                                    to: StanoxCode,
-                                    pattern: DaysRunPattern,
-                                    stpIndicator: StpIndicator): IO[List[ScheduleRecord]]
+  def retrieveScheduleRecordsFor(trainId: ScheduleTrainId, stanoxCode: StanoxCode): IO[List[A]]
 
-  def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, stanoxCode: StanoxCode): IO[List[ScheduleRecord]]
+  def retrieveScheduleRecordsFor(trainId: ScheduleTrainId): IO[List[A]]
 
-  def retrieveRecordBy(id: Int): IO[Option[ScheduleRecord]]
+  def retrieveRecordBy(id: Int): IO[Option[A]]
 
   def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]]
 
@@ -34,7 +32,6 @@ trait ScheduleTable extends MemoizedTable[ScheduleRecord] {
 
 object ScheduleTable extends StrictLogging {
 
-  import cats.instances.list._
   import doobie._
   import doobie.implicits._
   import doobie.postgres.implicits._
@@ -46,209 +43,170 @@ object ScheduleTable extends StrictLogging {
   implicit val localTimeListMeta: Meta[List[LocalTime]] =
     Meta[List[String]].xmap(_.map(t => LocalTime.parse(t)), lt => lt.map(_.toString))
 
-  case class ScheduleRecord(id: Option[Int],
-                            scheduleTrainId: ScheduleTrainId,
-                            serviceCode: ServiceCode,
-                            stpIndicator: StpIndicator,
-                            trainCategory: Option[TrainCategory],
-                            trainStatus: Option[TrainStatus],
-                            atocCode: Option[AtocCode],
-                            stopSequence: Int,
-                            stanoxCode: StanoxCode,
-                            subsequentStanoxCodes: List[StanoxCode],
-                            subsequentArrivalTimes: List[LocalTime],
-                            monday: Boolean,
-                            tuesday: Boolean,
-                            wednesday: Boolean,
-                            thursday: Boolean,
-                            friday: Boolean,
-                            saturday: Boolean,
-                            sunday: Boolean,
-                            daysRunPattern: DaysRunPattern,
-                            scheduleStart: LocalDate,
-                            scheduleEnd: LocalDate,
-                            locationType: LocationType,
-                            arrivalTime: Option[LocalTime],
-                            departureTime: Option[LocalTime])
+  trait ScheduleRecord {
+    val id: Option[Int]
+    val scheduleTrainId: ScheduleTrainId
+    val serviceCode: ServiceCode
+    val stpIndicator: StpIndicator
+    val trainCategory: Option[TrainCategory]
+    val trainStatus: Option[TrainStatus]
+    val atocCode: Option[AtocCode]
+    val stopSequence: Int
+    val stanoxCode: StanoxCode
+    val subsequentStanoxCodes: List[StanoxCode]
+    val subsequentArrivalTimes: List[LocalTime]
+    val monday: Boolean
+    val tuesday: Boolean
+    val wednesday: Boolean
+    val thursday: Boolean
+    val friday: Boolean
+    val saturday: Boolean
+    val sunday: Boolean
+    val daysRunPattern: DaysRunPattern
+    val scheduleStart: LocalDate
+    val scheduleEnd: LocalDate
+    val locationType: LocationType
+    val arrivalTime: Option[LocalTime]
+    val departureTime: Option[LocalTime]
 
-  def addScheduleLogRecord(log: ScheduleRecord): Update0 =
-    sql"""
-      INSERT INTO schedule
-      (schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
-      subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday,
-      days_run_pattern, schedule_start, schedule_end, location_type, arrival_time, departure_time)
-      VALUES(${log.scheduleTrainId}, ${log.serviceCode}, ${log.stpIndicator}, ${log.trainCategory}, ${log.trainStatus}, ${log.atocCode}, ${log.stopSequence}, ${log.stanoxCode},
-      ${log.subsequentStanoxCodes}, ${log.subsequentArrivalTimes}, ${log.monday}, ${log.tuesday}, ${log.wednesday},
-      ${log.thursday}, ${log.friday}, ${log.saturday}, ${log.sunday}, ${log.daysRunPattern}, ${log.scheduleStart},
-      ${log.scheduleEnd}, ${log.locationType}, ${log.arrivalTime}, ${log.departureTime})
-     """.update
-
-  type ScheduleLogToBeInserted = ((ScheduleTrainId,
-                                   ServiceCode,
-                                   StpIndicator,
-                                   Option[TrainCategory],
-                                   Option[TrainStatus],
-                                   Option[AtocCode],
-                                   Int,
-                                   StanoxCode,
-                                   List[StanoxCode],
-                                   List[LocalTime]),
-                                  (Boolean,
-                                   Boolean,
-                                   Boolean,
-                                   Boolean,
-                                   Boolean,
-                                   Boolean,
-                                   Boolean,
-                                   DaysRunPattern,
-                                   LocalDate,
-                                   LocalDate,
-                                   LocationType,
-                                   Option[LocalTime],
-                                   Option[LocalTime]))
-
-  def addScheduleLogRecords(logs: List[ScheduleRecord]): ConnectionIO[Int] = {
-
-    val toBeInserted: List[ScheduleLogToBeInserted] = logs.map(
-      log =>
-        ((log.scheduleTrainId,
-          log.serviceCode,
-          log.stpIndicator,
-          log.trainCategory,
-          log.trainStatus,
-          log.atocCode,
-          log.stopSequence,
-          log.stanoxCode,
-          log.subsequentStanoxCodes,
-          log.subsequentArrivalTimes),
-         (log.monday,
-          log.tuesday,
-          log.wednesday,
-          log.thursday,
-          log.friday,
-          log.saturday,
-          log.sunday,
-          log.daysRunPattern,
-          log.scheduleStart,
-          log.scheduleEnd,
-          log.locationType,
-          log.arrivalTime,
-          log.departureTime)))
-
-    val sql = s"""
-       |   INSERT INTO schedule
-       |      (schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
-       |      subsequent_arrival_times,
-       |      monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
-       |      schedule_start, schedule_end, location_type, arrival_time, departure_time)
-       |      VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """.stripMargin
-
-    Update[ScheduleLogToBeInserted](sql).updateMany(toBeInserted)
+    val insertValuesFragment: doobie.Fragment
+    def insertValuesBaseFragment: doobie.Fragment =
+      fr"$scheduleTrainId, $serviceCode, $stpIndicator, $trainCategory, " ++
+        fr"$trainStatus, $atocCode, $stopSequence, $stanoxCode, $subsequentStanoxCodes, $subsequentArrivalTimes, $monday, " ++
+        fr"$tuesday, $wednesday, $thursday, $friday, $saturday, $sunday, $daysRunPattern, $scheduleStart, $scheduleEnd, " ++
+        fr"$locationType, $arrivalTime, $departureTime"
   }
 
-  def allScheduleLogRecords(): Query0[ScheduleRecord] =
-    sql"""
-      SELECT id, schedule_train_id, service_code,  stp_indicator,train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
-      subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
-      schedule_start, schedule_end, location_type, arrival_time, departure_time
-      FROM schedule
-      """.query[ScheduleRecord]
+  object ScheduleRecord {
+    val baseInsertFieldsFragment
+      : doobie.Fragment = fr"schedule_train_id, service_code, stp_indicator, train_category, " ++
+      fr"train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes, subsequent_arrival_times, " ++
+      fr"monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern, schedule_start, " ++
+      fr"schedule_end, location_type, arrival_time, departure_time"
 
-  def scheduleRecordsFor(fromStation: StanoxCode,
-                         toStation: StanoxCode,
-                         daysRunPattern: DaysRunPattern,
-                         stpIndicator: StpIndicator): Query0[ScheduleRecord] =
-    sql"""
-         SELECT id, schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
-         subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
-         schedule_start, schedule_end, location_type, arrival_time, departure_time
-         FROM schedule
-         WHERE stanox_code = ${fromStation}
-         AND days_run_pattern = ${daysRunPattern}
-         AND ${toStation} = ANY(subsequent_stanox_codes)
-         AND stp_indicator = ${stpIndicator}
-          """.query[ScheduleRecord]
+    val baseSelectFieldsFragment
+      : doobie.Fragment = fr"id, schedule_train_id, service_code, stp_indicator, train_category, " ++
+      fr"train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes, subsequent_arrival_times, " ++
+      fr"monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern, schedule_start, " ++
+      fr"schedule_end, location_type, arrival_time, departure_time"
+  }
 
-  def scheduleRecordsFor(trainId: ScheduleTrainId, fromStation: StanoxCode): Query0[ScheduleRecord] =
-    sql"""
-         SELECT id, schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
-         subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
-         schedule_start, schedule_end, location_type, arrival_time, departure_time
-         FROM schedule
-         WHERE schedule_train_id = ${trainId} AND stanox_code = ${fromStation}
-          """.query[ScheduleRecord]
+  case class ScheduleRecordPrimary(id: Option[Int],
+                                   scheduleTrainId: ScheduleTrainId,
+                                   serviceCode: ServiceCode,
+                                   stpIndicator: StpIndicator,
+                                   trainCategory: Option[TrainCategory],
+                                   trainStatus: Option[TrainStatus],
+                                   atocCode: Option[AtocCode],
+                                   stopSequence: Int,
+                                   stanoxCode: StanoxCode,
+                                   subsequentStanoxCodes: List[StanoxCode],
+                                   subsequentArrivalTimes: List[LocalTime],
+                                   monday: Boolean,
+                                   tuesday: Boolean,
+                                   wednesday: Boolean,
+                                   thursday: Boolean,
+                                   friday: Boolean,
+                                   saturday: Boolean,
+                                   sunday: Boolean,
+                                   daysRunPattern: DaysRunPattern,
+                                   scheduleStart: LocalDate,
+                                   scheduleEnd: LocalDate,
+                                   locationType: LocationType,
+                                   arrivalTime: Option[LocalTime],
+                                   departureTime: Option[LocalTime])
+      extends ScheduleRecord {
 
-  def scheduleRecordFor(id: Int) =
-    sql"""
-         SELECT id, schedule_train_id, service_code, stp_indicator, train_category, train_status, atoc_code, stop_sequence, stanox_code, subsequent_stanox_codes,
-                subsequent_arrival_times, monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern,
-                schedule_start, schedule_end, location_type, arrival_time, departure_time
-         FROM schedule
-         WHERE id = ${id}
-          """.query[ScheduleRecord]
+    override val insertValuesFragment: doobie.Fragment = super.insertValuesBaseFragment
+  }
 
-  def distinctStanoxCodes =
-    sql"""
-         SELECT DISTINCT stanox_code
-         FROM schedule
-          """.query[StanoxCode]
+  object ScheduleRecordPrimary {
+    val insertFieldsFragment: doobie.Fragment = ScheduleRecord.baseInsertFieldsFragment
+    val selectFieldsFragment: doobie.Fragment = ScheduleRecord.baseSelectFieldsFragment
+  }
 
-  def deleteAllScheduleLogRecords(): Update0 =
-    sql"""DELETE FROM schedule""".update
+  case class ScheduleRecordSecondary(id: Option[Int],
+                                     scheduleTrainId: ScheduleTrainId,
+                                     serviceCode: ServiceCode,
+                                     stpIndicator: StpIndicator,
+                                     trainCategory: Option[TrainCategory],
+                                     trainStatus: Option[TrainStatus],
+                                     atocCode: Option[AtocCode],
+                                     stopSequence: Int,
+                                     stanoxCode: StanoxCode,
+                                     subsequentStanoxCodes: List[StanoxCode],
+                                     subsequentArrivalTimes: List[LocalTime],
+                                     monday: Boolean,
+                                     tuesday: Boolean,
+                                     wednesday: Boolean,
+                                     thursday: Boolean,
+                                     friday: Boolean,
+                                     saturday: Boolean,
+                                     sunday: Boolean,
+                                     daysRunPattern: DaysRunPattern,
+                                     scheduleStart: LocalDate,
+                                     scheduleEnd: LocalDate,
+                                     locationType: LocationType,
+                                     arrivalTime: Option[LocalTime],
+                                     departureTime: Option[LocalTime],
+                                     associationId: Int)
+      extends ScheduleRecord {
+    override val insertValuesFragment: doobie.Fragment = super.insertValuesBaseFragment ++ fr", $associationId"
+  }
 
-  def deleteRecord(scheduleTrainId: ScheduleTrainId,
-                   scheduleStartDate: LocalDate,
-                   stpIndicator: StpIndicator): Update0 =
-    sql"""DELETE FROM schedule
-          WHERE schedule_train_id = ${scheduleTrainId}
-          AND schedule_start = ${scheduleStartDate}
-          AND stp_indicator = ${stpIndicator}
-       """.update
+  object ScheduleRecordSecondary {
+    val insertFieldsFragment: doobie.Fragment = ScheduleRecord.baseInsertFieldsFragment ++ fr", association_id"
+    val selectFieldsFragment: doobie.Fragment = ScheduleRecord.baseSelectFieldsFragment ++ fr", association_id"
+  }
 
-  def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): ScheduleTable =
-    new ScheduleTable {
-
-      override val memoizeFor: FiniteDuration = memoizeDuration
-
-      override def addRecord(log: ScheduleRecord): IO[Unit] =
-        ScheduleTable
-          .addScheduleLogRecord(log)
-          .run
-          .transact(db)
-          .map(_ => ())
-
-      override def deleteAllRecords(): IO[Unit] =
-        ScheduleTable.deleteAllScheduleLogRecords().run.transact(db).map(_ => ())
-
-      override def addRecords(records: List[ScheduleRecord]): IO[Unit] =
-        ScheduleTable.addScheduleLogRecords(records).transact(db).map(_ => ())
-
-      override protected def retrieveAll(): IO[List[ScheduleRecord]] =
-        ScheduleTable
-          .allScheduleLogRecords()
-          .to[List]
-          .transact(db)
-
-      override def retrieveScheduleLogRecordsFor(from: StanoxCode,
-                                                 to: StanoxCode,
-                                                 pattern: DaysRunPattern,
-                                                 stpIndicator: StpIndicator): IO[List[ScheduleRecord]] =
-        ScheduleTable.scheduleRecordsFor(from, to, pattern, stpIndicator).to[List].transact(db)
-
-      override def retrieveRecordBy(id: Int): IO[Option[ScheduleRecord]] =
-        ScheduleTable.scheduleRecordFor(id).option.transact(db)
-
-      override def retrieveAllDistinctStanoxCodes: IO[List[StanoxCode]] =
-        ScheduleTable.distinctStanoxCodes.to[List].transact(db)
-
-      override def retrieveScheduleLogRecordsFor(trainId: ScheduleTrainId, from: StanoxCode): IO[List[ScheduleRecord]] =
-        ScheduleTable.scheduleRecordsFor(trainId, from).to[List].transact(db)
-
-      override def deleteRecord(scheduleTrainId: ScheduleTrainId,
-                                scheduleStartDate: LocalDate,
-                                stpIndicator: StpIndicator): IO[Unit] =
-        ScheduleTable.deleteRecord(scheduleTrainId, scheduleStartDate, stpIndicator).run.transact(db).map(_ => ())
+  def addScheduleLogRecord(log: ScheduleRecord): Update0 = {
+    val (tableName, fields) = log match {
+      case _: ScheduleRecordPrimary => (SchedulePrimaryTable.tableName, ScheduleRecordPrimary.insertFieldsFragment)
+      case _: ScheduleRecordSecondary =>
+        (ScheduleSecondaryTable.tableName, ScheduleRecordSecondary.insertFieldsFragment)
     }
+    (fr"INSERT INTO " ++ tableName ++ fr" (" ++ fields ++ fr") VALUES (" ++ log.insertValuesFragment ++ fr")").update
+  }
+  def deleteAllScheduleRecords(tableName: doobie.Fragment): Update0 =
+    (fr"DELETE FROM" ++ tableName).update
 
+  def allScheduleRecordsFragment(tableName: doobie.Fragment, selectFields: doobie.Fragment): Fragment =
+    fr"SELECT " ++ selectFields ++ fr" FROM " ++ tableName
+
+  def scheduleRecordsForFragment(
+      fromStation: StanoxCode,
+      toStation: StanoxCode,
+      daysRunPattern: DaysRunPattern,
+      stpIndicator: StpIndicator)(tableName: doobie.Fragment, selectFields: doobie.Fragment): Fragment =
+    fr"SELECT " ++ selectFields ++ fr" FROM " ++ tableName ++
+      fr"WHERE stanox_code = $fromStation" ++
+      fr"AND days_run_pattern = $daysRunPattern" ++
+      fr"AND $toStation = ANY(subsequent_stanox_codes)" ++
+      fr"AND stp_indicator = $stpIndicator"
+
+  def scheduleRecordForFragment(id: Int)(tableName: doobie.Fragment, selectFields: doobie.Fragment): Fragment =
+    fr"SELECT " ++ selectFields ++ fr" FROM " ++ tableName ++
+      fr"WHERE id = $id"
+
+  def scheduleRecordsForFragment(trainId: ScheduleTrainId, fromStation: StanoxCode)(
+      tableName: doobie.Fragment,
+      selectFields: doobie.Fragment): Fragment =
+    fr"SELECT " ++ selectFields ++ fr" FROM " ++ tableName ++
+      fr"WHERE schedule_train_id = $trainId" ++
+      fr"AND stanox_code = $fromStation"
+
+  def scheduleRecordsForFragment(trainId: ScheduleTrainId)(tableName: doobie.Fragment,
+                                                           selectFields: doobie.Fragment): Fragment =
+    fr"SELECT " ++ selectFields ++ fr" FROM " ++ tableName ++
+      fr"WHERE schedule_train_id = $trainId"
+
+  def deleteRecord(scheduleTrainId: ScheduleTrainId, scheduleStartDate: LocalDate, stpIndicator: StpIndicator)(
+      tableName: doobie.Fragment): Update0 =
+    (fr"DELETE FROM " ++ tableName ++
+      fr"WHERE schedule_train_id = ${scheduleTrainId}" ++
+      fr"AND schedule_start = ${scheduleStartDate}" ++
+      fr"AND stp_indicator = ${stpIndicator}").update
+
+  def distinctStanoxCodes(tableName: doobie.Fragment) =
+    (fr"SELECT DISTINCT stanox_code FROM " ++ tableName).query[StanoxCode]
 }

@@ -28,7 +28,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
-                            fixture.scheduleTable,
+                            fixture.schedulePrimaryTable,
                             fixture.stanoxTable,
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
@@ -75,7 +75,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
-                            fixture.scheduleTable,
+                            fixture.schedulePrimaryTable,
                             fixture.stanoxTable,
                             emailer)
 
@@ -124,7 +124,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
-                            fixture.scheduleTable,
+                            fixture.schedulePrimaryTable,
                             fixture.stanoxTable,
                             emailer)
 
@@ -185,7 +185,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
-                            fixture.scheduleTable,
+                            fixture.schedulePrimaryTable,
                             fixture.stanoxTable,
                             emailer)
 
@@ -228,7 +228,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
-                            fixture.scheduleTable,
+                            fixture.schedulePrimaryTable,
                             fixture.stanoxTable,
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
@@ -274,7 +274,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         val subscriberHandler =
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
-                            fixture.scheduleTable,
+                            fixture.schedulePrimaryTable,
                             fixture.stanoxTable,
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,

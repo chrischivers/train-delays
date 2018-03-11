@@ -5,7 +5,7 @@ import com.typesafe.scalalogging.StrictLogging
 import org.http4s.client.blaze.Http1Client
 import traindelays.TrainDelaysConfig
 import traindelays.networkrail.NetworkRailClient
-import traindelays.networkrail.db.{ScheduleTable, _}
+import traindelays.networkrail.db._
 import traindelays.networkrail.scheduledata._
 
 trait PopulateScheduleTable extends App with StrictLogging {
@@ -13,9 +13,9 @@ trait PopulateScheduleTable extends App with StrictLogging {
   val config = TrainDelaysConfig()
 
   val app = withTransactor(config.databaseConfig)() { db =>
-    val stanoxTable      = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-    val scheduleTable    = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-    val associationTable = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val stanoxTable       = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val scheduleTableMain = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val associationTable  = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
     fs2.Stream.eval {
       for {
@@ -28,7 +28,7 @@ trait PopulateScheduleTable extends App with StrictLogging {
         _ <- IO.pure(logger.info("Unpacking schedule data"))
         _ <- networkRailClient.unpackScheduleData.compile.drain
         _ <- IO.pure(logger.info("Writing schedule data records"))
-        _ <- writeScheduleDataRecords(stanoxTable, scheduleTable, associationTable, scheduleDataReader).compile.drain
+        _ <- writeScheduleDataRecords(stanoxTable, scheduleTableMain, associationTable, scheduleDataReader).compile.drain
         _ <- IO.pure(logger.info("Schedule Table population complete"))
       } yield ()
     }

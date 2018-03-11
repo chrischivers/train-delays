@@ -9,7 +9,7 @@ import org.http4s.Response
 import org.http4s.dsl.io._
 import traindelays.UIConfig
 import traindelays.networkrail.{CRS, Definitions, StanoxCode}
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
+import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db._
 import traindelays.networkrail.scheduledata.StpIndicator
@@ -23,7 +23,7 @@ object ScheduleService extends StrictLogging {
 
   def apply(stanoxTable: StanoxTable,
             subscriberTable: SubscriberTable,
-            scheduleTable: ScheduleTable,
+            scheduleTable: ScheduleTable[ScheduleRecordPrimary],
             googleAuthenticator: GoogleAuthenticator,
             uIConfig: UIConfig) =
     new ScheduleService {
@@ -36,7 +36,7 @@ object ScheduleService extends StrictLogging {
           maybeExistingSubscriberRecords <- maybeAuthenticatedDetails.fold[IO[Option[List[SubscriberRecord]]]](
             IO.pure(None))(details => subscriberTable.subscriberRecordsFor(details.userId).map(Some(_)))
           queryResponses <- scheduleTable
-            .retrieveScheduleLogRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern, StpIndicator.P) // This will always be P as we are dealing with permanent records
+            .retrieveScheduleRecordsFor(req.fromStanox, req.toStanox, req.daysRunPattern, StpIndicator.P) // This will always be P as we are dealing with permanent records
             .map { scheduleLogs =>
               scheduleQueryResponsesFrom(
                 filterOutInvalidOrDuplicates(scheduleLogs, uIConfig.minimumDaysScheduleDuration),
@@ -53,7 +53,8 @@ object ScheduleService extends StrictLogging {
           InternalServerError()
         }, lst => Ok(lst.asJson.noSpaces)))
 
-      private def filterOutInvalidOrDuplicates(scheduleLogs: List[ScheduleRecord], minimumDaysScheduleDuration: Int) =
+      private def filterOutInvalidOrDuplicates(scheduleLogs: List[ScheduleRecordPrimary],
+                                               minimumDaysScheduleDuration: Int) =
         scheduleLogs
           .filter(x => DAYS.between(x.scheduleStart, x.scheduleEnd) > minimumDaysScheduleDuration)
           .groupBy(x => (x.scheduleTrainId, x.serviceCode, x.stanoxCode, x.daysRunPattern))
@@ -63,7 +64,7 @@ object ScheduleService extends StrictLogging {
 
       //TODO test this
       private def scheduleQueryResponsesFrom(
-          scheduleLogs: List[ScheduleRecord],
+          scheduleLogs: List[ScheduleRecordPrimary],
           toStanoxCode: StanoxCode,
           stanoxRecordsWithCRS: Map[StanoxCode, List[StanoxRecord]],
           existingSubscriberRecords: Option[List[SubscriberRecord]]): List[ScheduleQueryResponse] =

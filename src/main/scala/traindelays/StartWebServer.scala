@@ -14,21 +14,21 @@ object StartWebServer extends fs2.StreamApp[IO] {
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): fs2.Stream[IO, ExitCode] =
     withTransactor(config.databaseConfig)() { db =>
-      val scheduleTable        = ScheduleTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val scheduleMainTable    = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val stanoxTable          = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
       val movementLogTable     = MovementLogTable(db)
       val cancellationLogTable = CancellationLogTable(db)
       val googleAuthenticator  = GoogleAuthenticator(config.uIConfig.clientId)
-      val historyService       = HistoryService(movementLogTable, cancellationLogTable, stanoxTable, scheduleTable)
+      val historyService       = HistoryService(movementLogTable, cancellationLogTable, stanoxTable, scheduleMainTable)
       val scheduleService =
-        ScheduleService(stanoxTable, subscriberTable, scheduleTable, googleAuthenticator, config.uIConfig)
+        ScheduleService(stanoxTable, subscriberTable, scheduleMainTable, googleAuthenticator, config.uIConfig)
 
       BlazeBuilder[IO]
         .bindHttp(config.httpConfig.port, "localhost")
         .mountService(Service(historyService,
                               scheduleService,
-                              scheduleTable,
+                              scheduleMainTable,
                               stanoxTable,
                               subscriberTable,
                               config.uIConfig,
