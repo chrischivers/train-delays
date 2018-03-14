@@ -23,7 +23,6 @@ class ScheduleSecondaryTableTest extends FlatSpec with TestFeatures {
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe scheduleAssociationRecord.copy(id = Some(1))
     }
-
   }
 
   it should "delete all schedule association records from the database" in {
@@ -56,6 +55,23 @@ class ScheduleSecondaryTableTest extends FlatSpec with TestFeatures {
         .deleteRecord(scheduleAssociationRecord.scheduleTrainId,
                       scheduleAssociationRecord.scheduleStart,
                       scheduleAssociationRecord.stpIndicator)
+        .unsafeRunSync()
+      val retrievedRecord2 = fixture.scheduleSecondaryTable.retrieveAllRecords(forceRefresh = true).unsafeRunSync()
+      retrievedRecord2 should have size 0
+    }
+  }
+
+  it should "delete a schedule association record from the database by association id" in {
+
+    val scheduleAssociationRecord = createScheduleRecordSecondary()
+
+    withInitialState(testDatabaseConfig)(
+      AppInitialState(scheduleSecondaryRecords = List(scheduleAssociationRecord))
+    ) { fixture =>
+      val retrievedRecord1 = fixture.scheduleSecondaryTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecord1 should have size 1
+      fixture.scheduleSecondaryTable
+        .deleteRecord(scheduleAssociationRecord.associationId)
         .unsafeRunSync()
       val retrievedRecord2 = fixture.scheduleSecondaryTable.retrieveAllRecords(forceRefresh = true).unsafeRunSync()
       retrievedRecord2 should have size 0

@@ -15,6 +15,8 @@ trait ScheduleTable[A <: ScheduleRecord] extends MemoizedTable[A] {
 
   def deleteRecord(scheduleTrainId: ScheduleTrainId, scheduleStartDate: LocalDate, stpIndicator: StpIndicator): IO[Unit]
 
+  def deleteRecord(associationId: Int): IO[Unit]
+
   def retrieveScheduleRecordsFor(from: StanoxCode,
                                  to: StanoxCode,
                                  pattern: DaysRunPattern,

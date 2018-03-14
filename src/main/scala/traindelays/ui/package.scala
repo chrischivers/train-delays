@@ -50,7 +50,15 @@ package object ui {
                                    daysRunPattern: DaysRunPattern,
                                    scheduleStart: LocalDate,
                                    scheduleEnd: LocalDate,
-                                   subscribed: Boolean)
+                                   subscribed: Boolean) {
+
+    def matchesKeyFields(that: ScheduleQueryResponse) =
+      fromStanoxCode == that.fromStanoxCode &&
+        departureTime == that.departureTime &&
+        toStanoxCode == that.toStanoxCode &&
+        arrivalTime == that.arrivalTime &&
+        daysRunPattern == daysRunPattern
+  }
 
   object ScheduleQueryResponse {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]

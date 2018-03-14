@@ -14,21 +14,27 @@ object StartWebServer extends fs2.StreamApp[IO] {
 
   override def stream(args: List[String], requestShutdown: IO[Unit]): fs2.Stream[IO, ExitCode] =
     withTransactor(config.databaseConfig)() { db =>
-      val scheduleMainTable    = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-      val stanoxTable          = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-      val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
-      val movementLogTable     = MovementLogTable(db)
-      val cancellationLogTable = CancellationLogTable(db)
-      val googleAuthenticator  = GoogleAuthenticator(config.uIConfig.clientId)
-      val historyService       = HistoryService(movementLogTable, cancellationLogTable, stanoxTable, scheduleMainTable)
+      val scheduleTablePrimary   = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val scheduleTableSecondary = ScheduleSecondaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val stanoxTable            = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val subscriberTable        = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
+      val movementLogTable       = MovementLogTable(db)
+      val cancellationLogTable   = CancellationLogTable(db)
+      val googleAuthenticator    = GoogleAuthenticator(config.uIConfig.clientId)
+      val historyService         = HistoryService(movementLogTable, cancellationLogTable, stanoxTable, scheduleTablePrimary)
       val scheduleService =
-        ScheduleService(stanoxTable, subscriberTable, scheduleMainTable, googleAuthenticator, config.uIConfig)
+        ScheduleService(stanoxTable,
+                        subscriberTable,
+                        scheduleTablePrimary,
+                        scheduleTableSecondary,
+                        googleAuthenticator,
+                        config.uIConfig)
 
       BlazeBuilder[IO]
         .bindHttp(config.httpConfig.port, "localhost")
         .mountService(Service(historyService,
                               scheduleService,
-                              scheduleMainTable,
+                              scheduleTablePrimary,
                               stanoxTable,
                               subscriberTable,
                               config.uIConfig,

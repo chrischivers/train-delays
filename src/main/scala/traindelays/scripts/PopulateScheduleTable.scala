@@ -13,9 +13,10 @@ trait PopulateScheduleTable extends App with StrictLogging {
   val config = TrainDelaysConfig()
 
   val app = withTransactor(config.databaseConfig)() { db =>
-    val stanoxTable       = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-    val scheduleTableMain = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-    val associationTable  = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val stanoxTable            = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val scheduleTablePrimary   = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val scheduleTableSecondary = ScheduleSecondaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+    val associationTable       = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
     fs2.Stream.eval {
       for {
@@ -28,7 +29,11 @@ trait PopulateScheduleTable extends App with StrictLogging {
         _ <- IO.pure(logger.info("Unpacking schedule data"))
         _ <- networkRailClient.unpackScheduleData.compile.drain
         _ <- IO.pure(logger.info("Writing schedule data records"))
-        _ <- writeScheduleDataRecords(stanoxTable, scheduleTableMain, associationTable, scheduleDataReader).compile.drain
+        _ <- writeScheduleDataRecords(stanoxTable,
+                                      scheduleTablePrimary,
+                                      scheduleTableSecondary,
+                                      associationTable,
+                                      scheduleDataReader).compile.drain
         _ <- IO.pure(logger.info("Schedule Table population complete"))
       } yield ()
     }

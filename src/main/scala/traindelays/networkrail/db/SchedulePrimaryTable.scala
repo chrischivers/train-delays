@@ -77,5 +77,7 @@ object SchedulePrimaryTable {
           .query[ScheduleRecordPrimary]
           .to[List]
           .transact(db)
+
+      override def deleteRecord(id: Int): IO[Unit] = IO.unit //No action for primary table
     }
 }

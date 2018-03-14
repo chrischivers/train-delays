@@ -16,11 +16,15 @@ trait AssociationTable extends MemoizedTable[AssociationRecord] {
 
   def deleteAllRecords(): IO[Unit]
 
-  def deleteRecord(mainScheduleTrainId: ScheduleTrainId,
-                   associatedScheduleTrainId: ScheduleTrainId,
-                   associationStartDate: LocalDate,
-                   stpIndicator: StpIndicator,
-                   location: TipLocCode): IO[Unit]
+  def retrieveRecordFor(mainScheduleTrainId: ScheduleTrainId,
+                        associatedScheduleTrainId: ScheduleTrainId,
+                        associationStartDate: LocalDate,
+                        stpIndicator: StpIndicator,
+                        location: TipLocCode): IO[Option[AssociationRecord]]
+
+  def deleteRecordBy(id: Int): IO[Unit]
+
+  def retrieveJoinOrDivideRecordsNotInSecondaryTable(): IO[List[AssociationRecord]]
 }
 
 object AssociationTable extends StrictLogging {
@@ -45,7 +49,7 @@ object AssociationTable extends StrictLogging {
                                daysRunPattern: DaysRunPattern,
                                associationCategory: Option[AssociationCategory]) {
 
-    def toAssociationScheduleRecords(
+    def toSecondaryScheduleRecords(
         scheduleRecordsForMainId: List[ScheduleRecordPrimary],
         scheduleRecordsForAssociatedId: List[ScheduleRecordPrimary],
         stanoxRecordForAssocationLocation: List[StanoxRecord]): Option[List[ScheduleRecordSecondary]] =
@@ -63,71 +67,102 @@ object AssociationTable extends StrictLogging {
         scheduleRecordsForAssociatedId: List[ScheduleRecordPrimary],
         stanoxRecordForAssocationLocation: List[StanoxRecord]): Option[List[ScheduleRecordSecondary]] = {
 
-      val relevantScheduleRecordsForMainId = relevantScheduleRecords(scheduleRecordsForMainId, associationRecord)
+      val relevantScheduleRecordsForMainId = relevantScheduleRecords(
+        associationRecord.mainScheduleTrainId,
+        associationRecord.daysRunPattern,
+        associationRecord.associatedStart,
+        associationRecord.associatedEnd,
+        scheduleRecordsForMainId
+      )
       val relevantScheduleRecordsForAssociatedId =
-        relevantScheduleRecords(scheduleRecordsForAssociatedId, associationRecord)
+        relevantScheduleRecords(
+          associationRecord.associatedScheduleTrainId,
+          associationRecord.daysRunPattern,
+          associationRecord.associatedStart,
+          associationRecord.associatedEnd,
+          scheduleRecordsForAssociatedId
+        )
 
-      associationRecord.associationCategory.flatMap {
-        case AssociationCategory.Join =>
-          val assembledScheduleRecords = relevantScheduleRecordsForAssociatedId.flatMap(associatedRecs =>
-            relevantScheduleRecordsForMainId.map(mainRecs =>
-              associatedRecs ++ mainRecs.dropWhile(x =>
-                !stanoxRecordForAssocationLocation.exists(_.stanoxCode.contains(x.stanoxCode)))))
+      val assembledScheduleRecords =
+        associationRecord.associationCategory.flatMap {
+          case AssociationCategory.Join =>
+            relevantScheduleRecordsForAssociatedId.flatMap(
+              associatedRecs =>
+                relevantScheduleRecordsForMainId.map(
+                  mainRecs =>
+                    associatedRecs ++ mainRecs
+                      .dropWhile(x => !stanoxRecordForAssocationLocation.exists(_.stanoxCode.contains(x.stanoxCode)))
+                      .map(_.copy(scheduleTrainId = associationRecord.associatedScheduleTrainId))))
+          case AssociationCategory.Divide =>
+            relevantScheduleRecordsForAssociatedId.flatMap(
+              associatedRecs =>
+                relevantScheduleRecordsForMainId.map(
+                  mainRecs =>
+                    mainRecs
+                      .takeWhile(x => !stanoxRecordForAssocationLocation.exists(_.stanoxCode.contains(x.stanoxCode)))
+                      .map(_.copy(scheduleTrainId = associationRecord.associatedScheduleTrainId)) ++ associatedRecs))
+          case _ => throw new RuntimeException("Not implementing other association cases")
+        }
 
-          associationRecord.id.flatMap { id =>
-            assembledScheduleRecords.map(records => {
-              records.zipWithIndex.map {
-                case (record, index) => {
-                  val subsequentRecords = records.dropWhile(_.stanoxCode != record.stanoxCode).drop(1)
-                  ScheduleRecordSecondary(
-                    None,
-                    record.scheduleTrainId,
-                    record.serviceCode,
-                    associationRecord.stpIndicator,
-                    record.trainCategory,
-                    record.trainStatus,
-                    record.atocCode,
-                    index,
-                    record.stanoxCode,
-                    subsequentRecords.map(_.stanoxCode),
-                    subsequentRecords.map(subsRec =>
-                      subsRec.arrivalTime.getOrElse(subsRec.departureTime.getOrElse(throw new RuntimeException(
-                        "Not found arrival or departure time for subsequent stop")))), //todo make this better
-                    associationRecord.monday,
-                    associationRecord.tuesday,
-                    associationRecord.wednesday,
-                    associationRecord.thursday,
-                    associationRecord.friday,
-                    associationRecord.saturday,
-                    associationRecord.sunday,
-                    associationRecord.daysRunPattern,
-                    associationRecord.associatedStart,
-                    associationRecord.associatedEnd,
-                    record.locationType,
-                    record.arrivalTime,
-                    record.departureTime,
-                    id
-                  )
-                }
-              }
-            })
+      associationRecord.id.flatMap { id =>
+        assembledScheduleRecords.map(records => {
+          records.zipWithIndex.map {
+            case (record, index) => {
+              val subsequentRecords = records.dropWhile(_.stanoxCode != record.stanoxCode).drop(1)
+              ScheduleRecordSecondary(
+                None,
+                record.scheduleTrainId,
+                record.serviceCode,
+                associationRecord.stpIndicator,
+                record.trainCategory,
+                record.trainStatus,
+                record.atocCode,
+                index,
+                record.stanoxCode,
+                subsequentRecords.map(_.stanoxCode),
+                subsequentRecords.map(
+                  subsRec =>
+                    subsRec.arrivalTime.getOrElse(subsRec.departureTime.getOrElse(throw new RuntimeException(
+                      "Not found arrival or departure time for subsequent stop")))), //todo make this better
+                associationRecord.monday,
+                associationRecord.tuesday,
+                associationRecord.wednesday,
+                associationRecord.thursday,
+                associationRecord.friday,
+                associationRecord.saturday,
+                associationRecord.sunday,
+                associationRecord.daysRunPattern,
+                associationRecord.associatedStart,
+                associationRecord.associatedEnd,
+                record.locationType,
+                record.arrivalTime,
+                record.departureTime,
+                id
+              )
+            }
           }
-        case _ => throw new RuntimeException("Not implemented other cases")
+        })
       }
     }
 
-    private def relevantScheduleRecords(scheduleRecords: List[ScheduleRecordPrimary],
-                                        associationRecord: AssociationRecord) =
+    private def relevantScheduleRecords(scheduleTrainId: ScheduleTrainId,
+                                        daysRunPattern: DaysRunPattern,
+                                        associationStartDate: LocalDate,
+                                        associationEndDate: LocalDate,
+                                        scheduleRecords: List[ScheduleRecordPrimary]) =
       scheduleRecords
-        .filter(rec => dateOverlaps(rec, associationRecord))
-        .filter(rec => rec.daysRunPattern == associationRecord.daysRunPattern)
+        .filter(rec => rec.scheduleTrainId == scheduleTrainId)
+        .filter(rec => dateOverlaps(rec, associationStartDate, associationEndDate))
+        .filter(rec => rec.daysRunPattern == daysRunPattern)
         .groupBy(_.scheduleStart)
         .values
         .headOption
         .map(_.sortBy(_.stopSequence))
-    private def dateOverlaps(scheduleRecord: ScheduleRecordPrimary, associationRecord: AssociationRecord) =
-      scheduleRecord.scheduleStart.isBefore(associationRecord.associatedEnd) &&
-        scheduleRecord.scheduleEnd.isAfter(associationRecord.associatedStart)
+    private def dateOverlaps(scheduleRecord: ScheduleRecordPrimary,
+                             associationStartDate: LocalDate,
+                             associationEndDate: LocalDate) =
+      scheduleRecord.scheduleStart.isBefore(associationEndDate) &&
+        scheduleRecord.scheduleEnd.isAfter(associationStartDate)
 
   }
 
@@ -142,28 +177,43 @@ object AssociationTable extends StrictLogging {
       ON CONFLICT DO NOTHING
      """.update
 
-  def allAssociationRecordsRecords(): Query0[AssociationRecord] =
+  def allAssociationRecords(): Query0[AssociationRecord] =
     sql"""
       SELECT id, main_schedule_train_id, associated_schedule_train_id, associated_start, associated_end, stp_indicator, location, 
                monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern, association_category
       FROM association
       """.query[AssociationRecord]
 
+  def joinDivideRecordsNotInSecondarySchedule(): Query0[AssociationRecord] =
+    sql"""
+      SELECT id, main_schedule_train_id, associated_schedule_train_id, associated_start, associated_end, stp_indicator, location,
+               monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern, association_category
+      FROM association
+      WHERE association_category != 'NP'
+      AND association_category IS NOT NULL
+      AND id NOT IN (SELECT DISTINCT association_id FROM schedule_secondary)
+      """.query[AssociationRecord]
+
   def deleteAllAssociationRecords(): Update0 =
     sql"""DELETE FROM association""".update
 
-  def deleteRecord(mainScheduleTrainId: ScheduleTrainId,
-                   associatedScheduleTrainId: ScheduleTrainId,
-                   associationStartDate: LocalDate,
-                   stpIndicator: StpIndicator,
-                   location: TipLocCode): Update0 =
-    sql"""DELETE FROM association
+  def deleteAssociationRecord(id: Int): Update0 =
+    sql"DELETE FROM association WHERE id = ${id}".update
+
+  def retrieveRecordFor(mainScheduleTrainId: ScheduleTrainId,
+                        associatedScheduleTrainId: ScheduleTrainId,
+                        associationStartDate: LocalDate,
+                        stpIndicator: StpIndicator,
+                        location: TipLocCode): Query0[AssociationRecord] =
+    sql"""SELECT id, main_schedule_train_id, associated_schedule_train_id, associated_start, associated_end, stp_indicator, location,
+           monday, tuesday, wednesday, thursday, friday, saturday, sunday, days_run_pattern, association_category
+          FROM association
           WHERE main_schedule_train_id = ${mainScheduleTrainId}
           AND associated_schedule_train_id = ${associatedScheduleTrainId}
           AND associated_start = ${associationStartDate}
           AND stp_indicator = ${stpIndicator}
           AND location = ${location}
-       """.update
+       """.query[AssociationRecord]
 
   def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): AssociationTable =
     new AssociationTable {
@@ -175,20 +225,23 @@ object AssociationTable extends StrictLogging {
 
       override protected def retrieveAll(): IO[List[AssociationRecord]] =
         AssociationTable
-          .allAssociationRecordsRecords()
+          .allAssociationRecords()
           .to[List]
           .transact(db)
 
-      override def deleteRecord(mainScheduleTrainId: ScheduleTrainId,
-                                associatedScheduleTrainId: ScheduleTrainId,
-                                associationStartDate: LocalDate,
-                                stpIndicator: StpIndicator,
-                                location: TipLocCode): IO[Unit] =
+      override def retrieveRecordFor(mainScheduleTrainId: ScheduleTrainId,
+                                     associatedScheduleTrainId: ScheduleTrainId,
+                                     associationStartDate: LocalDate,
+                                     stpIndicator: StpIndicator,
+                                     location: TipLocCode): IO[Option[AssociationRecord]] =
         AssociationTable
-          .deleteRecord(mainScheduleTrainId, associatedScheduleTrainId, associationStartDate, stpIndicator, location)
-          .run
+          .retrieveRecordFor(mainScheduleTrainId,
+                             associatedScheduleTrainId,
+                             associationStartDate,
+                             stpIndicator,
+                             location)
+          .option
           .transact(db)
-          .map(_ => ())
 
       override def addRecord(record: AssociationRecord): IO[Unit] =
         AssociationTable
@@ -196,6 +249,10 @@ object AssociationTable extends StrictLogging {
           .run
           .transact(db)
           .map(_ => ())
-    }
 
+      override def retrieveJoinOrDivideRecordsNotInSecondaryTable(): IO[List[AssociationRecord]] =
+        AssociationTable.joinDivideRecordsNotInSecondarySchedule().to[List].transact(db)
+
+      override def deleteRecordBy(id: Int): IO[Unit] = deleteAssociationRecord(id).run.transact(db).map(_ => ())
+    }
 }

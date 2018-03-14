@@ -5,6 +5,7 @@ import java.time.LocalDate
 import cats.effect.IO
 import doobie.implicits._
 import doobie.util.transactor.Transactor
+import doobie.util.update.Update0
 import traindelays.networkrail.StanoxCode
 import traindelays.networkrail.scheduledata.{DaysRunPattern, ScheduleTrainId, StpIndicator}
 
@@ -15,6 +16,10 @@ object ScheduleSecondaryTable {
   import ScheduleTable._
 
   val tableName: doobie.Fragment = fr"schedule_secondary"
+
+  def deleteRecord(associationId: Int): Update0 =
+    (fr"DELETE FROM " ++ tableName ++
+      fr"WHERE association_id = $associationId").update
 
   def apply(db: Transactor[IO], memoizeDuration: FiniteDuration): ScheduleTable[ScheduleRecordSecondary] =
     new ScheduleTable[ScheduleRecordSecondary] {
@@ -75,5 +80,8 @@ object ScheduleSecondaryTable {
           .query[ScheduleRecordSecondary]
           .to[List]
           .transact(db)
+
+      override def deleteRecord(associationId: Int): IO[Unit] =
+        ScheduleSecondaryTable.deleteRecord(associationId).run.transact(db).map(_ => ())
     }
 }

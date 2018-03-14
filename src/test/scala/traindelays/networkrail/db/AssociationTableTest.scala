@@ -24,7 +24,36 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe associationRecord.copy(id = Some(1))
     }
+  }
 
+  it should "NOT retrieve an inserted association record from the database if already in secondary schedule table" in {
+
+    val associationRecord1      = createAssociationRecord()
+    val scheduleRecordSecondary = createScheduleRecordSecondary(associationId = 1)
+
+    withInitialState(testDatabaseConfig)() { fixture =>
+      fixture.associationTable.addRecord(associationRecord1).unsafeRunSync()
+      fixture.scheduleSecondaryTable.addRecord(scheduleRecordSecondary).unsafeRunSync()
+      val retrievedRecordsAll = fixture.associationTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecordsAll should have size 1
+      val retrievedRecordsNotInSecondarySchedule =
+        fixture.associationTable.retrieveJoinOrDivideRecordsNotInSecondaryTable().unsafeRunSync()
+      retrievedRecordsNotInSecondarySchedule should have size 0
+    }
+  }
+
+  it should "NOT retrieve an inserted association record from the database if association category is Next" in {
+
+    val associationRecord1 = createAssociationRecord(associationCategory = Some(AssociationCategory.Next))
+
+    withInitialState(testDatabaseConfig)() { fixture =>
+      fixture.associationTable.addRecord(associationRecord1).unsafeRunSync()
+      val retrievedRecordsAll = fixture.associationTable.retrieveAllRecords().unsafeRunSync()
+      retrievedRecordsAll should have size 1
+      val retrievedRecordsNotInSecondarySchedule =
+        fixture.associationTable.retrieveJoinOrDivideRecordsNotInSecondaryTable().unsafeRunSync()
+      retrievedRecordsNotInSecondarySchedule should have size 0
+    }
   }
 
   it should "delete all association records from the database" in {
@@ -43,7 +72,7 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
     }
   }
 
-  it should "delete an association record from the database by main train id, association tracin id, start date, location and stpIndicator" in {
+  it should "delete an association record from the database by id" in {
 
     val associationRecord = createAssociationRecord()
 
@@ -53,13 +82,7 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
       val retrievedRecord1 = fixture.associationTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecord1 should have size 1
       fixture.associationTable
-        .deleteRecord(
-          associationRecord.mainScheduleTrainId,
-          associationRecord.associatedScheduleTrainId,
-          associationRecord.associatedStart,
-          associationRecord.stpIndicator,
-          associationRecord.location
-        )
+        .deleteRecordBy(1)
         .unsafeRunSync()
       val retrievedRecord2 = fixture.associationTable.retrieveAllRecords(forceRefresh = true).unsafeRunSync()
       retrievedRecord2 should have size 0
@@ -78,7 +101,24 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
       retrievedRecords.head shouldBe associationRecord1.copy(id = Some(1))
       retrievedRecords(1) shouldBe associationRecord2.copy(id = Some(2))
     }
+  }
 
+  it should "retrieve inserted association record from the database by main train id, associated train id, start, stp and location" in {
+
+    val associationRecord = createAssociationRecord()
+
+    withInitialState(testDatabaseConfig)(AppInitialState(associationRecords = List(associationRecord))) { fixture =>
+      val retrievedRecord = fixture.associationTable
+        .retrieveRecordFor(
+          associationRecord.mainScheduleTrainId,
+          associationRecord.associatedScheduleTrainId,
+          associationRecord.associatedStart,
+          associationRecord.stpIndicator,
+          associationRecord.location
+        )
+        .unsafeRunSync()
+      retrievedRecord.get shouldBe associationRecord.copy(id = Some(1))
+    }
   }
 
   it should "memoize retrieval of an inserted association record from the database" in {

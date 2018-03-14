@@ -644,7 +644,7 @@ trait TestFeatures {
     )
   }
 
-  def createDefaultInitialStateWithAssociation(
+  def createDefaultInitialStateWithJoinAssociation(
       mainScheduleTrainId: ScheduleTrainId = ScheduleTrainId("12345"),
       mainServiceCode: ServiceCode = ServiceCode("799984"),
       associatedScheduleTrainId: ScheduleTrainId = ScheduleTrainId("98573"),
@@ -716,6 +716,78 @@ trait TestFeatures {
     )
   }
 
+  def createDefaultInitialStateWithDivideAssociation(
+      mainScheduleTrainId: ScheduleTrainId = ScheduleTrainId("12345"),
+      mainServiceCode: ServiceCode = ServiceCode("799984"),
+      associatedScheduleTrainId: ScheduleTrainId = ScheduleTrainId("98573"),
+      associatedServiceCode: ServiceCode = ServiceCode("62882")): AppInitialState = {
+
+    val stanoxRecord1 =
+      StanoxRecord(TipLocCode("REIGATE"), Some(StanoxCode(randomGen)), Some(CRS("REI")), Some("Reigate"), None)
+    val stanoxRecord2 =
+      StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode(randomGen)), Some(CRS("RDH")), Some("Redhill"), None)
+    val stanoxRecord3 =
+      StanoxRecord(TipLocCode("MERSTHAM"), Some(StanoxCode(randomGen)), Some(CRS("MER")), Some("Merstham"), None)
+    val stanoxRecord4 =
+      StanoxRecord(TipLocCode("EASTCRYD"), Some(StanoxCode(randomGen)), Some(CRS("ECR")), Some("East Croydon"), None)
+    val stanoxRecord5 =
+      StanoxRecord(TipLocCode("LONVIC"), Some(StanoxCode(randomGen)), Some(CRS("VIC")), Some("London Victoria"), None)
+    val stanoxRecord6 =
+      StanoxRecord(TipLocCode("LDNBRG"), Some(StanoxCode(randomGen)), Some(CRS("LBG")), Some("London Bridge"), None)
+
+    val stanoxRecords = List(stanoxRecord1, stanoxRecord2, stanoxRecord3, stanoxRecord4, stanoxRecord5, stanoxRecord6)
+
+    val decodedScheduleCreateRecord1 = createDecodedScheduleCreateRecord(
+      trainServiceCode = mainServiceCode,
+      scheduleTrainId = mainScheduleTrainId,
+      locationRecords = List(
+        ScheduleLocationRecord(LocationType.OriginatingLocation,
+                               stanoxRecord1.tipLocCode,
+                               None,
+                               Some(LocalTime.parse("12:10"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord2.tipLocCode,
+                               Some(LocalTime.parse("12:14")),
+                               Some(LocalTime.parse("12:15"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord3.tipLocCode,
+                               Some(LocalTime.parse("12:24")),
+                               Some(LocalTime.parse("12:25"))),
+        ScheduleLocationRecord(LocationType.IntermediateLocation,
+                               stanoxRecord4.tipLocCode,
+                               Some(LocalTime.parse("12:35")),
+                               Some(LocalTime.parse("12:36"))),
+        ScheduleLocationRecord(LocationType.TerminatingLocation,
+                               stanoxRecord5.tipLocCode,
+                               Some(LocalTime.parse("12:45")),
+                               None)
+      )
+    )
+
+    val decodedScheduleCreateRecord2 = createDecodedScheduleCreateRecord(
+      trainServiceCode = associatedServiceCode,
+      scheduleTrainId = associatedScheduleTrainId,
+      locationRecords = List(
+        ScheduleLocationRecord(LocationType.OriginatingLocation,
+                               stanoxRecord4.tipLocCode,
+                               None,
+                               Some(LocalTime.parse("12:38"))),
+        ScheduleLocationRecord(LocationType.TerminatingLocation,
+                               stanoxRecord6.tipLocCode,
+                               Some(LocalTime.parse("12:50")),
+                               None)
+      )
+    )
+
+    AppInitialState(
+      schedulePrimaryRecords = toScheduleLogs(decodedScheduleCreateRecord1,
+                                              StanoxRecord.stanoxRecordsToMap(stanoxRecords)) ++ toScheduleLogs(
+        decodedScheduleCreateRecord2,
+        StanoxRecord.stanoxRecordsToMap(stanoxRecords)),
+      stanoxRecords = stanoxRecords
+    )
+  }
+
   def createAuthenticatedDetails(userId: UserId = UserId(Random.nextInt(Integer.MAX_VALUE).toString),
                                  emailAddress: String = "test@test.com",
                                  emailVerified: Option[Boolean] = Some(true),
@@ -738,6 +810,7 @@ trait TestFeatures {
       ScheduleService(fixture.stanoxTable,
                       fixture.subscriberTable,
                       fixture.schedulePrimaryTable,
+                      fixture.scheduleSecondaryTable,
                       googleAuthenticator,
                       uIConfig),
       fixture.schedulePrimaryTable,

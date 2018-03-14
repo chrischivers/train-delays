@@ -29,7 +29,7 @@ object HistoryService {
   def apply(movementLogTable: MovementLogTable,
             cancellationLogTable: CancellationLogTable,
             stanoxTable: StanoxTable,
-            scheduleTable: ScheduleTable[ScheduleRecordPrimary]) =
+            scheduleTablePrimary: ScheduleTable[ScheduleRecordPrimary]) =
     new HistoryService {
 
       override def handleHistoryRequest(scheduleTrainId: ScheduleTrainId,
@@ -131,8 +131,8 @@ object HistoryService {
           cancellationLogs <- cancellationLogTable.retrieveRecordsFor(scheduleTrainId = scheduleTrainId,
                                                                       fromTimestamp = fromTimestamp,
                                                                       toTimestamp = toTimestamp)
-          scheduleRecordsFrom <- scheduleTable.retrieveScheduleRecordsFor(scheduleTrainId, fromStanox)
-          scheduleRecordsTo   <- scheduleTable.retrieveScheduleRecordsFor(scheduleTrainId, toStanox)
+          scheduleRecordsFrom <- scheduleTablePrimary.retrieveScheduleRecordsFor(scheduleTrainId, fromStanox)
+          scheduleRecordsTo   <- scheduleTablePrimary.retrieveScheduleRecordsFor(scheduleTrainId, toStanox)
           stanoxRecords       <- stanoxTable.retrieveAllNonEmptyRecords()
         } yield {
           logsToHistory(scheduleTrainId,
