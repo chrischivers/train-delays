@@ -77,7 +77,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
 
     val subscriberRecord = createSubscriberRecord()
 
-    withInitialState(testDatabaseConfig, SubscribersConfig(3 seconds))(
+    withInitialState(testDatabaseConfig, SubscribersConfig(3 seconds, 15 minutes))(
       AppInitialState(subscriberRecords = List(subscriberRecord))) { fixture =>
       val retrievedRecords1 = fixture.subscriberTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords1 should have size 1

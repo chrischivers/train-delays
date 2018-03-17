@@ -61,7 +61,8 @@ object StartMovementListener extends App with StrictLogging {
                           primaryScheduleTable,
                           secondaryScheduleTable,
                           stanoxTable,
-                          emailer)
+                          emailer,
+                          config.networkRailConfig.subscribersConfig)
 
       val redisClient =
         RedisClient(config.redisConfig.host, config.redisConfig.port, password = None, Some(config.redisConfig.dbIndex))

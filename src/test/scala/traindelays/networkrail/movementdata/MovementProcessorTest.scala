@@ -26,12 +26,15 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
-          SubscriberHandler(fixture.movementLogTable,
-                            fixture.subscriberTable,
-                            fixture.schedulePrimaryTable,
-                            fixture.scheduleSecondaryTable,
-                            fixture.stanoxTable,
-                            emailer)
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
                                  fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
@@ -74,12 +77,15 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainMovementQueue.enqueue1(movementRecord2).unsafeRunSync()
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
-          SubscriberHandler(fixture.movementLogTable,
-                            fixture.subscriberTable,
-                            fixture.schedulePrimaryTable,
-                            fixture.scheduleSecondaryTable,
-                            fixture.stanoxTable,
-                            emailer)
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
 
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
@@ -124,12 +130,15 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
-          SubscriberHandler(fixture.movementLogTable,
-                            fixture.subscriberTable,
-                            fixture.schedulePrimaryTable,
-                            fixture.scheduleSecondaryTable,
-                            fixture.stanoxTable,
-                            emailer)
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
 
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
@@ -186,12 +195,15 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
 
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
-          SubscriberHandler(fixture.movementLogTable,
-                            fixture.subscriberTable,
-                            fixture.schedulePrimaryTable,
-                            fixture.scheduleSecondaryTable,
-                            fixture.stanoxTable,
-                            emailer)
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
 
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
@@ -230,12 +242,15 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
-          SubscriberHandler(fixture.movementLogTable,
-                            fixture.subscriberTable,
-                            fixture.schedulePrimaryTable,
-                            fixture.scheduleSecondaryTable,
-                            fixture.stanoxTable,
-                            emailer)
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
                                  fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
@@ -277,12 +292,15 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
-          SubscriberHandler(fixture.movementLogTable,
-                            fixture.subscriberTable,
-                            fixture.schedulePrimaryTable,
-                            fixture.scheduleSecondaryTable,
-                            fixture.stanoxTable,
-                            emailer)
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
         TrainActivationProcessor(queues.trainActivationQueue,
                                  fixture.trainActivationCache,
                                  fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain

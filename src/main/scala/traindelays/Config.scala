@@ -25,7 +25,7 @@ case class ScheduleDataConfig(fullDownloadUrl: Uri,
 
 case class MovementsConfig(topic: String, activationExpiry: FiniteDuration)
 
-case class SubscribersConfig(memoizeFor: FiniteDuration)
+case class SubscribersConfig(memoizeFor: FiniteDuration, lateNotifyAfter: FiniteDuration)
 
 case class EmailerConfig(enabled: Boolean,
                          fromAddress: String,
@@ -80,7 +80,8 @@ object TrainDelaysConfig {
           FiniteDuration(config.getDuration("networkRail.movements.activationExpiry").toMillis, TimeUnit.MILLISECONDS)
         ),
         SubscribersConfig(
-          FiniteDuration(config.getDuration("networkRail.subscribers.memoizeFor").toMillis, TimeUnit.MILLISECONDS)
+          FiniteDuration(config.getDuration("networkRail.subscribers.memoizeFor").toMillis, TimeUnit.MILLISECONDS),
+          FiniteDuration(config.getDuration("networkRail.subscribers.lateNotifyAfter").toMillis, TimeUnit.MILLISECONDS)
         )
       ),
       DatabaseConfig(

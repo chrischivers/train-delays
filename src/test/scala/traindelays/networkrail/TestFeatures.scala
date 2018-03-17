@@ -114,7 +114,7 @@ trait TestFeatures {
 
   def withInitialState[A](
       databaseConfig: DatabaseConfig,
-      subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute),
+      subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute, 15 minutes),
       scheduleDataConfig: ScheduleDataConfig =
         ScheduleDataConfig(Uri.unsafeFromString(""), Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 1 minute),
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
@@ -135,7 +135,8 @@ trait TestFeatures {
                           schedulePrimaryTable,
                           scheduleSecondaryTable,
                           stanoxTable,
-                          emailer)
+                          emailer,
+                          subscribersConfig)
       val metricsLogging = TestMetricsLogging(config.metricsConfig)
 
       for {
