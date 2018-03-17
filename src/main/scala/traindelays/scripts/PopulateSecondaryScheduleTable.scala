@@ -8,7 +8,7 @@ import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
 import cats.syntax.flatMap._
 
-object PopulateSecondaryScheduleTable extends App with StrictLogging {
+object PopulateSecondaryScheduleTable extends StrictLogging {
 
   val config = TrainDelaysConfig()
 
@@ -20,7 +20,7 @@ object PopulateSecondaryScheduleTable extends App with StrictLogging {
 
     fs2.Stream.eval {
       for {
-        _ <- IO(logger.info("Starting population of secondary schedule table"))
+        _ <- IO(logger.info(s"Starting population of secondary schedule table. Flush first set to $flushFirst"))
         _ <- if (flushFirst)
           IO(logger.info("Deleting all records from Schedule Table Secondary")) >> scheduleSecondaryTable
             .deleteAllRecords()
@@ -48,7 +48,4 @@ object PopulateSecondaryScheduleTable extends App with StrictLogging {
 
     }
   }
-
-  run().compile.drain.unsafeRunSync()
-
 }

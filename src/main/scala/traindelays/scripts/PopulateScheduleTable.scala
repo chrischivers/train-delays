@@ -9,7 +9,7 @@ import traindelays.networkrail.db._
 import traindelays.networkrail.scheduledata._
 import cats.syntax.flatMap._
 
-trait PopulateScheduleTable extends App with StrictLogging {
+trait PopulateScheduleTable extends StrictLogging {
 
   val config = TrainDelaysConfig()
 
@@ -21,7 +21,7 @@ trait PopulateScheduleTable extends App with StrictLogging {
 
     fs2.Stream.eval {
       for {
-        _      <- IO(logger.info("Starting population of schedule table"))
+        _      <- IO(logger.info(s"Starting population of schedule table. Flush first set to $flushFirst"))
         client <- Http1Client[IO]()
         networkRailClient  = NetworkRailClient(config.networkRailConfig, client)
         scheduleDataReader = ScheduleDataReader(config.networkRailConfig.scheduleData.tmpUnzipLocation)
@@ -48,8 +48,5 @@ trait PopulateScheduleTable extends App with StrictLogging {
       } yield ()
     }
   }
-
-  run().compile.drain.unsafeRunSync()
-
   protected def downloadScheduleData(networkRailClient: NetworkRailClient): fs2.Stream[IO, Unit]
 }
