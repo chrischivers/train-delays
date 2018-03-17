@@ -8,7 +8,7 @@ import io.circe.syntax._
 import org.http4s.Response
 import org.http4s.dsl.io.{NotFound, Ok, _}
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
+import traindelays.networkrail.db.ScheduleTable.{ScheduleRecord, ScheduleRecordPrimary, ScheduleRecordSecondary}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{CancellationLogTable, MovementLogTable, ScheduleTable, StanoxTable}
 import traindelays.networkrail.movementdata.EventType.{Arrival, Departure}
@@ -29,7 +29,8 @@ object HistoryService {
   def apply(movementLogTable: MovementLogTable,
             cancellationLogTable: CancellationLogTable,
             stanoxTable: StanoxTable,
-            scheduleTablePrimary: ScheduleTable[ScheduleRecordPrimary]) =
+            scheduleTablePrimary: ScheduleTable[ScheduleRecordPrimary],
+            scheduleTableSecondary: ScheduleTable[ScheduleRecordSecondary]) =
     new HistoryService {
 
       override def handleHistoryRequest(scheduleTrainId: ScheduleTrainId,
@@ -45,8 +46,8 @@ object HistoryService {
                           stanoxRecords: List[StanoxRecord],
                           movementLogs: List[MovementLog],
                           cancellationLogs: List[CancellationLog],
-                          scheduleLogsFrom: List[ScheduleRecordPrimary],
-                          scheduleLogsTo: List[ScheduleRecordPrimary]): Option[HistoryQueryResponse] = {
+                          scheduleLogsFrom: List[ScheduleRecord],
+                          scheduleLogsTo: List[ScheduleRecord]): Option[HistoryQueryResponse] = {
 
           val mainStanoxRecords = getMainStanoxRecords(stanoxRecords)
 
@@ -131,18 +132,22 @@ object HistoryService {
           cancellationLogs <- cancellationLogTable.retrieveRecordsFor(scheduleTrainId = scheduleTrainId,
                                                                       fromTimestamp = fromTimestamp,
                                                                       toTimestamp = toTimestamp)
-          scheduleRecordsFrom <- scheduleTablePrimary.retrieveScheduleRecordsFor(scheduleTrainId, fromStanox)
-          scheduleRecordsTo   <- scheduleTablePrimary.retrieveScheduleRecordsFor(scheduleTrainId, toStanox)
-          stanoxRecords       <- stanoxTable.retrieveAllNonEmptyRecords()
+          primaryScheduleRecordsFrom   <- scheduleTablePrimary.retrieveScheduleRecordsFor(scheduleTrainId, fromStanox)
+          secondaryScheduleRecordsFrom <- scheduleTableSecondary.retrieveScheduleRecordsFor(scheduleTrainId, fromStanox)
+          primaryScheduleRecordsTo     <- scheduleTablePrimary.retrieveScheduleRecordsFor(scheduleTrainId, toStanox)
+          secondaryScheduleRecordsTo   <- scheduleTableSecondary.retrieveScheduleRecordsFor(scheduleTrainId, toStanox)
+          stanoxRecords                <- stanoxTable.retrieveAllNonEmptyRecords()
         } yield {
-          logsToHistory(scheduleTrainId,
-                        fromStanox,
-                        toStanox,
-                        stanoxRecords,
-                        movementLogs,
-                        cancellationLogs,
-                        scheduleRecordsFrom,
-                        scheduleRecordsTo)
+          logsToHistory(
+            scheduleTrainId,
+            fromStanox,
+            toStanox,
+            stanoxRecords,
+            movementLogs,
+            cancellationLogs,
+            primaryScheduleRecordsFrom ++ secondaryScheduleRecordsFrom,
+            primaryScheduleRecordsTo ++ secondaryScheduleRecordsTo
+          )
         }
         result.flatMap(_.fold(NotFound())(history => Ok(history.asJson.noSpaces)))
       }

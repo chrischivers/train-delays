@@ -72,7 +72,7 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
       scheduleQueryResponse should have size 1
 
       scheduleQueryResponse.head shouldBe ScheduleQueryResponse(
-        id = 1,
+        id = ScheduleQueryResponseId("Primary", 1),
         firstScheduleLogRecord.scheduleTrainId,
         firstScheduleLogRecord.atocCode,
         traindelays.networkrail.Definitions.atocToOperatorNameMapping(firstScheduleLogRecord.atocCode.get),
@@ -138,7 +138,7 @@ class ScheduleQueryEndpointTest extends FlatSpec with TestFeatures {
       scheduleQueryResponse should have size 1
 
       scheduleQueryResponse.head shouldBe ScheduleQueryResponse(
-        id = 1,
+        id = ScheduleQueryResponseId("Secondary", 1),
         firstScheduleLogRecord.scheduleTrainId,
         firstScheduleLogRecord.atocCode,
         traindelays.networkrail.Definitions.atocToOperatorNameMapping(firstScheduleLogRecord.atocCode.get),

@@ -29,6 +29,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.schedulePrimaryTable,
+                            fixture.scheduleSecondaryTable,
                             fixture.stanoxTable,
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
@@ -76,6 +77,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.schedulePrimaryTable,
+                            fixture.scheduleSecondaryTable,
                             fixture.stanoxTable,
                             emailer)
 
@@ -125,6 +127,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.schedulePrimaryTable,
+                            fixture.scheduleSecondaryTable,
                             fixture.stanoxTable,
                             emailer)
 
@@ -186,6 +189,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.schedulePrimaryTable,
+                            fixture.scheduleSecondaryTable,
                             fixture.stanoxTable,
                             emailer)
 
@@ -229,6 +233,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.schedulePrimaryTable,
+                            fixture.scheduleSecondaryTable,
                             fixture.stanoxTable,
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,
@@ -275,6 +280,7 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
           SubscriberHandler(fixture.movementLogTable,
                             fixture.subscriberTable,
                             fixture.schedulePrimaryTable,
+                            fixture.scheduleSecondaryTable,
                             fixture.stanoxTable,
                             emailer)
         TrainActivationProcessor(queues.trainActivationQueue,

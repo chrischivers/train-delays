@@ -120,17 +120,22 @@ trait TestFeatures {
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
       f: TrainDelaysTestFixture => A)(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>
-      val redisClient              = RedisClient()
-      val trainActivationCache     = TrainActivationCache(redisClient, redisCacheExpiry)
-      val stanoxTable              = StanoxTable(db, scheduleDataConfig.memoizeFor)
-      val movementLogTable         = MovementLogTable(db)
-      val subscriberTable          = SubscriberTable(db, subscribersConfig.memoizeFor)
-      val schedulePrimaryTable     = SchedulePrimaryTable(db, scheduleDataConfig.memoizeFor)
-      val scheduleAssociationTable = ScheduleSecondaryTable(db, scheduleDataConfig.memoizeFor)
-      val associationTable         = AssociationTable(db, scheduleDataConfig.memoizeFor)
-      val emailer                  = StubEmailer()
+      val redisClient            = RedisClient()
+      val trainActivationCache   = TrainActivationCache(redisClient, redisCacheExpiry)
+      val stanoxTable            = StanoxTable(db, scheduleDataConfig.memoizeFor)
+      val movementLogTable       = MovementLogTable(db)
+      val subscriberTable        = SubscriberTable(db, subscribersConfig.memoizeFor)
+      val schedulePrimaryTable   = SchedulePrimaryTable(db, scheduleDataConfig.memoizeFor)
+      val scheduleSecondaryTable = ScheduleSecondaryTable(db, scheduleDataConfig.memoizeFor)
+      val associationTable       = AssociationTable(db, scheduleDataConfig.memoizeFor)
+      val emailer                = StubEmailer()
       val subscriberHandler =
-        SubscriberHandler(movementLogTable, subscriberTable, schedulePrimaryTable, stanoxTable, emailer)
+        SubscriberHandler(movementLogTable,
+                          subscriberTable,
+                          schedulePrimaryTable,
+                          scheduleSecondaryTable,
+                          stanoxTable,
+                          emailer)
       val metricsLogging = TestMetricsLogging(config.metricsConfig)
 
       for {
@@ -202,7 +207,7 @@ trait TestFeatures {
         f(
           TrainDelaysTestFixture(
             schedulePrimaryTable,
-            scheduleAssociationTable,
+            scheduleSecondaryTable,
             stanoxTable,
             associationTable,
             movementLogTable,
@@ -806,7 +811,8 @@ trait TestFeatures {
       HistoryService(fixture.movementLogTable,
                      fixture.cancellationLogTable,
                      fixture.stanoxTable,
-                     fixture.schedulePrimaryTable),
+                     fixture.schedulePrimaryTable,
+                     fixture.scheduleSecondaryTable),
       ScheduleService(fixture.stanoxTable,
                       fixture.subscriberTable,
                       fixture.schedulePrimaryTable,
@@ -814,6 +820,7 @@ trait TestFeatures {
                       googleAuthenticator,
                       uIConfig),
       fixture.schedulePrimaryTable,
+      fixture.scheduleSecondaryTable,
       fixture.stanoxTable,
       fixture.subscriberTable,
       uIConfig,

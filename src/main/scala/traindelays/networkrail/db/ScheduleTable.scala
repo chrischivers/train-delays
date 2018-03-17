@@ -8,6 +8,7 @@ import traindelays.networkrail._
 import traindelays.networkrail.db.ScheduleTable.ScheduleRecord
 import traindelays.networkrail.scheduledata.DecodedScheduleRecord.ScheduleLocationRecord.LocationType
 import traindelays.networkrail.scheduledata._
+import traindelays.ui.ScheduleQueryResponseId
 
 trait ScheduleTable[A <: ScheduleRecord] extends MemoizedTable[A] {
 
@@ -71,12 +72,16 @@ object ScheduleTable extends StrictLogging {
     val arrivalTime: Option[LocalTime]
     val departureTime: Option[LocalTime]
 
+    val recordType: String
+
     val insertValuesFragment: doobie.Fragment
     def insertValuesBaseFragment: doobie.Fragment =
       fr"$scheduleTrainId, $serviceCode, $stpIndicator, $trainCategory, " ++
         fr"$trainStatus, $atocCode, $stopSequence, $stanoxCode, $subsequentStanoxCodes, $subsequentArrivalTimes, $monday, " ++
         fr"$tuesday, $wednesday, $thursday, $friday, $saturday, $sunday, $daysRunPattern, $scheduleStart, $scheduleEnd, " ++
         fr"$locationType, $arrivalTime, $departureTime"
+
+    def scheduleQueryResponseId: Option[ScheduleQueryResponseId] = id.map(i => ScheduleQueryResponseId(recordType, i))
   }
 
   object ScheduleRecord {
@@ -120,9 +125,11 @@ object ScheduleTable extends StrictLogging {
       extends ScheduleRecord {
 
     override val insertValuesFragment: doobie.Fragment = super.insertValuesBaseFragment
+    override val recordType: String                    = ScheduleRecordPrimary.recordTypeString
   }
 
   object ScheduleRecordPrimary {
+    val recordTypeString                      = "Primary"
     val insertFieldsFragment: doobie.Fragment = ScheduleRecord.baseInsertFieldsFragment
     val selectFieldsFragment: doobie.Fragment = ScheduleRecord.baseSelectFieldsFragment
   }
@@ -154,9 +161,11 @@ object ScheduleTable extends StrictLogging {
                                      associationId: Int)
       extends ScheduleRecord {
     override val insertValuesFragment: doobie.Fragment = super.insertValuesBaseFragment ++ fr", $associationId"
+    override val recordType: String                    = ScheduleRecordSecondary.recordTypeString
   }
 
   object ScheduleRecordSecondary {
+    val recordTypeString                      = "Secondary"
     val insertFieldsFragment: doobie.Fragment = ScheduleRecord.baseInsertFieldsFragment ++ fr", association_id"
     val selectFieldsFragment: doobie.Fragment = ScheduleRecord.baseSelectFieldsFragment ++ fr", association_id"
   }

@@ -48,14 +48,20 @@ object StartMovementListener extends App with StrictLogging {
                                              metricsLogging: MetricsLogging) =
     withTransactor(config.databaseConfig)() { db =>
       logger.info(s"creating movement message processor with db config ${config.databaseConfig}")
-      val movementLogTable     = MovementLogTable(db)
-      val cancellationLogTable = CancellationLogTable(db)
-      val subscriberTable      = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
-      val scheduleMainTable    = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-      val stanoxTable          = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
-      val emailer              = Emailer(config.emailerConfig, metricsLogging)
+      val movementLogTable       = MovementLogTable(db)
+      val cancellationLogTable   = CancellationLogTable(db)
+      val subscriberTable        = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
+      val primaryScheduleTable   = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val secondaryScheduleTable = ScheduleSecondaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val stanoxTable            = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
+      val emailer                = Emailer(config.emailerConfig, metricsLogging)
       val subscriberHandler =
-        SubscriberHandler(movementLogTable, subscriberTable, scheduleMainTable, stanoxTable, emailer)
+        SubscriberHandler(movementLogTable,
+                          subscriberTable,
+                          primaryScheduleTable,
+                          secondaryScheduleTable,
+                          stanoxTable,
+                          emailer)
 
       val redisClient =
         RedisClient(config.redisConfig.host, config.redisConfig.port, password = None, Some(config.redisConfig.dbIndex))

@@ -87,7 +87,7 @@ object ScheduleService extends StrictLogging {
           existingSubscriberRecords: Option[List[SubscriberRecord]]): List[ScheduleQueryResponse] =
         scheduleLogs.flatMap { log =>
           for {
-            id            <- log.id
+            id            <- log.scheduleQueryResponseId
             departureTime <- log.departureTime
             tocName       <- log.atocCode.flatMap(atoc => Definitions.atocToOperatorNameMapping.get(atoc))
             indexOfArrivalStopOpt = log.subsequentStanoxCodes.indexWhere(_ == toStanoxCode)

@@ -37,7 +37,14 @@ package object ui {
     }
   }
 
-  case class ScheduleQueryResponse(id: Int,
+  case class ScheduleQueryResponseId(recordType: String, value: Int)
+
+  object ScheduleQueryResponseId {
+    implicit val encoder: Encoder[ScheduleQueryResponseId] = deriveEncoder[ScheduleQueryResponseId]
+    implicit val decoder: Decoder[ScheduleQueryResponseId] = deriveDecoder[ScheduleQueryResponseId]
+  }
+
+  case class ScheduleQueryResponse(id: ScheduleQueryResponseId,
                                    scheduleTrainId: ScheduleTrainId,
                                    atocCode: Option[AtocCode],
                                    tocName: String,
@@ -70,7 +77,7 @@ package object ui {
                               fromStanox: StanoxCode,
                               toStanox: StanoxCode,
                               daysRunPattern: DaysRunPattern,
-                              ids: List[Int])
+                              ids: List[ScheduleQueryResponseId])
 
   object SubscribeRequest {
     implicit val decoder: Decoder[SubscribeRequest] = deriveDecoder[SubscribeRequest]

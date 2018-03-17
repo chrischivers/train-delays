@@ -8,10 +8,6 @@ import traindelays.networkrail.TestFeatures
 
 import scala.util.Random
 
-//TODO repopulate secondary schedule table
-//TODO history to also use primary table.
-//TODO movement log to factor in secondary table
-
 class JoinAssociationTest extends FlatSpec with TestFeatures {
   it should "schedule association record should be created for joining of two trains" in {
 

@@ -8,7 +8,7 @@ import cats.instances.list._
 import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
+import traindelays.networkrail.db.ScheduleTable.{ScheduleRecordPrimary, ScheduleRecordSecondary}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, StanoxTable, SubscriberTable}
 import traindelays.networkrail.movementdata.{CancellationLog, DBLog, MovementLog, VariationStatus}
@@ -25,7 +25,8 @@ object SubscriberHandler extends StrictLogging {
 
   def apply(movementLogTable: MovementLogTable,
             subscriberTable: SubscriberTable,
-            scheduleTable: ScheduleTable[ScheduleRecordPrimary],
+            primaryScheduleTable: ScheduleTable[ScheduleRecordPrimary],
+            secondaryScheduleTable: ScheduleTable[ScheduleRecordSecondary],
             stanoxTable: StanoxTable,
             emailer: Emailer) =
     new SubscriberHandler {
@@ -33,8 +34,11 @@ object SubscriberHandler extends StrictLogging {
       override def movementNotifier: fs2.Sink[IO, MovementLog] = fs2.Sink[IO, MovementLog] { log =>
         val email = for {
           subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
-          affected           <- filterSubscribersOnStanoxRange(subscribersOnRoute, log.stanoxCode, scheduleTable)
-          _                  <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
+          affected <- filterSubscribersOnStanoxRange(subscribersOnRoute,
+                                                     log.stanoxCode,
+                                                     primaryScheduleTable,
+                                                     secondaryScheduleTable)
+          _ <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
         } yield ()
 
         if (log.variationStatus.notifiable) email else IO.unit
@@ -52,20 +56,27 @@ object SubscriberHandler extends StrictLogging {
       private def filterSubscribersOnStanoxRange(
           subscribersOnRoute: List[SubscriberRecord],
           affectedStanoxCode: StanoxCode,
-          scheduleTable: ScheduleTable[ScheduleRecordPrimary]): IO[List[SubscriberRecord]] =
+          primaryScheduleTable: ScheduleTable[ScheduleRecordPrimary],
+          secondaryScheduleTable: ScheduleTable[ScheduleRecordSecondary]
+      ): IO[List[SubscriberRecord]] =
         subscribersOnRoute
           .map { subscriber =>
-            scheduleTable
+            //TODO start here
+            primaryScheduleTable
               .retrieveScheduleRecordsFor(subscriber.scheduleTrainId, subscriber.fromStanoxCode)
-              .map(s =>
-                subscriber -> s.exists(scheduleLog => {
-                  val toStanoxCodeIdx       = scheduleLog.subsequentStanoxCodes.indexOf(subscriber.toStanoxCode)
-                  val affectedStanoxCodeIdx = scheduleLog.subsequentStanoxCodes.indexOf(affectedStanoxCode)
-                  if (subscriber.fromStanoxCode == affectedStanoxCode) true
-                  else if (toStanoxCodeIdx == -1 || affectedStanoxCodeIdx == -1) false
-                  else if (affectedStanoxCodeIdx > toStanoxCodeIdx) false
-                  else true
-                }))
+              .flatMap(
+                primRecs =>
+                  secondaryScheduleTable
+                    .retrieveScheduleRecordsFor(subscriber.scheduleTrainId, subscriber.fromStanoxCode)
+                    .map(secRecs =>
+                      subscriber -> (primRecs ++ secRecs).exists(scheduleLog => {
+                        val toStanoxCodeIdx       = scheduleLog.subsequentStanoxCodes.indexOf(subscriber.toStanoxCode)
+                        val affectedStanoxCodeIdx = scheduleLog.subsequentStanoxCodes.indexOf(affectedStanoxCode)
+                        if (subscriber.fromStanoxCode == affectedStanoxCode) true
+                        else if (toStanoxCodeIdx == -1 || affectedStanoxCodeIdx == -1) false
+                        else if (affectedStanoxCodeIdx > toStanoxCodeIdx) false
+                        else true
+                      })))
           }
           .sequence[IO, (SubscriberRecord, Boolean)]
           .map(_.collect { case (subscriber, true) => subscriber })

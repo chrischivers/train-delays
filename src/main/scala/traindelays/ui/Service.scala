@@ -12,7 +12,7 @@ import org.http4s.{EntityDecoder, HttpService, Request, StaticFile}
 import org.postgresql.util.PSQLException
 import traindelays.UIConfig
 import traindelays.networkrail.StanoxCode
-import traindelays.networkrail.db.ScheduleTable.ScheduleRecordPrimary
+import traindelays.networkrail.db.ScheduleTable.{ScheduleRecordPrimary, ScheduleRecordSecondary}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
@@ -45,7 +45,8 @@ object Service extends StrictLogging {
 
   def apply(historyService: HistoryService,
             scheduleService: ScheduleService,
-            scheduleTable: ScheduleTable[ScheduleRecordPrimary],
+            scheduleTablePrimary: ScheduleTable[ScheduleRecordPrimary],
+            scheduleTableSecondary: ScheduleTable[ScheduleRecordSecondary],
             stanoxTable: StanoxTable,
             subscriberTable: SubscriberTable,
             uiConfig: UIConfig,
@@ -58,7 +59,7 @@ object Service extends StrictLogging {
       static(path, request)
 
     case _ @GET -> Root / "stations" =>
-      Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTable))
+      Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTablePrimary))
 
     case request @ POST -> Root / "schedule-query" =>
       //TODO add in association records
@@ -77,7 +78,11 @@ object Service extends StrictLogging {
         .flatMap {
           case Right(subscriberRequest) =>
             logger.info(s"Received subscribe request [$subscriberRequest]")
-            processSubscriberRequest(subscriberRequest, scheduleTable, subscriberTable, googleAuthenticator).attempt
+            processSubscriberRequest(subscriberRequest,
+                                     scheduleTablePrimary,
+                                     scheduleTableSecondary,
+                                     subscriberTable,
+                                     googleAuthenticator).attempt
               .flatMap {
                 case Left(e)
                     if e.isInstanceOf[PSQLException] && e
@@ -109,7 +114,8 @@ object Service extends StrictLogging {
   }
 
   private def processSubscriberRequest(subscribeRequest: SubscribeRequest,
-                                       scheduleTable: ScheduleTable[ScheduleRecordPrimary],
+                                       scheduleTablePrimary: ScheduleTable[ScheduleRecordPrimary],
+                                       scheduleTableSecondary: ScheduleTable[ScheduleRecordSecondary],
                                        subscriberTable: SubscriberTable,
                                        googleAuthenticator: GoogleAuthenticator): IO[Unit] =
     for {
@@ -122,7 +128,7 @@ object Service extends StrictLogging {
             subscribeRequest.ids
               .map { id =>
                 for {
-                  scheduleRec <- scheduleTable.retrieveRecordBy(id)
+                  scheduleRec <- retrieveRecordById(id, scheduleTablePrimary, scheduleTableSecondary)
                   maybeSubscriberRecord = scheduleRec.map { scheduleRec =>
                     SubscriberRecord(
                       None,
@@ -163,6 +169,17 @@ object Service extends StrictLogging {
       StaticFile.fromResource(s"/static/$prefix" + file, Some(request)).getOrElseF(NotFound())
     }
   }
+
+  private def retrieveRecordById(
+      scheduleQueryResponseId: ScheduleQueryResponseId,
+      scheduleTablePrimary: ScheduleTable[ScheduleRecordPrimary],
+      scheduleTableSecondary: ScheduleTable[ScheduleRecordSecondary]): IO[Option[ScheduleTable.ScheduleRecord]] =
+    scheduleQueryResponseId.recordType match {
+      case ScheduleRecordPrimary.recordTypeString =>
+        scheduleTablePrimary.retrieveRecordBy(scheduleQueryResponseId.value)
+      case ScheduleRecordSecondary.recordTypeString =>
+        scheduleTableSecondary.retrieveRecordBy(scheduleQueryResponseId.value)
+    }
 
   private def stationsList(memoizeRouteListFor: FiniteDuration,
                            stanoxTable: StanoxTable,

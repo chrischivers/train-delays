@@ -21,7 +21,11 @@ object StartWebServer extends fs2.StreamApp[IO] {
       val movementLogTable       = MovementLogTable(db)
       val cancellationLogTable   = CancellationLogTable(db)
       val googleAuthenticator    = GoogleAuthenticator(config.uIConfig.clientId)
-      val historyService         = HistoryService(movementLogTable, cancellationLogTable, stanoxTable, scheduleTablePrimary)
+      val historyService = HistoryService(movementLogTable,
+                                          cancellationLogTable,
+                                          stanoxTable,
+                                          scheduleTablePrimary,
+                                          scheduleTableSecondary)
       val scheduleService =
         ScheduleService(stanoxTable,
                         subscriberTable,
@@ -32,14 +36,17 @@ object StartWebServer extends fs2.StreamApp[IO] {
 
       BlazeBuilder[IO]
         .bindHttp(config.httpConfig.port, "localhost")
-        .mountService(Service(historyService,
-                              scheduleService,
-                              scheduleTablePrimary,
-                              stanoxTable,
-                              subscriberTable,
-                              config.uIConfig,
-                              googleAuthenticator),
-                      "/")
+        .mountService(
+          Service(historyService,
+                  scheduleService,
+                  scheduleTablePrimary,
+                  scheduleTableSecondary,
+                  stanoxTable,
+                  subscriberTable,
+                  config.uIConfig,
+                  googleAuthenticator),
+          "/"
+        )
         .serve
 
     }
