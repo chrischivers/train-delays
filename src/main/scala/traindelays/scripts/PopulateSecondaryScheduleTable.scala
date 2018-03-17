@@ -6,6 +6,7 @@ import traindelays.networkrail.db._
 import cats.instances.list._
 import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
+import cats.syntax.flatMap._
 
 object PopulateSecondaryScheduleTable extends App with StrictLogging {
 
@@ -21,9 +22,8 @@ object PopulateSecondaryScheduleTable extends App with StrictLogging {
       for {
         _ <- IO(logger.info("Starting population of secondary schedule table"))
         _ <- if (flushFirst)
-          scheduleSecondaryTable
+          IO(logger.info("Deleting all records from Schedule Table Secondary")) >> scheduleSecondaryTable
             .deleteAllRecords()
-            .flatMap(_ => IO(logger.info("Deleted all records from Schedule Table Secondary")))
         else IO.unit
         recordsNotInSecondary <- associationTable.retrieveJoinOrDivideRecordsNotInSecondaryTable()
         _ <- recordsNotInSecondary.traverse[IO, Unit] { associationRecord =>
