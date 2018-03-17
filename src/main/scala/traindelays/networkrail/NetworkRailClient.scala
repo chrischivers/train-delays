@@ -50,7 +50,8 @@ object NetworkRailClient extends StrictLogging {
     private def downloadFromUrl(url: Uri): fs2.Stream[IO, Unit] =
       for {
         _ <- fs2.Stream.eval(IO(logger.info(s"Downloading from URL $url")))
-        request = Request[IO](uri = url).withHeaders(Headers(Authorization(credentials)))
+        request = Request[IO](uri = url)
+          .withHeaders(Headers(Authorization(credentials)))
         _ <- followRedirects(client, config.maxRedirects).streaming(request) { resp =>
           if (resp.status.isSuccess) {
             writeToFile(config.scheduleData.tmpDownloadLocation, resp.body)
@@ -86,7 +87,6 @@ object NetworkRailClient extends StrictLogging {
   }
 
   private def writeToFile(path: Path, data: EntityBody[IO]): fs2.Stream[IO, Unit] =
-    data
-      .to(fs2.io.file.writeAll(path))
+    data.to(fs2.io.file.writeAll(path)) >> fs2.Stream.eval(IO(logger.info("Finished writing to file")))
 
 }
