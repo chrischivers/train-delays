@@ -5,21 +5,28 @@ import traindelays.TrainDelaysConfig
 import traindelays.networkrail.db._
 import cats.instances.list._
 import cats.syntax.traverse._
+import com.typesafe.scalalogging.StrictLogging
 
-object PopulateScheduleAssociationTable extends App {
+object PopulateSecondaryScheduleTable extends App with StrictLogging {
 
   val config = TrainDelaysConfig()
 
-  val app = withTransactor(config.databaseConfig)() { db =>
+  def run(flushFirst: Boolean = false) = withTransactor(config.databaseConfig)() { db =>
     val stanoxTable            = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)
     val schedulePrimaryTable   = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
     val scheduleSecondaryTable = ScheduleSecondaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
     val associationTable       = AssociationTable(db, config.networkRailConfig.scheduleData.memoizeFor)
 
     fs2.Stream.eval {
-
-      associationTable.retrieveJoinOrDivideRecordsNotInSecondaryTable().flatMap {
-        _.traverse { associationRecord =>
+      for {
+        _ <- IO(logger.info("Starting population of secondary schedule table"))
+        _ <- if (flushFirst)
+          scheduleSecondaryTable
+            .deleteAllRecords()
+            .flatMap(_ => IO(logger.info("Deleted all records from Schedule Table Secondary")))
+        else IO.unit
+        recordsNotInSecondary <- associationTable.retrieveJoinOrDivideRecordsNotInSecondaryTable()
+        _ <- recordsNotInSecondary.traverse[IO, Unit] { associationRecord =>
           for {
             scheduleRecordsForMainId <- schedulePrimaryTable.retrieveScheduleRecordsFor(
               associationRecord.mainScheduleTrainId)
@@ -31,16 +38,17 @@ object PopulateScheduleAssociationTable extends App {
                                           scheduleRecordsForAssociatedId,
                                           stanoxRecordForAssociationLocation)
               .fold(IO.unit) {
-                _.traverse { record =>
+                _.traverse[IO, Unit] { record =>
                   scheduleSecondaryTable.addRecord(record)
                 }.map(_ => ())
               }
           } yield ()
         }
-      }
+      } yield ()
 
     }
   }
-  app.compile.drain.unsafeRunSync()
+
+  run().compile.drain.unsafeRunSync()
 
 }
