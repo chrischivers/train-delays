@@ -68,6 +68,7 @@ object NetworkRailClient extends StrictLogging {
     }
 
     override def deleteTmpFiles() = IO {
+      logger.info("Deleting tmp files")
       config.scheduleData.tmpDownloadLocation.toFile.delete()
       config.scheduleData.tmpUnzipLocation.toFile.delete()
     }
