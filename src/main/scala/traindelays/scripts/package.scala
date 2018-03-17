@@ -55,6 +55,8 @@ package object scripts extends StrictLogging {
           _ <- toDelete.flatMap(rec => rec.id).fold(IO.unit)(id => associationTable.deleteRecordBy(id))
         } yield ()
       case _: OtherDecodedRecord => IO.unit
-      case _                     => throw new RuntimeException("Unhandled record type")
+      case _ =>
+        logger.error("unhandled record type")
+        IO.raiseError(new RuntimeException("Unhandled record type"))
     }
 }
