@@ -13,6 +13,7 @@ import org.http4s.{BasicCredentials, EntityBody, Headers, Request, Uri}
 import traindelays.NetworkRailConfig
 import traindelays.stomp.{StompClient, StompStreamListener}
 
+import scala.concurrent.ExecutionContext
 import scala.util.Try
 
 trait NetworkRailClient {
@@ -29,7 +30,7 @@ trait NetworkRailClient {
 }
 
 object NetworkRailClient extends StrictLogging {
-  def apply(config: NetworkRailConfig, client: Client[IO]) = new NetworkRailClient {
+  def apply(config: NetworkRailConfig, client: Client[IO])(implicit ec: ExecutionContext) = new NetworkRailClient {
 
     val credentials = BasicCredentials(config.username, config.password)
 
@@ -54,6 +55,7 @@ object NetworkRailClient extends StrictLogging {
           .withHeaders(Headers(Authorization(credentials)))
         _ <- followRedirects(client, config.maxRedirects).streaming(request) { resp =>
           if (resp.status.isSuccess) {
+            logger.info("Response successful. Writing to file...")
             writeToFile(config.scheduleData.tmpDownloadLocation, resp.body)
           } else {
             val msg = s"Call to download schedule unsuccessful. Status code [${resp.status}"
@@ -86,7 +88,7 @@ object NetworkRailClient extends StrictLogging {
 
   }
 
-  private def writeToFile(path: Path, data: EntityBody[IO]): fs2.Stream[IO, Unit] =
-    data.to(fs2.io.file.writeAll(path)) >> fs2.Stream.eval(IO(logger.info("Finished writing to file")))
+  private def writeToFile(path: Path, data: EntityBody[IO])(implicit ec: ExecutionContext): fs2.Stream[IO, Unit] =
+    data.to(fs2.io.file.writeAllAsync[IO](path)) >> fs2.Stream.eval(IO(logger.info("Finished writing to file")))
 
 }
