@@ -44,6 +44,7 @@ object PopulateSecondaryScheduleTable extends StrictLogging {
               }
           } yield ()
         }
+        _ <- IO(logger.info("Finished population of secondary schedule table"))
       } yield ()
 
     }

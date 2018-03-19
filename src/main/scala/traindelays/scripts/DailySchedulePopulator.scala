@@ -21,6 +21,7 @@ object DailySchedulePopulator extends App with StrictLogging {
       fs2.Stream.eval(IO(logger.info("Running update process"))) >> UpdatePopulateScheduleTable
         .run() >> PopulateSecondaryScheduleTable.run()
     else fs2.Stream.eval(IO(logger.info("Skipping immediate update of schedule tables")))
+    _         <- fs2.Stream.eval(IO(logger.info("Setting up scheduler")))
     scheduler <- Scheduler[IO](1)
     result <- scheduler
       .awakeEvery[IO](24.hours) >> UpdatePopulateScheduleTable.run() >> PopulateSecondaryScheduleTable.run()
