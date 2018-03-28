@@ -7,12 +7,13 @@ import cats.effect.IO
 import cats.instances.list._
 import cats.syntax.traverse._
 import com.typesafe.scalalogging.StrictLogging
+import fs2.Sink
 import traindelays.SubscribersConfig
 import traindelays.networkrail.StanoxCode
 import traindelays.networkrail.db.ScheduleTable.{ScheduleRecordPrimary, ScheduleRecordSecondary}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
 import traindelays.networkrail.db.{MovementLogTable, ScheduleTable, StanoxTable, SubscriberTable}
-import traindelays.networkrail.movementdata.{CancellationLog, DBLog, MovementLog, VariationStatus}
+import traindelays.networkrail.movementdata._
 import traindelays.networkrail.subscribers.Emailer.Email
 
 trait SubscriberHandler {
@@ -20,6 +21,8 @@ trait SubscriberHandler {
   def movementNotifier: fs2.Sink[IO, MovementLog]
 
   def cancellationNotifier: fs2.Sink[IO, CancellationLog]
+
+  def changeOfOriginNotifier: fs2.Sink[IO, ChangeOfOriginLog]
 }
 
 object SubscriberHandler extends StrictLogging {
@@ -34,14 +37,15 @@ object SubscriberHandler extends StrictLogging {
     new SubscriberHandler {
 
       override def movementNotifier: fs2.Sink[IO, MovementLog] = fs2.Sink[IO, MovementLog] { log =>
-        val email = for {
-          subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
-          affected <- filterSubscribersOnStanoxRange(subscribersOnRoute,
-                                                     log.stanoxCode,
-                                                     primaryScheduleTable,
-                                                     secondaryScheduleTable)
-          _ <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
-        } yield ()
+        def email =
+          for {
+            subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
+            affected <- filterSubscribersOnStanoxRange(subscribersOnRoute,
+                                                       log.stanoxCode,
+                                                       primaryScheduleTable,
+                                                       secondaryScheduleTable)
+            _ <- if (affected.nonEmpty) createEmailAction(log, affected) else IO.unit
+          } yield ()
 
         if (isNotifiable(log)) email else IO.unit
       }
@@ -60,6 +64,15 @@ object SubscriberHandler extends StrictLogging {
           subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
           //For cancellation on a route all subscribers are notified
           //TODO is this assumption correct
+          _ <- if (subscribersOnRoute.nonEmpty) createEmailAction(log, subscribersOnRoute) else IO.unit
+        } yield ()
+      }
+
+      override def changeOfOriginNotifier: Sink[IO, ChangeOfOriginLog] = fs2.Sink[IO, ChangeOfOriginLog] { log =>
+        for {
+          subscribersOnRoute <- subscriberTable.subscriberRecordsFor(log.scheduleTrainId, log.serviceCode)
+          //For cancellation on a route all subscribers are notified
+          //TODO is this assumption correct. Probably not.
           _ <- if (subscribersOnRoute.nonEmpty) createEmailAction(log, subscribersOnRoute) else IO.unit
         } yield ()
       }
@@ -108,6 +121,8 @@ object SubscriberHandler extends StrictLogging {
                     emailSubscriberWithMovementUpdate(subscriber, l, originatingStanox, affectedStanox, emailer)
                   case l: CancellationLog =>
                     emailSubscriberWithCancellationUpdate(subscriber, l, originatingStanox, affectedStanox, emailer)
+                  case l: ChangeOfOriginLog =>
+                    emailSubscriberWithChangeOfOriginUpdate(subscriber, l, originatingStanox, affectedStanox, emailer)
                 }
               }
               logger.info(s"Email action created: ${emailAction.isDefined}")
@@ -149,6 +164,22 @@ object SubscriberHandler extends StrictLogging {
         emailer.sendEmail(email)
       }
 
+      private def emailSubscriberWithChangeOfOriginUpdate(subscriberRecord: SubscriberRecord,
+                                                          changeOfOriginLog: ChangeOfOriginLog,
+                                                          stanoxOriginating: StanoxRecord,
+                                                          originChangedTo: StanoxRecord,
+                                                          emailer: Emailer): IO[Unit] = {
+        val headline = "Train Delay Helper: Change of Origin Update"
+        val email = Email(
+          headline,
+          EmailTemplates
+            .movementEmailTemplate(headline,
+                                   changeOfOriginLogToBody(changeOfOriginLog, stanoxOriginating, originChangedTo)),
+          subscriberRecord.emailAddress
+        )
+        emailer.sendEmail(email)
+      }
+
     }
 
   def movementLogToBody(movementLog: MovementLog,
@@ -175,15 +206,28 @@ object SubscriberHandler extends StrictLogging {
                             stanoxOriginating: StanoxRecord,
                             stanoxCancelled: StanoxRecord): String =
     s"""
-       |Train ID: ${cancellationLog.scheduleTrainId.value}<br/>
-       |Date: ${dateFormatter(cancellationLog.originDepartureDate)}
-       |Train originating from: ${stationTextFrom(stanoxOriginating)}<br/>
-       |Expected departure time: ${timeFormatter(cancellationLog.originDepartureTime)}<br/>
-       |Cancelled at: ${stationTextFrom(stanoxCancelled)}<br/>
-       |Operator: ${cancellationLog.toc.value}<br/>
-       |<br/>
-       |Cancellation type: ${cancellationLog.cancellationType.string}<br/>
+     |Train ID: ${cancellationLog.scheduleTrainId.value}<br/>
+     |Date: ${dateFormatter(cancellationLog.originDepartureDate)}
+     |Train originating from: ${stationTextFrom(stanoxOriginating)}<br/>
+     |Expected departure time: ${timeFormatter(cancellationLog.originDepartureTime)}<br/>
+     |Cancelled at: ${stationTextFrom(stanoxCancelled)}<br/>
+     |Operator: ${cancellationLog.toc.value}<br/>
+     |<br/>
+     |Cancellation type: ${cancellationLog.cancellationType.string}<br/>
 
+     |
+     """.stripMargin
+
+  def changeOfOriginLogToBody(changeOfOriginLog: ChangeOfOriginLog,
+                              stanoxOriginating: StanoxRecord,
+                              originChangedTo: StanoxRecord): String =
+    s"""
+       |Train ID: ${changeOfOriginLog.scheduleTrainId.value}<br/>
+       |Date: ${dateFormatter(changeOfOriginLog.originDepartureDate)}
+       |Train originating from: ${stationTextFrom(stanoxOriginating)}<br/>
+       |Expected departure time: ${timeFormatter(changeOfOriginLog.originDepartureTime)}<br/>
+       |Origin Changed To: ${stationTextFrom(originChangedTo)}<br/>
+       |Operator: ${changeOfOriginLog.toc.value}<br/>
        |
      """.stripMargin
 

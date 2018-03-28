@@ -128,6 +128,7 @@ package object movementdata {
           case "0001"  => c.as[TrainActivationRecord](TrainActivationRecord.trainActivationDecoder)
           case "0002"  => c.as[TrainCancellationRecord](TrainCancellationRecord.trainCancellationDecoder)
           case "0003"  => c.as[TrainMovementRecord](TrainMovementRecord.movementRecordDecoder)
+          case "0006"  => c.as[TrainChangeOfOriginRecord](TrainChangeOfOriginRecord.trainChangeOfOriginDecoder)
           case unknown => Right(UnhandledTrainRecord(unknown))
         }
       } yield decoded
@@ -317,6 +318,69 @@ package object movementdata {
       }
   }
 
+  case class TrainChangeOfOriginRecord(trainId: TrainId,
+                                       trainServiceCode: ServiceCode,
+                                       toc: TOC,
+                                       newOriginStanoxCode: StanoxCode,
+                                       originStanoxCode: Option[StanoxCode],
+                                       originDepartureTimestamp: Long,
+                                       reasonCode: String)
+      extends TrainMovements {
+    def toChangeOfOriginLog(trainActivationCache: TrainActivationCache): IO[Option[ChangeOfOriginLog]] =
+      TrainChangeOfOriginRecord.changeOfOriginRecordToChangeOfOriginLog(this, trainActivationCache)
+  }
+
+  object TrainChangeOfOriginRecord {
+    implicit val trainChangeOfOriginDecoder: Decoder[TrainChangeOfOriginRecord] {
+      def apply(c: HCursor): Result[TrainChangeOfOriginRecord]
+    } = new Decoder[TrainChangeOfOriginRecord] {
+
+      override def apply(c: HCursor): Result[TrainChangeOfOriginRecord] = {
+        val bodyObject = c.downField("body")
+        for {
+          trainId                  <- bodyObject.downField("train_id").as[TrainId]
+          trainServiceCode         <- bodyObject.downField("train_service_code").as[ServiceCode]
+          toc                      <- bodyObject.downField("toc_id").as[TOC]
+          stanoxCode               <- bodyObject.downField("loc_stanox").as[StanoxCode]
+          originStanoxCode         <- bodyObject.downField("original_loc_stanox").as[Option[StanoxCode]]
+          originDepartureTimestamp <- bodyObject.downField("original_loc_timestamp").as[Long]
+          reasonCode               <- bodyObject.downField("reason_code").as[String]
+
+        } yield {
+          TrainChangeOfOriginRecord(trainId,
+                                    trainServiceCode,
+                                    toc,
+                                    stanoxCode,
+                                    originStanoxCode,
+                                    originDepartureTimestamp,
+                                    reasonCode)
+        }
+      }
+    }
+
+    def changeOfOriginRecordToChangeOfOriginLog(changeOfOriginRec: TrainChangeOfOriginRecord,
+                                                cache: TrainActivationCache) =
+      cache.getFromCache(changeOfOriginRec.trainId).map { trainActivationRecordOpt =>
+        for {
+          trainActivationRecord <- trainActivationRecordOpt
+        } yield {
+          ChangeOfOriginLog(
+            None,
+            changeOfOriginRec.trainId,
+            trainActivationRecord.scheduleTrainId,
+            changeOfOriginRec.trainServiceCode,
+            changeOfOriginRec.toc,
+            changeOfOriginRec.newOriginStanoxCode,
+            trainActivationRecord.originStanox,
+            trainActivationRecord.originDepartureTimestamp,
+            timestampToLocalDate(trainActivationRecord.originDepartureTimestamp),
+            timestampToLocalTime(trainActivationRecord.originDepartureTimestamp),
+            changeOfOriginRec.reasonCode
+          )
+        }
+      }
+  }
+
   sealed trait DBLog {
     def id: Option[Int]
     def trainId: TrainId
@@ -359,6 +423,19 @@ package object movementdata {
                              originDepartureTime: LocalTime,
                              cancellationType: CancellationType,
                              cancellationReasonCode: String)
+      extends DBLog
+
+  case class ChangeOfOriginLog(id: Option[Int],
+                               trainId: TrainId,
+                               scheduleTrainId: ScheduleTrainId,
+                               serviceCode: ServiceCode,
+                               toc: TOC,
+                               stanoxCode: StanoxCode,
+                               originStanoxCode: StanoxCode,
+                               originDepartureTimestamp: Long,
+                               originDepartureDate: LocalDate,
+                               originDepartureTime: LocalTime,
+                               reasonCode: String)
       extends DBLog
 
   trait MovementProcessor {

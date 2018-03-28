@@ -19,6 +19,7 @@ object MovementMessageHandler extends StrictLogging {
             trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
             trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
             trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord],
+            trainChangeOfOriginMessageQueue: Queue[IO, TrainChangeOfOriginRecord],
             f: => StompClient)(implicit executionContext: ExecutionContext): fs2.Stream[IO, Unit] =
     fs2.Stream.bracket(IO(f))(
       { client =>
@@ -31,7 +32,8 @@ object MovementMessageHandler extends StrictLogging {
           _ <- handleMessages(stompListener,
                               trainMovementMessageQueue,
                               trainActivationMessageQueue,
-                              trainCancellationMessageQueue)
+                              trainCancellationMessageQueue,
+                              trainChangeOfOriginMessageQueue)
         } yield ()
       },
       client => client.disconnect.map(_ => logger.info("Client disconnected"))
@@ -44,7 +46,8 @@ object MovementMessageHandler extends StrictLogging {
       stompListener: StompStreamListener,
       trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
       trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
-      trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord]): fs2.Stream[IO, Unit] = {
+      trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord],
+      trainChangeOfOriginMessageQueue: Queue[IO, TrainChangeOfOriginRecord]): fs2.Stream[IO, Unit] = {
 
     def handleMessage(msg: String): IO[Unit] =
       (for {
@@ -54,9 +57,10 @@ object MovementMessageHandler extends StrictLogging {
         .fold[IO[Unit]](
           err => IO(logger.error(s"Error parsing movement message [$msg]", err)),
           _.map {
-            case tar: TrainActivationRecord   => trainActivationMessageQueue.enqueue1(tar)
-            case tmr: TrainMovementRecord     => trainMovementMessageQueue.enqueue1(tmr)
-            case tcr: TrainCancellationRecord => trainCancellationMessageQueue.enqueue1(tcr)
+            case tar: TrainActivationRecord      => trainActivationMessageQueue.enqueue1(tar)
+            case tmr: TrainMovementRecord        => trainMovementMessageQueue.enqueue1(tmr)
+            case tcr: TrainCancellationRecord    => trainCancellationMessageQueue.enqueue1(tcr)
+            case tcor: TrainChangeOfOriginRecord => trainChangeOfOriginMessageQueue.enqueue1(tcor)
             case utr: UnhandledTrainRecord =>
               IO(logger.info(s"Unhandled train message of type: ${utr.unhandledType}"))
           }.sequence[IO, Unit].map(_ => ())

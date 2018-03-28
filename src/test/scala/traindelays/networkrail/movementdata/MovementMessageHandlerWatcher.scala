@@ -12,7 +12,8 @@ class MovementMessageHandlerWatcher(
     networkRailConfig: NetworkRailConfig,
     trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
     trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
-    trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord])(implicit executionContext: ExecutionContext)
+    trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord],
+    trainChangeOfOriginMessageQueue: Queue[IO, TrainChangeOfOriginRecord])(implicit executionContext: ExecutionContext)
     extends StompStreamListener {
 
   var rawMessagesReceived = ListBuffer[String]()

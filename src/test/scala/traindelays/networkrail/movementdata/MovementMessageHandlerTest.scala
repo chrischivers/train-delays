@@ -99,7 +99,8 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
       new MovementMessageHandlerWatcher(config.networkRailConfig,
                                         queues.trainMovementQueue,
                                         queues.trainActivationQueue,
-                                        queues.trainCancellationQueue)
+                                        queues.trainCancellationQueue,
+                                        queues.trainChangeOfOriginQueue)
 
     val handler =
       MovementMessageHandler(
@@ -108,6 +109,7 @@ class MovementMessageHandlerTest extends FlatSpec with TestFeatures {
         queues.trainMovementQueue,
         queues.trainActivationQueue,
         queues.trainCancellationQueue,
+        queues.trainChangeOfOriginQueue,
         mockStompClient.client
       )
 

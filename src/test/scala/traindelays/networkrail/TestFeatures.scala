@@ -48,7 +48,8 @@ trait TestFeatures {
 
   case class Queues(trainMovementQueue: Queue[IO, TrainMovementRecord],
                     trainActivationQueue: Queue[IO, TrainActivationRecord],
-                    trainCancellationQueue: Queue[IO, TrainCancellationRecord])
+                    trainCancellationQueue: Queue[IO, TrainCancellationRecord],
+                    trainChangeOfOriginQueue: Queue[IO, TrainChangeOfOriginRecord])
 
   implicit class DBExt(db: Transactor[IO]) {
 
@@ -70,7 +71,8 @@ trait TestFeatures {
                              stanoxRecords: List[StanoxRecord] = List.empty,
                              movementLogs: List[MovementLog] = List.empty,
                              subscriberRecords: List[SubscriberRecord] = List.empty,
-                             cancellationLogs: List[CancellationLog] = List.empty)
+                             cancellationLogs: List[CancellationLog] = List.empty,
+                             changeOfOriginLogs: List[ChangeOfOriginLog] = List.empty)
 
   object AppInitialState {
     def empty = AppInitialState()
@@ -82,6 +84,7 @@ trait TestFeatures {
                                     associationTable: AssociationTable,
                                     movementLogTable: MovementLogTable,
                                     cancellationLogTable: CancellationLogTable,
+                                    changeOfOriginLogTable: ChangeOfOriginLogTable,
                                     subscriberTable: SubscriberTable,
                                     trainActivationCache: TrainActivationCache,
                                     emailer: StubEmailer,
@@ -100,10 +103,11 @@ trait TestFeatures {
   def withQueues[A](f: Queues => A): A = {
     import scala.concurrent.ExecutionContext.Implicits.global
     val queues = for {
-      trainMovementQueue     <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
-      trainActivationQueue   <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
-      trainCancellationQueue <- fs2.async.unboundedQueue[IO, TrainCancellationRecord]
-    } yield Queues(trainMovementQueue, trainActivationQueue, trainCancellationQueue)
+      trainMovementQueue       <- fs2.async.unboundedQueue[IO, TrainMovementRecord]
+      trainActivationQueue     <- fs2.async.unboundedQueue[IO, TrainActivationRecord]
+      trainCancellationQueue   <- fs2.async.unboundedQueue[IO, TrainCancellationRecord]
+      trainChangeOfOriginQueue <- fs2.async.unboundedQueue[IO, TrainChangeOfOriginRecord]
+    } yield Queues(trainMovementQueue, trainActivationQueue, trainCancellationQueue, trainChangeOfOriginQueue)
     queues.map(q => f(q)).unsafeRunSync()
   }
 
@@ -204,6 +208,15 @@ trait TestFeatures {
           })
           .sequence[IO, Int]
 
+        _ <- initState.changeOfOriginLogs
+          .map(record => {
+            ChangeOfOriginLogTable
+              .add(record)
+              .run
+              .transact(db)
+          })
+          .sequence[IO, Int]
+
       } yield
         f(
           TrainDelaysTestFixture(
@@ -213,6 +226,7 @@ trait TestFeatures {
             associationTable,
             movementLogTable,
             CancellationLogTable(db),
+            ChangeOfOriginLogTable(db),
             subscriberTable,
             trainActivationCache,
             emailer,
@@ -221,15 +235,16 @@ trait TestFeatures {
           ))
     }
 
-  def createMovementRecord(trainId: TrainId = TrainId("12345"),
-                           trainServiceCode: ServiceCode = ServiceCode("23456"),
-                           eventType: EventType = Arrival,
-                           toc: TOC = TOC("SN"),
-                           actualTimestamp: Long = System.currentTimeMillis(),
-                           plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - 60000),
-                           stanoxCode: Option[StanoxCode] = Some(StanoxCode("98765")),
-                           variationStatus: Option[VariationStatus] = Some(Late)) =
+  def createMovementRecord(
+      trainId: TrainId = TrainId("12345"),
+      trainServiceCode: ServiceCode = ServiceCode("23456"),
+      eventType: EventType = Arrival,
+      toc: TOC = TOC("SN"),
+      actualTimestamp: Long = System.currentTimeMillis(),
+      plannedTimestamp: Option[Long] = Some(System.currentTimeMillis() - (16 * 60 * 1000)),
+      plannedPassengerTimestamp: Option[Long] = Some(System.currentTimeMillis() - (16 * 60 * 1000)),
+      stanoxCode: Option[StanoxCode] = Some(StanoxCode("98765")),
+      variationStatus: Option[VariationStatus] = Some(Late)) =
     TrainMovementRecord(
       trainId,
       trainServiceCode,
@@ -255,6 +270,23 @@ trait TestFeatures {
       stanoxCode,
       cancellationType,
       cancellationReasonCode
+    )
+
+  def createChangeOfOriginRecord(trainId: TrainId = TrainId("12345"),
+                                 trainServiceCode: ServiceCode = ServiceCode("23456"),
+                                 toc: TOC = TOC("SN"),
+                                 newOriginstanoxCode: StanoxCode = StanoxCode("87654"),
+                                 originStanoxCode: Option[StanoxCode] = Some(StanoxCode("34532")),
+                                 originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000,
+                                 reasonCode: String = "YI") =
+    TrainChangeOfOriginRecord(
+      trainId,
+      trainServiceCode,
+      toc,
+      newOriginstanoxCode,
+      originStanoxCode,
+      originDepartureTimestamp,
+      reasonCode
     )
 
   def createActivationRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G123456"),
@@ -313,6 +345,25 @@ trait TestFeatures {
       timestampToLocalTime(originDepartureTimestamp),
       cancellationRecord.cancellationType,
       cancellationRecord.cancellationReasonCode
+    )
+
+  def changeOfOriginRecordToChangeOfOriginLog(changeOfOriginRecord: TrainChangeOfOriginRecord,
+                                              id: Option[Int],
+                                              scheduleTrainId: ScheduleTrainId,
+                                              originStanoxCode: StanoxCode,
+                                              originDepartureTimestamp: Long) =
+    ChangeOfOriginLog(
+      id,
+      changeOfOriginRecord.trainId,
+      scheduleTrainId,
+      changeOfOriginRecord.trainServiceCode,
+      changeOfOriginRecord.toc,
+      changeOfOriginRecord.newOriginStanoxCode,
+      originStanoxCode,
+      originDepartureTimestamp,
+      timestampToLocalDate(originDepartureTimestamp),
+      timestampToLocalTime(originDepartureTimestamp),
+      changeOfOriginRecord.reasonCode
     )
 
   def createDecodedScheduleCreateRecord(scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G76481"),
@@ -517,6 +568,28 @@ trait TestFeatures {
       cancellationReasonCode
     )
 
+  def createChangeOfOriginLog(trainId: TrainId = TrainId("862F60MY30"),
+                              scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G12345"),
+                              serviceCode: ServiceCode = ServiceCode("24673605"),
+                              toc: TOC = TOC("SN"),
+                              newStanoxCode: StanoxCode = StanoxCode("87214"),
+                              originStanoxCode: StanoxCode = StanoxCode("46754"),
+                              originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000,
+                              reasonCode: String = "YI") =
+    ChangeOfOriginLog(
+      None,
+      trainId,
+      scheduleTrainId,
+      serviceCode,
+      toc,
+      newStanoxCode,
+      originStanoxCode,
+      originDepartureTimestamp,
+      timestampToLocalDate(originDepartureTimestamp),
+      timestampToLocalTime(originDepartureTimestamp),
+      reasonCode
+    )
+
   def createMovementLog(trainId: TrainId = TrainId("862F60MY30"),
                         scheduleTrainId: ScheduleTrainId = ScheduleTrainId("G12345"),
                         serviceCode: ServiceCode = ServiceCode("24673605"),
@@ -596,6 +669,13 @@ trait TestFeatures {
       queues.trainCancellationQueue,
       fixture.subscriberHandler,
       fixture.cancellationLogTable,
+      fixture.trainActivationCache,
+      fixture.metricsLogging.incrCancellationRecordsReceived
+    ).stream.compile.drain.unsafeRunTimed(1 second)
+    TrainChangeOfOriginProcessor(
+      queues.trainChangeOfOriginQueue,
+      fixture.subscriberHandler,
+      fixture.changeOfOriginLogTable,
       fixture.trainActivationCache,
       fixture.metricsLogging.incrCancellationRecordsReceived
     ).stream.compile.drain.unsafeRunTimed(1 second)

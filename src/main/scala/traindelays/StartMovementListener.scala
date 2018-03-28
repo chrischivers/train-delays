@@ -21,10 +21,11 @@ object StartMovementListener extends App with StrictLogging {
   implicit val actorSystem = ActorSystem()
 
   val app = for {
-    trainMovementQueue     <- async.unboundedQueue[IO, TrainMovementRecord]
-    trainActivationQueue   <- async.unboundedQueue[IO, TrainActivationRecord]
-    trainCancellationQueue <- async.unboundedQueue[IO, TrainCancellationRecord]
-    incomingMessageQueue   <- async.unboundedQueue[IO, String]
+    trainMovementQueue       <- async.unboundedQueue[IO, TrainMovementRecord]
+    trainActivationQueue     <- async.unboundedQueue[IO, TrainActivationRecord]
+    trainCancellationQueue   <- async.unboundedQueue[IO, TrainCancellationRecord]
+    trainChangeOfOriginQueue <- async.unboundedQueue[IO, TrainChangeOfOriginRecord]
+    incomingMessageQueue     <- async.unboundedQueue[IO, String]
     metricsLogging = MetricsLogging(config.metricsConfig)
     _ <- MovementMessageHandler(
       config.networkRailConfig,
@@ -32,11 +33,13 @@ object StartMovementListener extends App with StrictLogging {
       trainMovementQueue,
       trainActivationQueue,
       trainCancellationQueue,
+      trainChangeOfOriginQueue,
       newStompClient(config.networkRailConfig)
     ).concurrently(
         createMovementMessageProcessor(trainMovementQueue,
                                        trainActivationQueue,
                                        trainCancellationQueue,
+                                       trainChangeOfOriginQueue,
                                        metricsLogging))
       .compile
       .drain
@@ -45,11 +48,13 @@ object StartMovementListener extends App with StrictLogging {
   private def createMovementMessageProcessor(trainMovementMessageQueue: Queue[IO, TrainMovementRecord],
                                              trainActivationMessageQueue: Queue[IO, TrainActivationRecord],
                                              trainCancellationMessageQueue: Queue[IO, TrainCancellationRecord],
+                                             trainChangeOfOriginMessageQueue: Queue[IO, TrainChangeOfOriginRecord],
                                              metricsLogging: MetricsLogging) =
     withTransactor(config.databaseConfig)() { db =>
       logger.info(s"creating movement message processor with db config ${config.databaseConfig}")
       val movementLogTable       = MovementLogTable(db)
       val cancellationLogTable   = CancellationLogTable(db)
+      val changeOfOriginLogTable = ChangeOfOriginLogTable(db)
       val subscriberTable        = SubscriberTable(db, config.networkRailConfig.subscribersConfig.memoizeFor)
       val primaryScheduleTable   = SchedulePrimaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
       val secondaryScheduleTable = ScheduleSecondaryTable(db, config.networkRailConfig.scheduleData.memoizeFor)
@@ -84,9 +89,17 @@ object StartMovementListener extends App with StrictLogging {
                                    trainActivationCache,
                                    metricsLogging.incrCancellationRecordsReceived)
 
+      val trainChangeOfOriginProcessor =
+        TrainChangeOfOriginProcessor(trainChangeOfOriginMessageQueue,
+                                     subscriberHandler,
+                                     changeOfOriginLogTable,
+                                     trainActivationCache,
+                                     metricsLogging.incrChangeOfOriginRecordsReceived)
+
       trainActivationProcessor.stream
         .concurrently(trainMovementProcessor.stream)
         .concurrently(trainCancellationProcessor.stream)
+        .concurrently(trainChangeOfOriginProcessor.stream)
     }
 
   app.unsafeRunSync()

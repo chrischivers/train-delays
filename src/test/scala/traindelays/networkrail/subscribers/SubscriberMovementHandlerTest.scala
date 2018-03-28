@@ -6,6 +6,7 @@ import org.scalatest.FlatSpec
 import org.scalatest.Matchers._
 import traindelays.networkrail.{ServiceCode, TestFeatures}
 import traindelays.networkrail.db.StanoxTable.StanoxRecord
+import traindelays.networkrail.movementdata.VariationStatus.Late
 import traindelays.networkrail.movementdata._
 import traindelays.networkrail.scheduledata.ScheduleTrainId
 
@@ -14,7 +15,7 @@ import scala.util.{Random, Try}
 
 class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
 
-  it should "email subscriber when movement log received relating to subscriber's FROM STANOX" in {
+  it should "email subscriber when movement log received relating to subscriber's FROM STANOX if train is late by over 14 mins" in {
 
     val scheduleTrainId = ScheduleTrainId(randomGen)
     val serviceCode     = ServiceCode(randomGen)
@@ -48,6 +49,45 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
       email.subject should include("Train Delay Helper: Delay Update")
       validateEmailBody(email.body, movementRecord, activationRecord, initialState.stanoxRecords)
 
+    }
+  }
+
+  it should "NOT email subscriber when train is late by under 14 mins" in {
+
+    val scheduleTrainId = ScheduleTrainId(randomGen)
+    val serviceCode     = ServiceCode(randomGen)
+    val trainId         = TrainId(randomGen)
+
+    val initialState   = createDefaultInitialState(scheduleTrainId, serviceCode)
+    val fromStanoxCode = initialState.schedulePrimaryRecords.head.stanoxCode
+    val toStanoxCode   = initialState.schedulePrimaryRecords.last.stanoxCode
+    val subscriberRecord = createSubscriberRecord(scheduleTrainId = scheduleTrainId,
+                                                  serviceCode = serviceCode,
+                                                  fromStanoxCode = fromStanoxCode,
+                                                  toStanoxCode = toStanoxCode)
+
+    val activationRecord =
+      createActivationRecord(scheduleTrainId, serviceCode, trainId, originStanox = fromStanoxCode)
+    val movementRecord =
+      createMovementRecord(
+        trainId = trainId,
+        trainServiceCode = serviceCode,
+        stanoxCode = Some(fromStanoxCode),
+        plannedPassengerTimestamp = Some(System.currentTimeMillis() - (13 * 60 * 1000)),
+        variationStatus = Some(Late)
+      )
+
+    withInitialState(testDatabaseConfig)(
+      initialState.copy(
+        subscriberRecords = List(subscriberRecord)
+      )) { fixture =>
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
+
+        runAllQueues(queues, fixture)
+      }
+      fixture.emailer.emailsSent should have size 0
     }
   }
 

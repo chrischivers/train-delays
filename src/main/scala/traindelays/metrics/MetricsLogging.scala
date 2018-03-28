@@ -34,6 +34,9 @@ trait MetricsLogging extends StrictLogging with DefaultInstrumented {
   protected val cancellationRecordsReceivedMeter: Meter = metrics.meter("cancellation-records-received")
   def incrCancellationRecordsReceived                   = if (metricsConfig.enabled) cancellationRecordsReceivedMeter.mark()
 
+  protected val changeOfOriginRecordsReceivedMeter: Meter = metrics.meter("change-of-origin-records-received")
+  def incrChangeOfOriginRecordsReceived                   = if (metricsConfig.enabled) changeOfOriginRecordsReceivedMeter.mark()
+
   protected val unhandledRecordsReceivedMeter: Meter = metrics.meter("unhandled-records-received")
   def incrUnhandledRecordsReceived                   = if (metricsConfig.enabled) unhandledRecordsReceivedMeter.mark()
 

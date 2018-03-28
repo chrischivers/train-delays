@@ -13,15 +13,18 @@ trait TestMetricsLogging extends MetricsLogging {
     metrics.meter(s"movement-records-received-$randomStringGenerator")
   override protected val cancellationRecordsReceivedMeter: Meter =
     metrics.meter(s"cancellation-records-received-$randomStringGenerator")
+  override protected val changeOfOriginRecordsReceivedMeter: Meter =
+    metrics.meter(s"change-of-origin-records-received-$randomStringGenerator")
   override protected val unhandledRecordsReceivedMeter: Meter =
     metrics.meter(s"unhandled-records-received-$randomStringGenerator")
   override protected val emailsSent: Meter = metrics.meter(s"emails-sent-$randomStringGenerator")
 
-  def getActivationRecordsCount   = activationRecordsReceivedMeter.count
-  def getMovementRecordsCount     = movementRecordsReceivedMeter.count
-  def getCancellationRecordsCount = cancellationRecordsReceivedMeter.count
-  def getUnhandledRecordsCount    = unhandledRecordsReceivedMeter.count
-  def getEmailsSentCount          = emailsSent.count
+  def getActivationRecordsCount    = activationRecordsReceivedMeter.count
+  def getMovementRecordsCount      = movementRecordsReceivedMeter.count
+  def getCancellationRecordsCount  = cancellationRecordsReceivedMeter.count
+  def getChangeOfOriginRecordCount = changeOfOriginRecordsReceivedMeter.count
+  def getUnhandledRecordsCount     = unhandledRecordsReceivedMeter.count
+  def getEmailsSentCount           = emailsSent.count
 
   private def randomStringGenerator = s"${Random.nextInt(99999)}-${System.currentTimeMillis()}"
 }

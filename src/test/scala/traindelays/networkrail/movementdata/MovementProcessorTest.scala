@@ -280,16 +280,66 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
     }
   }
 
+  "Train Change of Origin Processor" should "persist Change of Origin records in DB where all relevant fields exist" in {
+
+    val activationRecord     = createActivationRecord()
+    val changeOfOriginRecord = createChangeOfOriginRecord()
+    withInitialState(testDatabaseConfig)() { fixture =>
+      withQueues { queues =>
+        queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
+        queues.trainChangeOfOriginQueue.enqueue1(changeOfOriginRecord).unsafeRunSync()
+        val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
+        val subscriberHandler =
+          SubscriberHandler(
+            fixture.movementLogTable,
+            fixture.subscriberTable,
+            fixture.schedulePrimaryTable,
+            fixture.scheduleSecondaryTable,
+            fixture.stanoxTable,
+            emailer,
+            config.networkRailConfig.subscribersConfig
+          )
+        TrainActivationProcessor(queues.trainActivationQueue,
+                                 fixture.trainActivationCache,
+                                 fixture.metricsLogging.incrActivationRecordsReceived).stream.compile.drain
+          .unsafeRunTimed(1 second)
+        TrainChangeOfOriginProcessor(
+          queues.trainChangeOfOriginQueue,
+          subscriberHandler,
+          fixture.changeOfOriginLogTable,
+          fixture.trainActivationCache,
+          fixture.metricsLogging.incrChangeOfOriginRecordsReceived
+        ).stream.compile.drain
+          .unsafeRunTimed(1 second)
+
+        fixture.changeOfOriginLogTable
+          .retrieveAllRecords()
+          .map { retrievedRecords =>
+            retrievedRecords should have size 1
+            retrievedRecords.head shouldBe changeOfOriginRecordToChangeOfOriginLog(
+              changeOfOriginRecord,
+              Some(1),
+              activationRecord.scheduleTrainId,
+              activationRecord.originStanox,
+              activationRecord.originDepartureTimestamp)
+          }
+          .unsafeRunSync()
+      }
+    }
+  }
+
   "Metrics Logger" should "increment metrics when records received" in {
 
-    val activationRecord   = createActivationRecord()
-    val movementRecord     = createMovementRecord()
-    val cancellationRecord = createCancellationRecord()
+    val activationRecord     = createActivationRecord()
+    val movementRecord       = createMovementRecord()
+    val cancellationRecord   = createCancellationRecord()
+    val changeOfOriginRecord = createChangeOfOriginRecord()
     withInitialState(testDatabaseConfig)() { fixture =>
       withQueues { queues =>
         queues.trainActivationQueue.enqueue1(activationRecord).unsafeRunSync()
         queues.trainMovementQueue.enqueue1(movementRecord).unsafeRunSync()
         queues.trainCancellationQueue.enqueue1(cancellationRecord).unsafeRunSync()
+        queues.trainChangeOfOriginQueue.enqueue1(changeOfOriginRecord).unsafeRunSync()
         val emailer = Emailer(config.emailerConfig, fixture.metricsLogging)
         val subscriberHandler =
           SubscriberHandler(
@@ -321,9 +371,19 @@ class MovementProcessorTest extends FlatSpec with Eventually with TestFeatures {
         ).stream.compile.drain
           .unsafeRunTimed(1 second)
 
+        TrainChangeOfOriginProcessor(
+          queues.trainChangeOfOriginQueue,
+          subscriberHandler,
+          fixture.changeOfOriginLogTable,
+          fixture.trainActivationCache,
+          fixture.metricsLogging.incrChangeOfOriginRecordsReceived
+        ).stream.compile.drain
+          .unsafeRunTimed(1 second)
+
         fixture.metricsLogging.getActivationRecordsCount shouldBe 1
         fixture.metricsLogging.getMovementRecordsCount shouldBe 1
         fixture.metricsLogging.getCancellationRecordsCount shouldBe 1
+        fixture.metricsLogging.getChangeOfOriginRecordCount shouldBe 1
       }
     }
   }
