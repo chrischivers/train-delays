@@ -39,7 +39,7 @@ object ChangeOfOriginLogTable {
 
   def allChangeOfOriginLogRecords(): Query0[ChangeOfOriginLog] =
     sql"""
-      SELECT id, train_id, schedule_train_id, service_code, toc, new_stanox_code, origin_stanox_code, 
+      SELECT id, train_id, schedule_train_id, service_code, toc, new_stanox_code, origin_stanox_code,
       origin_departure_timestamp, origin_departure_date, origin_departure_time, reason_code
       FROM change_of_origin_log
       """.query[ChangeOfOriginLog]
@@ -48,7 +48,7 @@ object ChangeOfOriginLogTable {
                             fromTimestamp: Long,
                             toTimestamp: Long): Query0[ChangeOfOriginLog] =
     sql"""
-      SELECT id, train_id, schedule_train_id, service_code, toc, new_stanox_code, origin_stanox_code, 
+      SELECT id, train_id, schedule_train_id, service_code, toc, new_stanox_code, origin_stanox_code,
       origin_departure_timestamp, origin_departure_date, origin_departure_time, reason_code
       FROM change_of_origin_log
       WHERE schedule_train_id = ${scheduleTrainId}

@@ -323,7 +323,7 @@ package object movementdata {
                                        toc: TOC,
                                        newOriginStanoxCode: StanoxCode,
                                        originStanoxCode: Option[StanoxCode],
-                                       originDepartureTimestamp: Long,
+                                       originDepartureTimestamp: Option[Long],
                                        reasonCode: String)
       extends TrainMovements {
     def toChangeOfOriginLog(trainActivationCache: TrainActivationCache): IO[Option[ChangeOfOriginLog]] =
@@ -343,7 +343,7 @@ package object movementdata {
           toc                      <- bodyObject.downField("toc_id").as[TOC]
           stanoxCode               <- bodyObject.downField("loc_stanox").as[StanoxCode]
           originStanoxCode         <- bodyObject.downField("original_loc_stanox").as[Option[StanoxCode]]
-          originDepartureTimestamp <- bodyObject.downField("original_loc_timestamp").as[Long]
+          originDepartureTimestamp <- bodyObject.downField("original_loc_timestamp").as[Option[Long]]
           reasonCode               <- bodyObject.downField("reason_code").as[String]
 
         } yield {

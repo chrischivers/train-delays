@@ -277,7 +277,7 @@ trait TestFeatures {
                                  toc: TOC = TOC("SN"),
                                  newOriginstanoxCode: StanoxCode = StanoxCode("87654"),
                                  originStanoxCode: Option[StanoxCode] = Some(StanoxCode("34532")),
-                                 originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000,
+                                 originDepartureTimestamp: Option[Long] = Some(System.currentTimeMillis() + 7200000),
                                  reasonCode: String = "YI") =
     TrainChangeOfOriginRecord(
       trainId,
