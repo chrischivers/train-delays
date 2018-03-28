@@ -280,12 +280,6 @@ package object movementdata {
       }
     }
 
-    private def emptyStringToNone[A](in: String)(f: String => A): Option[A] =
-      if (in == "") None else Some(f(in))
-
-    private def emptyStringOptionToNone[A](in: Option[String])(f: String => A): Option[A] =
-      if (in.contains("")) None else in.map(f)
-
     private def movementRecordToMovementLog(movementRec: TrainMovementRecord,
                                             cache: TrainActivationCache): IO[Option[MovementLog]] =
       cache.getFromCache(movementRec.trainId).map { trainActivationRecordOpt =>
@@ -338,13 +332,16 @@ package object movementdata {
       override def apply(c: HCursor): Result[TrainChangeOfOriginRecord] = {
         val bodyObject = c.downField("body")
         for {
-          trainId                  <- bodyObject.downField("train_id").as[TrainId]
-          trainServiceCode         <- bodyObject.downField("train_service_code").as[ServiceCode]
-          toc                      <- bodyObject.downField("toc_id").as[TOC]
-          stanoxCode               <- bodyObject.downField("loc_stanox").as[StanoxCode]
-          originStanoxCode         <- bodyObject.downField("original_loc_stanox").as[Option[StanoxCode]]
-          originDepartureTimestamp <- bodyObject.downField("original_loc_timestamp").as[Option[Long]]
-          reasonCode               <- bodyObject.downField("reason_code").as[String]
+          trainId          <- bodyObject.downField("train_id").as[TrainId]
+          trainServiceCode <- bodyObject.downField("train_service_code").as[ServiceCode]
+          toc              <- bodyObject.downField("toc_id").as[TOC]
+          stanoxCode       <- bodyObject.downField("loc_stanox").as[StanoxCode]
+          originStanoxCode <- bodyObject.downField("original_loc_stanox").as[Option[StanoxCode]]
+          originDepartureTimestamp <- bodyObject
+            .downField("original_loc_timestamp")
+            .as[Option[String]]
+            .map(emptyStringOptionToNone(_)(_.toLong))
+          reasonCode <- bodyObject.downField("reason_code").as[String]
 
         } yield {
           TrainChangeOfOriginRecord(trainId,
@@ -447,4 +444,10 @@ package object movementdata {
 
   def timestampToLocalTime(timestamp: Long) =
     ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalTime
+
+  def emptyStringToNone[A](in: String)(f: String => A): Option[A] =
+    if (in == "") None else Some(f(in))
+
+  def emptyStringOptionToNone[A](in: Option[String])(f: String => A): Option[A] =
+    if (in.contains("")) None else in.map(f)
 }
