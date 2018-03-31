@@ -214,6 +214,7 @@
                 contentType: 'application/json; charset=utf-8',
                 data: JSON.stringify(toSend),
                 success: function () {
+                    runScheduleQuery(); //refresh with subscribe status
                     showSuccessfulSubscribeAlert(idArray.length)
                 },
                 error: function (response) {

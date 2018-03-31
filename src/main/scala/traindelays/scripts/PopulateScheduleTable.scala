@@ -40,7 +40,6 @@ trait PopulateScheduleTable extends StrictLogging {
         _ <- if (flushFirst)
           IO(logger.info("Deleting all records from Association Table")) >> associationTable.deleteAllRecords()
         else IO.unit
-
         _ <- if (flushFirst) IO(logger.info("Deleting all records from Stanox Table")) >> stanoxTable.deleteAllRecords()
         else IO.unit
 
