@@ -33,7 +33,10 @@ trait PopulateScheduleTable extends StrictLogging {
         _ <- if (flushFirst)
           IO(logger.info("Deleting all records from Schedule Table Primary")) >> scheduleTablePrimary.deleteAllRecords()
         else IO.unit
-
+        _ <- if (flushFirst)
+          IO(logger.info("Deleting all records from Schedule Table Secondary")) >> scheduleTableSecondary
+            .deleteAllRecords()
+        else IO.unit
         _ <- if (flushFirst)
           IO(logger.info("Deleting all records from Association Table")) >> associationTable.deleteAllRecords()
         else IO.unit
