@@ -318,7 +318,7 @@ package object movementdata {
                                        newOriginStanoxCode: StanoxCode,
                                        originStanoxCode: Option[StanoxCode],
                                        originDepartureTimestamp: Option[Long],
-                                       reasonCode: String)
+                                       reasonCode: Option[String])
       extends TrainMovements {
     def toChangeOfOriginLog(trainActivationCache: TrainActivationCache): IO[Option[ChangeOfOriginLog]] =
       TrainChangeOfOriginRecord.changeOfOriginRecordToChangeOfOriginLog(this, trainActivationCache)
@@ -341,7 +341,7 @@ package object movementdata {
             .downField("original_loc_timestamp")
             .as[Option[String]]
             .map(emptyStringOptionToNone(_)(_.toLong))
-          reasonCode <- bodyObject.downField("reason_code").as[String]
+          reasonCode <- bodyObject.downField("reason_code").as[Option[String]]
 
         } yield {
           TrainChangeOfOriginRecord(trainId,
@@ -432,7 +432,7 @@ package object movementdata {
                                originDepartureTimestamp: Long,
                                originDepartureDate: LocalDate,
                                originDepartureTime: LocalTime,
-                               reasonCode: String)
+                               reasonCode: Option[String])
       extends DBLog
 
   trait MovementProcessor {

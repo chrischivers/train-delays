@@ -61,6 +61,7 @@ trait TestFeatures {
         _ <- sql"DROP TABLE IF EXISTS movement_log".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS subscribers".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS cancellation_log".update.run.transact(db)
+        _ <- sql"DROP TABLE IF EXISTS change_of_origin_log".update.run.transact(db)
         _ <- sql"DROP TABLE IF EXISTS association".update.run.transact(db)
       } yield ()
   }
@@ -278,7 +279,7 @@ trait TestFeatures {
                                  newOriginstanoxCode: StanoxCode = StanoxCode("87654"),
                                  originStanoxCode: Option[StanoxCode] = Some(StanoxCode("34532")),
                                  originDepartureTimestamp: Option[Long] = Some(System.currentTimeMillis() + 7200000),
-                                 reasonCode: String = "YI") =
+                                 reasonCode: Option[String] = Some("YI")) =
     TrainChangeOfOriginRecord(
       trainId,
       trainServiceCode,
@@ -575,7 +576,7 @@ trait TestFeatures {
                               newStanoxCode: StanoxCode = StanoxCode("87214"),
                               originStanoxCode: StanoxCode = StanoxCode("46754"),
                               originDepartureTimestamp: Long = System.currentTimeMillis() + 7200000,
-                              reasonCode: String = "YI") =
+                              reasonCode: Option[String] = Some("YI")) =
     ChangeOfOriginLog(
       None,
       trainId,
