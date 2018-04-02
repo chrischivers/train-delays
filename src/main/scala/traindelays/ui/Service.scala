@@ -8,8 +8,12 @@ import com.typesafe.scalalogging.StrictLogging
 import io.circe.Json
 import org.http4s.circe._
 import org.http4s.dsl.io._
-import org.http4s.{EntityDecoder, HttpService, Request, StaticFile}
+import org.http4s.{EntityDecoder, EntityEncoder, HttpService, Request, StaticFile}
 import org.postgresql.util.PSQLException
+import scalacache.Cache
+import scalacache.CatsEffect.modes._
+import scalacache.guava.GuavaCache
+import scalacache.memoization._
 import traindelays.UIConfig
 import traindelays.networkrail.StanoxCode
 import traindelays.networkrail.db.ScheduleTable.{ScheduleRecordPrimary, ScheduleRecordSecondary}
@@ -19,10 +23,6 @@ import traindelays.networkrail.scheduledata.ScheduleTrainId
 import traindelays.networkrail.subscribers.SubscriberRecord
 
 import scala.concurrent.duration.FiniteDuration
-import scalacache.Cache
-import scalacache.CatsEffect.modes._
-import scalacache.guava.GuavaCache
-import scalacache.memoization._
 
 object Service extends StrictLogging {
 
@@ -40,6 +40,9 @@ object Service extends StrictLogging {
 
   implicit val subscribeRequestEntityDecoder: EntityDecoder[IO, SubscribeRequest] =
     jsonOf[IO, SubscribeRequest]
+
+  implicit val subscriberRecordsListResponseEncoder: EntityEncoder[IO, List[SubscriberRecordsResponse]] =
+    jsonEncoderOf[IO, List[SubscriberRecordsResponse]]
 
   implicit protected val memoizeRoutesCache: Cache[String] = GuavaCache[String]
 
@@ -60,6 +63,23 @@ object Service extends StrictLogging {
 
     case _ @GET -> Root / "stations" =>
       Ok(stationsList(uiConfig.memoizeRouteListFor, stanoxTable, scheduleTablePrimary))
+
+    case _ @GET -> Root / "subscriber-records" / subscriberToken =>
+      println("Here. Subscriber Id " + subscriberToken)
+      (for {
+        maybeAuthenticatedDetails <- googleAuthenticator.verifyToken(subscriberToken)
+        records <- maybeAuthenticatedDetails
+          .fold[IO[List[SubscriberRecord]]](IO.raiseError(
+            new RuntimeException(s"Unable to retrieve authentication details for id token $subscriberToken"))) {
+            authenticatedDetails =>
+              subscriberTable.subscriberRecordsFor(authenticatedDetails.userId)
+          }
+      } yield records).attempt.flatMap {
+        case Right(subscriberRecords) => Ok(SubscriberRecordsResponse.subscriberRecordsResponseFrom(subscriberRecords))
+        case Left(err) =>
+          logger.error(s"Unable to get subscribers records for id $subscriberToken", err)
+          BadRequest()
+      }
 
     case request @ POST -> Root / "schedule-query" =>
       //TODO add in association records

@@ -11,7 +11,7 @@ import traindelays.networkrail.scheduledata._
 
 trait PopulateScheduleTable extends StrictLogging {
 
-  val config = TrainDelaysConfig()
+  val config = TrainDelaysConfig.defaultConfig
 
   def run(flushFirst: Boolean = false) = withTransactor(config.databaseConfig)() { db =>
     val stanoxTable            = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)

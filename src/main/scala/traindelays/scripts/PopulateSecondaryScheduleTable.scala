@@ -10,7 +10,7 @@ import cats.syntax.flatMap._
 
 object PopulateSecondaryScheduleTable extends StrictLogging {
 
-  val config = TrainDelaysConfig()
+  val config = TrainDelaysConfig.defaultConfig
 
   def run(flushFirst: Boolean = false) = withTransactor(config.databaseConfig)() { db =>
     val stanoxTable            = StanoxTable(db, config.networkRailConfig.scheduleData.memoizeFor)

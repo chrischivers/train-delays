@@ -60,6 +60,8 @@ case class RedisConfig(host: String, port: Int, dbIndex: Int)
 
 object TrainDelaysConfig {
 
+  val defaultConfig = apply()
+
   def apply(config: Config = ConfigFactory.load()): TrainDelaysConfig =
     TrainDelaysConfig(
       NetworkRailConfig(

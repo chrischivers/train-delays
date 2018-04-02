@@ -13,7 +13,8 @@ import io.circe.java8.time.{
 import io.circe.{Decoder, Encoder, Json}
 import traindelays.networkrail.movementdata.CancellationType
 import traindelays.networkrail.scheduledata.{AtocCode, DaysRunPattern, ScheduleTrainId}
-import traindelays.networkrail.{CRS, StanoxCode}
+import traindelays.networkrail.subscribers.SubscriberRecord
+import traindelays.networkrail.{CRS, ServiceCode, StanoxCode}
 
 package object ui {
 
@@ -70,6 +71,21 @@ package object ui {
   object ScheduleQueryResponse {
     implicit val encoder: Encoder[ScheduleQueryResponse] = deriveEncoder[ScheduleQueryResponse]
     implicit val decoder: Decoder[ScheduleQueryResponse] = deriveDecoder[ScheduleQueryResponse]
+  }
+
+  case class SubscriberRecordsResponse(scheduleTrainId: ScheduleTrainId,
+                                       serviceCode: ServiceCode,
+                                       fromStanoxCode: StanoxCode,
+                                       toStanoxCode: StanoxCode,
+                                       daysRunPattern: DaysRunPattern)
+
+  object SubscriberRecordsResponse {
+    implicit val encoder: Encoder[SubscriberRecordsResponse] = deriveEncoder[SubscriberRecordsResponse]
+    implicit val decoder: Decoder[SubscriberRecordsResponse] = deriveDecoder[SubscriberRecordsResponse]
+
+    def subscriberRecordsResponseFrom(subscriberRecords: List[SubscriberRecord]): List[SubscriberRecordsResponse] =
+      subscriberRecords.map(r =>
+        SubscriberRecordsResponse(r.scheduleTrainId, r.serviceCode, r.fromStanoxCode, r.toStanoxCode, r.daysRunPattern))
   }
 
   case class SubscribeRequest(email: String,

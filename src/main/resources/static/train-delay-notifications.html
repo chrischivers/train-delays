@@ -29,6 +29,7 @@
             <li><a href="#">Home</a></li>
             <li class="active"><a href="#">Train delay notifications</a></li>
             <li><a href="#">Train history search</a></li>
+            <li id="subscribedRoutesTab" style="display:none;"><a href="#">Subscribed routes</a></li>
         </ul>
         <ul class="nav navbar-nav navbar-right">
             <div class="g-signin2" data-onsuccess="onSignIn"></div>
@@ -84,6 +85,40 @@
 
                 <button type="button" id="train-selection-button" class="btn btn-primary" data-dismiss="modal">Search
                 </button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Modal -->
+<div id="subscribed-routes-modal" class="modal fade" role="dialog">
+    <div class="modal-dialog">
+
+        <!-- Modal content-->
+        <div class="modal-content">
+            <div class="modal-header">
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+                <h4 class="modal-title">Subscribed routes</h4>
+            </div>
+            <div class="modal-body">
+                <table class="table" id="subscriberRoutesTable">
+                    <thead>
+                    <tr>
+                        <th scope="col">Train ID</th>
+                        <th scope="col">From station</th>
+                        <th scope="col">To station</th>
+                        <th scope="col">Running pattern</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table><div class="modal-alert-placeholder"></div>
+
+            </div>
+            <div class="modal-footer">
+
                 <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
             </div>
         </div>
@@ -187,6 +222,7 @@
             runScheduleQuery();
         }
         dataTable.column(14).visible(true); //Show subscribed column
+        $("#subscribedRoutesTab").css("display", "block"); //show subscribed tab
     }
 
     function subscribeToSelectedTrains(rowData) {
@@ -214,8 +250,10 @@
                 contentType: 'application/json; charset=utf-8',
                 data: JSON.stringify(toSend),
                 success: function () {
-                    runScheduleQuery(); //refresh with subscribe status
-                    showSuccessfulSubscribeAlert(idArray.length)
+                    showSuccessfulSubscribeAlert(idArray.length);
+                    setTimeout(function() {
+                        runScheduleQuery(); //refresh with subscribe status
+                    }, 500);
                 },
                 error: function (response) {
                     if (response.status === 409) {
@@ -323,6 +361,36 @@
         });
     }
 
+    function getSubscriberRecords(userId) {
+        $.ajax({
+            type: "GET",
+            url: "subscriber-records/" + userId,
+            success: function (data) {
+
+                alert(JSON.stringify(data));
+                var subscriberRecordsResponse = JSON.parse(data);
+                if (subscriberRecordsResponse.length > 0) {
+                    alert(subscriberRecordsResponse);
+                    for (var i = 0; i < json.length; i++) {
+                       $('<tr>').append(
+                            $('<td>').text(json[i].scheduleTrainId),
+                            $('<td>').text(json[i].fromStanoxCode),
+                            $('<td>').text(json[i].toStanoxCode),
+                            $('<td>').text(json[i].daysRunPattern)
+                        ).appendTo('#subscriberRoutesTable');
+                    }
+                    }
+                $('#subscribed-routes-modal').modal('show');
+
+            },
+            error: function () {
+                showErrorObtainingSubscriberRoutesAlert();
+
+            }
+
+        });
+    }
+
     function showSuccessfulSubscribeAlert(numberSubscribed) {
         $('.alert-placeholder').empty().append("<div class='alert alert-success alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>Successfully subscribed to " + numberSubscribed + " route(s)</div>")
     }
@@ -347,6 +415,10 @@
         $('.modal-alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching the station list</div>")
     }
 
+    function showErrorObtainingSubscriberRoutesAlert() {
+        $('.modal-alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching the list of subscribed routes</div>")
+    }
+
     $(document).ready(function () {
         setUpDataTable();
         dataTable.column(14).visible(false); //Hide subscribed column
@@ -357,7 +429,10 @@
         $(function () {
             $('#train-selection-button').on('click', function (e) {
                 runScheduleQuery()
-            })
+            });
+            $('#subscribedRoutesTab').on('click', function(e) {
+                getSubscriberRecords(userIdToken)
+            });
         });
     });
 </script>
