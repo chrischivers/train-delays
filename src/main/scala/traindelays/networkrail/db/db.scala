@@ -42,7 +42,7 @@ package object db {
     protected def addRecord(record: A): IO[Unit]
 
     def safeAddRecord(record: A): IO[Unit] =
-      safeAddRecord(record).attempt
+      addRecord(record).attempt
         .map {
           case Right(_) => ()
           case Left(err) =>

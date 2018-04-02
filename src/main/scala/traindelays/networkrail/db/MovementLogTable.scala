@@ -14,7 +14,7 @@ trait MovementLogTable extends NonMemoizedTable[MovementLog] {
                          toTimestamp: Option[Long]): IO[List[MovementLog]]
 
   val dbWriter: fs2.Sink[IO, MovementLog] = fs2.Sink { record =>
-    addRecord(record)
+    safeAddRecord(record)
   }
 }
 

@@ -12,7 +12,7 @@ trait CancellationLogTable extends NonMemoizedTable[CancellationLog] {
                          toTimestamp: Option[Long]): IO[List[CancellationLog]]
 
   val dbWriter: fs2.Sink[IO, CancellationLog] = fs2.Sink { record =>
-    addRecord(record)
+    safeAddRecord(record)
   }
 }
 

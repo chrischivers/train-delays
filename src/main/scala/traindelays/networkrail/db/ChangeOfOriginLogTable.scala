@@ -12,7 +12,7 @@ trait ChangeOfOriginLogTable extends NonMemoizedTable[ChangeOfOriginLog] {
                          toTimestamp: Option[Long]): IO[List[ChangeOfOriginLog]]
 
   val dbWriter: fs2.Sink[IO, ChangeOfOriginLog] = fs2.Sink { record =>
-    addRecord(record)
+    safeAddRecord(record)
   }
 }
 
