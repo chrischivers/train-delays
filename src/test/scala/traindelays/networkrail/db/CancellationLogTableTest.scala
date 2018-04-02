@@ -14,7 +14,7 @@ class CancellationLogTableTest extends FlatSpec with TestFeatures {
     val cancellationLog = createCancellationLog()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.cancellationLogTable.addRecord(cancellationLog).unsafeRunSync()
+      fixture.cancellationLogTable.safeAddRecord(cancellationLog).unsafeRunSync()
       val retrievedRecords = fixture.cancellationLogTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe cancellationLog.copy(id = Some(1))

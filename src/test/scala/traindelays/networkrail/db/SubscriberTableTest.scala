@@ -14,7 +14,7 @@ class SubscriberTableTest extends FlatSpec with TestFeatures {
   it should "insert a watching record into the database" in {
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.subscriberTable.addRecord(createSubscriberRecord())
+      fixture.subscriberTable.safeAddRecord(createSubscriberRecord())
     }
   }
 

@@ -37,15 +37,23 @@ package object db {
       (t: HikariTransactor[IO]) => t.shutdown
     )
 
-  protected trait Table[A] {
+  protected trait Table[A] extends StrictLogging {
 
-    def addRecord(record: A): IO[Unit]
+    protected def addRecord(record: A): IO[Unit]
+
+    def safeAddRecord(record: A): IO[Unit] =
+      safeAddRecord(record).attempt
+        .map {
+          case Right(_) => ()
+          case Left(err) =>
+            logger.error(s"Error adding record to DB $record.", err)
+        }
 
     protected def retrieveAll(): IO[List[A]]
 
   }
 
-  trait MemoizedTable[A] extends Table[A] with StrictLogging {
+  trait MemoizedTable[A] extends Table[A] {
 
     import scalacache.CatsEffect.modes._
     import scalacache._

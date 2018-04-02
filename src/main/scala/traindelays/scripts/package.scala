@@ -39,13 +39,13 @@ package object scripts extends StrictLogging {
     fs2.Sink {
 
       case rec: DecodedScheduleRecord.Create =>
-        rec.toScheduleLogs(stanoxTable).flatMap(_.traverse(scheduleTablePrimary.addRecord).void)
+        rec.toScheduleLogs(stanoxTable).flatMap(_.traverse(scheduleTablePrimary.safeAddRecord).void)
       case rec: DecodedScheduleRecord.Delete =>
         scheduleTablePrimary.deleteRecord(rec.scheduleTrainId, rec.scheduleStartDate, rec.stpIndicator)
-      case rec: DecodedStanoxRecord.Create      => stanoxTable.addRecord(rec.toStanoxRecord)
+      case rec: DecodedStanoxRecord.Create      => stanoxTable.safeAddRecord(rec.toStanoxRecord)
       case rec: DecodedStanoxRecord.Update      => stanoxTable.updateRecord(rec.toStanoxRecord)
       case rec: DecodedStanoxRecord.Delete      => stanoxTable.deleteRecord(rec.tipLocCode)
-      case rec: DecodedAssociationRecord.Create => rec.toAssociationRecord.fold(IO.unit)(associationTable.addRecord)
+      case rec: DecodedAssociationRecord.Create => rec.toAssociationRecord.fold(IO.unit)(associationTable.safeAddRecord)
       case rec: DecodedAssociationRecord.Delete =>
         for {
           toDelete <- associationTable.retrieveRecordFor(rec.mainScheduleTrainId,

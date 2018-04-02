@@ -19,7 +19,7 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
     val associationRecord = createAssociationRecord()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.associationTable.addRecord(associationRecord).unsafeRunSync()
+      fixture.associationTable.safeAddRecord(associationRecord).unsafeRunSync()
       val retrievedRecords = fixture.associationTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe associationRecord.copy(id = Some(1))
@@ -32,8 +32,8 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
     val scheduleRecordSecondary = createScheduleRecordSecondary(associationId = 1)
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.associationTable.addRecord(associationRecord1).unsafeRunSync()
-      fixture.scheduleSecondaryTable.addRecord(scheduleRecordSecondary).unsafeRunSync()
+      fixture.associationTable.safeAddRecord(associationRecord1).unsafeRunSync()
+      fixture.scheduleSecondaryTable.safeAddRecord(scheduleRecordSecondary).unsafeRunSync()
       val retrievedRecordsAll = fixture.associationTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecordsAll should have size 1
       val retrievedRecordsNotInSecondarySchedule =
@@ -47,7 +47,7 @@ class AssociationTableTest extends FlatSpec with TestFeatures {
     val associationRecord1 = createAssociationRecord(associationCategory = Some(AssociationCategory.Next))
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.associationTable.addRecord(associationRecord1).unsafeRunSync()
+      fixture.associationTable.safeAddRecord(associationRecord1).unsafeRunSync()
       val retrievedRecordsAll = fixture.associationTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecordsAll should have size 1
       val retrievedRecordsNotInSecondarySchedule =

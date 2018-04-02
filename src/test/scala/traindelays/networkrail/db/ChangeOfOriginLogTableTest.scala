@@ -14,7 +14,7 @@ class ChangeOfOriginLogTableTest extends FlatSpec with TestFeatures {
     val changeOfOriginLog = createChangeOfOriginLog()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.changeOfOriginLogTable.addRecord(changeOfOriginLog).unsafeRunSync()
+      fixture.changeOfOriginLogTable.safeAddRecord(changeOfOriginLog).unsafeRunSync()
       val retrievedRecords = fixture.changeOfOriginLogTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe changeOfOriginLog.copy(id = Some(1))

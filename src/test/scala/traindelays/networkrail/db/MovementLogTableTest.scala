@@ -15,7 +15,7 @@ class MovementLogTableTest extends FlatSpec with TestFeatures {
     val movementLog = createMovementLog()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.movementLogTable.addRecord(movementLog).unsafeRunSync()
+      fixture.movementLogTable.safeAddRecord(movementLog).unsafeRunSync()
       val retrievedRecords = fixture.movementLogTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe movementLog.copy(id = Some(1))

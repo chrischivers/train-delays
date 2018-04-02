@@ -24,7 +24,7 @@ class SchedulePrimaryTableTest extends FlatSpec with TestFeatures {
     val scheduleLogRecord = createScheduleRecordPrimary()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.schedulePrimaryTable.addRecord(scheduleLogRecord).unsafeRunSync()
+      fixture.schedulePrimaryTable.safeAddRecord(scheduleLogRecord).unsafeRunSync()
       val retrievedRecords = fixture.schedulePrimaryTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe scheduleLogRecord.copy(id = Some(1))

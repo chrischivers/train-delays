@@ -168,7 +168,7 @@ object Service extends StrictLogging {
                   }
                   _ <- maybeSubscriberRecord.fold[IO[Unit]](
                     IO.raiseError(new RuntimeException(s"Invalid schedule ID $id")))(subscriberRec =>
-                    subscriberTable.addRecord(subscriberRec))
+                    subscriberTable.safeAddRecord(subscriberRec))
                 } yield ()
               }
               .sequence[IO, Unit]

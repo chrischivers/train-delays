@@ -20,7 +20,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val stanoxRecord = createStanoxRecord()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.stanoxTable.addRecord(stanoxRecord).unsafeRunSync()
+      fixture.stanoxTable.safeAddRecord(stanoxRecord).unsafeRunSync()
       val retrievedRecords = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe stanoxRecord
@@ -33,7 +33,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val decodedStanoxRecord = createDecodedStanoxCreateRecord(stanoxCode = Some(primary._1), tipLocCode = primary._2)
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.stanoxTable.addRecord(decodedStanoxRecord.toStanoxRecord).unsafeRunSync()
+      fixture.stanoxTable.safeAddRecord(decodedStanoxRecord.toStanoxRecord).unsafeRunSync()
       val retrievedRecords = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe decodedStanoxRecord.toStanoxRecord
@@ -119,7 +119,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val stanoxRecord = createStanoxRecord()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.stanoxTable.addRecord(stanoxRecord).unsafeRunSync()
+      fixture.stanoxTable.safeAddRecord(stanoxRecord).unsafeRunSync()
       val retrievedRecords1 = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords1 should have size 1
       fixture.stanoxTable.deleteRecord(stanoxRecord.tipLocCode).unsafeRunSync()
@@ -134,7 +134,7 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
     val stanoxRecord2 = stanoxRecord1.copy(crs = Some(CRS("UYT")))
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.stanoxTable.addRecord(stanoxRecord1).unsafeRunSync()
+      fixture.stanoxTable.safeAddRecord(stanoxRecord1).unsafeRunSync()
       val retrievedRecords1 = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords1.head shouldBe stanoxRecord1
       fixture.stanoxTable.updateRecord(stanoxRecord2).unsafeRunSync()

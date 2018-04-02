@@ -18,7 +18,7 @@ class ScheduleSecondaryTableTest extends FlatSpec with TestFeatures {
     val scheduleAssociationRecord = createScheduleRecordSecondary()
 
     withInitialState(testDatabaseConfig)() { fixture =>
-      fixture.scheduleSecondaryTable.addRecord(scheduleAssociationRecord).unsafeRunSync()
+      fixture.scheduleSecondaryTable.safeAddRecord(scheduleAssociationRecord).unsafeRunSync()
       val retrievedRecords = fixture.scheduleSecondaryTable.retrieveAllRecords().unsafeRunSync()
       retrievedRecords should have size 1
       retrievedRecords.head shouldBe scheduleAssociationRecord.copy(id = Some(1))

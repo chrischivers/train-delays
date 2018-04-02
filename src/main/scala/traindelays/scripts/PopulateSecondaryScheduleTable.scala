@@ -39,7 +39,7 @@ object PopulateSecondaryScheduleTable extends StrictLogging {
                                           stanoxRecordForAssociationLocation)
               .fold(IO.unit) {
                 _.traverse[IO, Unit] { record =>
-                  scheduleSecondaryTable.addRecord(record)
+                  scheduleSecondaryTable.safeAddRecord(record)
                 }.map(_ => ())
               }
           } yield ()
