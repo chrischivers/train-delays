@@ -4,7 +4,7 @@ import cats.effect.IO
 import fs2.StreamApp.ExitCode
 import org.http4s.server.blaze._
 import traindelays.networkrail.db._
-import traindelays.ui.{GoogleAuthenticator, HistoryService, ScheduleService, Service}
+import traindelays.ui._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -34,17 +34,20 @@ object StartWebServer extends fs2.StreamApp[IO] {
                         googleAuthenticator,
                         config.uIConfig)
 
+      val subscriberService =
+        SubscriberService(subscriberTable, scheduleTablePrimary, scheduleTableSecondary, googleAuthenticator)
+
       BlazeBuilder[IO]
         .bindHttp(config.httpConfig.port, "localhost")
         .mountService(
-          Service(historyService,
-                  scheduleService,
-                  scheduleTablePrimary,
-                  scheduleTableSecondary,
-                  stanoxTable,
-                  subscriberTable,
-                  config.uIConfig,
-                  googleAuthenticator),
+          Service(
+            historyService,
+            scheduleService,
+            subscriberService,
+            scheduleTablePrimary,
+            stanoxTable,
+            config.uIConfig
+          ),
           "/"
         )
         .serve

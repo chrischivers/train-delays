@@ -108,13 +108,17 @@
                     <tr>
                         <th scope="col">Train ID</th>
                         <th scope="col">From station</th>
+                        <th scope="col">Departing at</th>
                         <th scope="col">To station</th>
+                        <th scope="col">Arriving at</th>
                         <th scope="col">Running pattern</th>
+                        <th scope="col"></th>
                     </tr>
                     </thead>
                     <tbody>
                     </tbody>
-                </table><div class="modal-alert-placeholder"></div>
+                </table>
+                <div class="modal-alert-placeholder"></div>
 
             </div>
             <div class="modal-footer">
@@ -228,21 +232,29 @@
     function subscribeToSelectedTrains(rowData) {
         $('.alert-placeholder').empty();
         if (rowData.length > 0) {
-            var idArray = [];
+            var recordsArray = [];
             for (var i = 0; i < rowData.length; i++) {
                 var id = {
                     recordType: rowData[i][2],
                     value: rowData[i][1]
                 };
-                idArray.push(id);
+                var record = {
+                    id: id,
+                    fromStanox: rowData[i][6],
+                    fromCRS: rowData[i][7],
+                    departureTime: rowData[i][10],
+                    toStanox: rowData[i][8],
+                    toCRS: rowData[i][9],
+                    arrivalTime: rowData[i][11],
+                    daysRunPattern: rowData[i][12]
+                };
+
+                recordsArray.push(record);
             }
             var toSend = {
                 email: userEmail,
                 idToken: userIdToken,
-                fromStanox: fromStanoxCodeSelected,
-                toStanox: toStanoxCodeSelected,
-                daysRunPattern: daysRunPatternSelected,
-                ids: idArray
+                records: recordsArray
             };
             $.ajax({
                 type: "POST",
@@ -250,8 +262,8 @@
                 contentType: 'application/json; charset=utf-8',
                 data: JSON.stringify(toSend),
                 success: function () {
-                    showSuccessfulSubscribeAlert(idArray.length);
-                    setTimeout(function() {
+                    showSuccessfulSubscribeAlert(recordsArray.length);
+                    setTimeout(function () {
                         runScheduleQuery(); //refresh with subscribe status
                     }, 500);
                 },
@@ -366,28 +378,45 @@
             type: "GET",
             url: "subscriber-records/" + userId,
             success: function (data) {
-
-                alert(JSON.stringify(data));
-                var subscriberRecordsResponse = JSON.parse(data);
-                if (subscriberRecordsResponse.length > 0) {
-                    alert(subscriberRecordsResponse);
-                    for (var i = 0; i < json.length; i++) {
-                       $('<tr>').append(
-                            $('<td>').text(json[i].scheduleTrainId),
-                            $('<td>').text(json[i].fromStanoxCode),
-                            $('<td>').text(json[i].toStanoxCode),
-                            $('<td>').text(json[i].daysRunPattern)
-                        ).appendTo('#subscriberRoutesTable');
+                var table = $('#subscriberRoutesTable');
+                table.find("tr:gt(0)").remove();
+                if (data.length > 0) {
+                    for (var i = 0; i < data.length; i++) {
+                        var recordId = data[i].id;
+                        $('<tr>').append(
+                            $('<td>').text(data[i].scheduleTrainId),
+                            $('<td>').text(data[i].fromCRS),
+                            $('<td>').text(data[i].departureTime),
+                            $('<td>').text(data[i].toCRS),
+                            $('<td>').text(data[i].arrivalTime),
+                            $('<td>').text(data[i].daysRunPattern),
+                            $('<td>')
+                                .html('<a href="#" id="delete-subscriber-record">Delete</a>')
+                                .data('id', recordId)
+                                .on("click", function () {
+                                    deleteSubscriberRecord(userId, $(this).data('id'));
+                                })
+                        ).appendTo(table);
                     }
-                    }
+                } else {
+                    showNoSubscribedRoutesWarning();
+                }
                 $('#subscribed-routes-modal').modal('show');
 
             },
             error: function () {
                 showErrorObtainingSubscriberRoutesAlert();
-
             }
+        });
+    }
 
+    function deleteSubscriberRecord(userId, recordId) {
+        $.ajax({
+            type: "DELETE",
+            url: "subscriber-records/" + userId + "/" + recordId,
+            success: function (data) {
+                getSubscriberRecords(userId); //trigger a refresh
+            }
         });
     }
 
@@ -419,6 +448,10 @@
         $('.modal-alert-placeholder').empty().append("<div class='alert alert-danger alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>There was a problem fetching the list of subscribed routes</div>")
     }
 
+    function showNoSubscribedRoutesWarning() {
+        $('.modal-alert-placeholder').empty().append("<div class='alert alert-warning alert-dismissable'><button type='button' class='close' data-dismiss='alert' aria-hidden='true'>&times;</button>You are not currently subscribed to any routes</div>")
+    }
+
     $(document).ready(function () {
         setUpDataTable();
         dataTable.column(14).visible(false); //Hide subscribed column
@@ -430,7 +463,7 @@
             $('#train-selection-button').on('click', function (e) {
                 runScheduleQuery()
             });
-            $('#subscribedRoutesTab').on('click', function(e) {
+            $('#subscribedRoutesTab').on('click', function (e) {
                 getSubscriberRecords(userIdToken)
             });
         });

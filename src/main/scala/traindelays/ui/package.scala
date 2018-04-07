@@ -73,10 +73,15 @@ package object ui {
     implicit val decoder: Decoder[ScheduleQueryResponse] = deriveDecoder[ScheduleQueryResponse]
   }
 
-  case class SubscriberRecordsResponse(scheduleTrainId: ScheduleTrainId,
+  case class SubscriberRecordsResponse(id: Int,
+                                       scheduleTrainId: ScheduleTrainId,
                                        serviceCode: ServiceCode,
                                        fromStanoxCode: StanoxCode,
+                                       fromCRS: CRS,
+                                       departureTime: LocalTime,
                                        toStanoxCode: StanoxCode,
+                                       toCRS: CRS,
+                                       arrivalTime: LocalTime,
                                        daysRunPattern: DaysRunPattern)
 
   object SubscriberRecordsResponse {
@@ -84,20 +89,40 @@ package object ui {
     implicit val decoder: Decoder[SubscriberRecordsResponse] = deriveDecoder[SubscriberRecordsResponse]
 
     def subscriberRecordsResponseFrom(subscriberRecords: List[SubscriberRecord]): List[SubscriberRecordsResponse] =
-      subscriberRecords.map(r =>
-        SubscriberRecordsResponse(r.scheduleTrainId, r.serviceCode, r.fromStanoxCode, r.toStanoxCode, r.daysRunPattern))
+      subscriberRecords.flatMap(r =>
+        r.id.map { id =>
+          SubscriberRecordsResponse(id,
+                                    r.scheduleTrainId,
+                                    r.serviceCode,
+                                    r.fromStanoxCode,
+                                    r.fromCRS,
+                                    r.departureTime,
+                                    r.toStanoxCode,
+                                    r.toCRS,
+                                    r.arrivalTime,
+                                    r.daysRunPattern)
+      })
   }
 
-  case class SubscribeRequest(email: String,
-                              idToken: String,
-                              fromStanox: StanoxCode,
-                              toStanox: StanoxCode,
-                              daysRunPattern: DaysRunPattern,
-                              ids: List[ScheduleQueryResponseId])
+  case class SubscribeRequest(email: String, idToken: String, records: List[SubscribeRequestRecord])
 
   object SubscribeRequest {
     implicit val decoder: Decoder[SubscribeRequest] = deriveDecoder[SubscribeRequest]
     implicit val encoder: Encoder[SubscribeRequest] = deriveEncoder[SubscribeRequest]
+  }
+
+  case class SubscribeRequestRecord(id: ScheduleQueryResponseId,
+                                    fromStanox: StanoxCode,
+                                    fromCRS: CRS,
+                                    toStanox: StanoxCode,
+                                    departureTime: LocalTime,
+                                    toCRS: CRS,
+                                    daysRunPattern: DaysRunPattern,
+                                    arrivalTime: LocalTime)
+
+  object SubscribeRequestRecord {
+    implicit val decoder: Decoder[SubscribeRequestRecord] = deriveDecoder[SubscribeRequestRecord]
+    implicit val encoder: Encoder[SubscribeRequestRecord] = deriveEncoder[SubscribeRequestRecord]
   }
 
   case class HistoryQueryMovementRecord(scheduledDepartureDate: LocalDate,

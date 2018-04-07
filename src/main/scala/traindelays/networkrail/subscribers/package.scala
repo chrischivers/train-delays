@@ -1,5 +1,7 @@
 package traindelays.networkrail
 
+import java.time.LocalTime
+
 import doobie.util.meta.Meta
 import io.circe.Decoder
 import traindelays.networkrail.movementdata.MovementLog
@@ -26,7 +28,11 @@ package object subscribers {
                               scheduleTrainId: ScheduleTrainId,
                               serviceCode: ServiceCode,
                               fromStanoxCode: StanoxCode,
+                              fromCRS: CRS,
+                              departureTime: LocalTime,
                               toStanoxCode: StanoxCode,
+                              toCRS: CRS,
+                              arrivalTime: LocalTime,
                               daysRunPattern: DaysRunPattern)
 
   case class SubscriberReport(subscriberRecord: SubscriberRecord, movementLogs: List[MovementLog])

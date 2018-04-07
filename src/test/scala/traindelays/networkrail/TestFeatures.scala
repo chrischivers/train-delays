@@ -632,21 +632,31 @@ trait TestFeatures {
                              scheduleTrainId: ScheduleTrainId = ScheduleTrainId("GB1234"),
                              serviceCode: ServiceCode = ServiceCode("900002"),
                              fromStanoxCode: StanoxCode = StanoxCode("73940"),
+                             fromCRS: CRS = CRS("RDH"),
+                             departureTime: LocalTime = LocalTime.parse("07:53"),
                              toStanoxCode: StanoxCode = StanoxCode("29573"),
+                             toCRS: CRS = CRS("VIC"),
+                             arrivalTime: LocalTime = LocalTime.parse("08:24"),
                              daysRunPattern: DaysRunPattern = Weekdays) =
-    SubscriberRecord(None,
-                     userId,
-                     emailAddress,
-                     emailVerified,
-                     name,
-                     firstName,
-                     familyName,
-                     locale,
-                     scheduleTrainId,
-                     serviceCode,
-                     fromStanoxCode,
-                     toStanoxCode,
-                     daysRunPattern)
+    SubscriberRecord(
+      None,
+      userId,
+      emailAddress,
+      emailVerified,
+      name,
+      firstName,
+      familyName,
+      locale,
+      scheduleTrainId,
+      serviceCode,
+      fromStanoxCode,
+      fromCRS,
+      departureTime,
+      toStanoxCode,
+      toCRS,
+      arrivalTime,
+      daysRunPattern
+    )
 
   def stanoxRecordsToMap(stanoxRecords: List[StanoxRecord]): Map[TipLocCode, StanoxCode] =
     stanoxRecords.flatMap(x => x.stanoxCode.map(stanox => x.tipLocCode -> stanox)).toMap
@@ -901,12 +911,13 @@ trait TestFeatures {
                       fixture.scheduleSecondaryTable,
                       googleAuthenticator,
                       uIConfig),
+      SubscriberService(fixture.subscriberTable,
+                        fixture.schedulePrimaryTable,
+                        fixture.scheduleSecondaryTable,
+                        googleAuthenticator),
       fixture.schedulePrimaryTable,
-      fixture.scheduleSecondaryTable,
       fixture.stanoxTable,
-      fixture.subscriberTable,
-      uIConfig,
-      googleAuthenticator
+      uIConfig
     )
   }
 

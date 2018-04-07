@@ -1,0 +1,5 @@
+ALTER TABLE subscribers
+  ADD COLUMN from_crs VARCHAR(10) NOT NULL,
+  ADD COLUMN to_crs VARCHAR(10) NOT NULL,
+  ADD COLUMN departure_time TIME NOT NULL,
+  ADD COLUMN arrival_time TIME NOT NULL;
