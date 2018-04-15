@@ -336,7 +336,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
   }
 
   private def timestampToFormattedTime(timestamp: Long): String = {
-    val timeZone = ZoneId.of("Europe/London")
+    val timeZone = ZoneId.of("UTC")
     Try {
       val time = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalTime
       SubscriberHandler.timeFormatter(time)
@@ -344,7 +344,7 @@ class SubscriberMovementHandlerTest extends FlatSpec with TestFeatures {
   }
 
   private def timestampToFormattedDate(timestamp: Long): String = {
-    val timeZone = ZoneId.of("Europe/London")
+    val timeZone = ZoneId.of("UTC")
     Try {
       val date = ZonedDateTime.ofInstant(Instant.ofEpochMilli(timestamp), timeZone).toLocalDate
       SubscriberHandler.dateFormatter(date)

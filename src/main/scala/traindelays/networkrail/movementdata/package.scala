@@ -11,7 +11,7 @@ import traindelays.networkrail.scheduledata.ScheduleTrainId
 
 package object movementdata {
 
-  private val timeZone = ZoneId.of("Europe/London")
+  private val timeZone = ZoneId.of("UTC")
 
   sealed trait EventType {
     val string: String

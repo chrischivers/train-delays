@@ -393,7 +393,7 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
     }
   }
 
-  private val timeZone = ZoneId.of("Europe/London")
+  private val timeZone = ZoneId.of("UTC")
 
   private def todayMillisWith(localTime: LocalTime) = {
     val now         = Instant.now()
@@ -406,5 +406,5 @@ class HistoryQueryEndpointTest extends FlatSpec with TestFeatures {
     val millisToAdd = Duration.between(LocalDateTime.ofInstant(now, timeZone).toLocalTime, localTime).toMillis
     now.toEpochMilli + millisToAdd - 86400000
   }
-  //TODO test canellations in response
+  //TODO test cancellations in response
 }
