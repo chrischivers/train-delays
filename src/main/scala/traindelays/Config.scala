@@ -23,7 +23,7 @@ case class ScheduleDataConfig(fullDownloadUris: List[Uri],
                               tmpUnzipLocation: Path,
                               memoizeFor: FiniteDuration)
 
-case class MovementsConfig(topic: String, activationExpiry: FiniteDuration)
+case class MovementsConfig(topics: List[String], activationExpiry: FiniteDuration)
 
 case class SubscribersConfig(memoizeFor: FiniteDuration, lateNotifyAfter: FiniteDuration)
 
@@ -80,7 +80,7 @@ object TrainDelaysConfig {
           FiniteDuration(config.getDuration("networkRail.scheduleData.memoizeFor").toMillis, TimeUnit.MILLISECONDS)
         ),
         MovementsConfig(
-          config.getString("networkRail.movements.topic"),
+          config.getStringList("networkRail.movements.topics").asScala.toList,
           FiniteDuration(config.getDuration("networkRail.movements.activationExpiry").toMillis, TimeUnit.MILLISECONDS)
         ),
         SubscribersConfig(

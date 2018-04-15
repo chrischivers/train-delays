@@ -26,9 +26,11 @@ object MovementMessageHandler extends StrictLogging {
         for {
           _ <- fs2.Stream.eval(IO(logger.info("Incoming message queue created")))
           stompListener = StompStreamListener(incomingMessageQueue)
-          _ <- fs2.Stream.eval(activateClient(client, stompListener, networkRailConfig.movements.topic))
-          _ <- fs2.Stream.eval(
-            IO(logger.info(s"Streaming Client activated with topic ${networkRailConfig.movements.topic}")))
+          _ <- fs2.Stream.eval {
+            networkRailConfig.movements.topics.traverse[IO, Unit](topic =>
+              activateClient(client, stompListener, topic).flatMap(_ =>
+                IO(logger.info(s"Streaming Client activated with topic $topic"))))
+          }
           _ <- handleMessages(stompListener,
                               trainMovementMessageQueue,
                               trainActivationMessageQueue,
