@@ -89,13 +89,14 @@ class StanoxTableTest extends FlatSpec with TestFeatures {
 
     val stanoxRecord1 = createStanoxRecord()
 
-    withInitialState(testDatabaseConfig,
-                     scheduleDataConfig =
-                       ScheduleDataConfig(Uri.unsafeFromString(""),
-                                          Uri.unsafeFromString(""),
-                                          Paths.get(""),
-                                          Paths.get(""),
-                                          2 seconds))(AppInitialState(stanoxRecords = List(stanoxRecord1))) { fixture =>
+    withInitialState(
+      testDatabaseConfig,
+      scheduleDataConfig = ScheduleDataConfig(List(Uri.unsafeFromString("")),
+                                              List(Uri.unsafeFromString("")),
+                                              Paths.get(""),
+                                              Paths.get(""),
+                                              2 seconds)
+    )(AppInitialState(stanoxRecords = List(stanoxRecord1))) { fixture =>
       val retrievedRecords1 = fixture.stanoxTable.retrieveAllRecords().unsafeRunSync()
 
       retrievedRecords1 should have size 1

@@ -17,8 +17,8 @@ case class NetworkRailConfig(host: String,
                              movements: MovementsConfig,
                              subscribersConfig: SubscribersConfig)
 
-case class ScheduleDataConfig(fullDownloadUrl: Uri,
-                              updateDownloadUrl: Uri,
+case class ScheduleDataConfig(fullDownloadUris: List[Uri],
+                              updateDownloadUris: List[Uri],
                               tmpDownloadLocation: Path,
                               tmpUnzipLocation: Path,
                               memoizeFor: FiniteDuration)
@@ -60,6 +60,8 @@ case class RedisConfig(host: String, port: Int, dbIndex: Int)
 
 object TrainDelaysConfig {
 
+  import scala.collection.JavaConverters._
+
   val defaultConfig = apply()
 
   def apply(config: Config = ConfigFactory.load()): TrainDelaysConfig =
@@ -71,8 +73,8 @@ object TrainDelaysConfig {
         config.getString("networkRail.password"),
         config.getInt("networkRail.maxRedirects"),
         ScheduleDataConfig(
-          Uri.unsafeFromString(config.getString("networkRail.scheduleData.fullUri")),
-          Uri.unsafeFromString(config.getString("networkRail.scheduleData.updateUri")),
+          config.getStringList("networkRail.scheduleData.fullUris").asScala.toList.map(Uri.unsafeFromString),
+          config.getStringList("networkRail.scheduleData.updateUris").asScala.toList.map(Uri.unsafeFromString),
           Paths.get(config.getString("networkRail.scheduleData.tmpDownloadLocation")),
           Paths.get(config.getString("networkRail.scheduleData.tmpUnzipLocation")),
           FiniteDuration(config.getDuration("networkRail.scheduleData.memoizeFor").toMillis, TimeUnit.MILLISECONDS)

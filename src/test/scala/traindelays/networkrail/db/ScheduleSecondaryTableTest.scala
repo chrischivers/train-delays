@@ -102,12 +102,14 @@ class ScheduleSecondaryTableTest extends FlatSpec with TestFeatures {
 
     val scheduleAssociationRecord = createScheduleRecordSecondary()
 
-    withInitialState(testDatabaseConfig,
-                     scheduleDataConfig = ScheduleDataConfig(Uri.unsafeFromString(""),
-                                                             Uri.unsafeFromString(""),
-                                                             Paths.get(""),
-                                                             Paths.get(""),
-                                                             2.seconds))(
+    withInitialState(
+      testDatabaseConfig,
+      scheduleDataConfig = ScheduleDataConfig(List(Uri.unsafeFromString("")),
+                                              List(Uri.unsafeFromString("")),
+                                              Paths.get(""),
+                                              Paths.get(""),
+                                              2.seconds)
+    )(
       AppInitialState(
         scheduleSecondaryRecords = List(scheduleAssociationRecord)
       )) { fixture =>

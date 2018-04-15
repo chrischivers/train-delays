@@ -120,8 +120,11 @@ trait TestFeatures {
   def withInitialState[A](
       databaseConfig: DatabaseConfig,
       subscribersConfig: SubscribersConfig = SubscribersConfig(1 minute, 15 minutes),
-      scheduleDataConfig: ScheduleDataConfig =
-        ScheduleDataConfig(Uri.unsafeFromString(""), Uri.unsafeFromString(""), Paths.get(""), Paths.get(""), 1 minute),
+      scheduleDataConfig: ScheduleDataConfig = ScheduleDataConfig(List(Uri.unsafeFromString("")),
+                                                                  List(Uri.unsafeFromString("")),
+                                                                  Paths.get(""),
+                                                                  Paths.get(""),
+                                                                  1 minute),
       redisCacheExpiry: FiniteDuration = 5 seconds)(initState: AppInitialState = AppInitialState.empty)(
       f: TrainDelaysTestFixture => A)(implicit executionContext: ExecutionContext): A =
     withDatabase(databaseConfig) { db =>

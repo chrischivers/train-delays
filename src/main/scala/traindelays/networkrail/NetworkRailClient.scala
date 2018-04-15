@@ -18,9 +18,9 @@ import scala.util.Try
 
 trait NetworkRailClient {
 
-  def downloadFullScheduleData: IO[Unit]
+  def downloadFullScheduleData(uri: Uri): IO[Unit]
 
-  def downloadUpdateScheduleData: IO[Unit]
+  def downloadUpdateScheduleData(uri: Uri): IO[Unit]
 
   def deleteTmpFiles(): IO[Unit]
 
@@ -34,14 +34,14 @@ object NetworkRailClient extends StrictLogging {
 
     val credentials = BasicCredentials(config.username, config.password)
 
-    override def downloadFullScheduleData: IO[Unit] = downloadFromUrl(config.scheduleData.fullDownloadUrl)
+    override def downloadFullScheduleData(uri: Uri): IO[Unit] = downloadFromUrl(uri)
 
-    override def downloadUpdateScheduleData: IO[Unit] = {
+    override def downloadUpdateScheduleData(uri: Uri): IO[Unit] = {
       val simpleDateFormat = new SimpleDateFormat("E")
       val calendar         = Calendar.getInstance
       calendar.add(Calendar.DAY_OF_MONTH, -1)
       val day = simpleDateFormat.format(calendar.getTime).toLowerCase
-      val url = Uri.unsafeFromString(config.scheduleData.updateDownloadUrl.renderString.replace("DAY_FIELD", day))
+      val url = Uri.unsafeFromString(uri.renderString.replace("DAY_FIELD", day))
       for {
         _ <- IO(logger.info(s"Getting updated schedule from URL $url"))
         _ <- downloadFromUrl(url)

@@ -219,12 +219,14 @@ class SchedulePrimaryTableTest extends FlatSpec with TestFeatures {
       StanoxRecord(TipLocCode("REDHILL"), Some(StanoxCode("4567")), Some(CRS("RED")), None)
     )
 
-    withInitialState(testDatabaseConfig,
-                     scheduleDataConfig = ScheduleDataConfig(Uri.unsafeFromString(""),
-                                                             Uri.unsafeFromString(""),
-                                                             Paths.get(""),
-                                                             Paths.get(""),
-                                                             2 seconds))(
+    withInitialState(
+      testDatabaseConfig,
+      scheduleDataConfig = ScheduleDataConfig(List(Uri.unsafeFromString("")),
+                                              List(Uri.unsafeFromString("")),
+                                              Paths.get(""),
+                                              Paths.get(""),
+                                              2 seconds)
+    )(
       AppInitialState(
         stanoxRecords = stanoxRecords,
         schedulePrimaryRecords = toScheduleLogs(scheduleRecord, stanoxRecordsToMap(stanoxRecords))
